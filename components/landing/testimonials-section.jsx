@@ -39,19 +39,24 @@ export default function TestimonialsSection() {
       const testimonialsData = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data()
-          let name = "Anonymous"
-          let photoURL = null
+          let name = data.name || "Anonymous" // Check if name is stored in testimonial first
+          let photoURL = data.photoURL || null
           
-          if (data.userId) {
-            try {
-              const userDoc = await getDoc(doc(db, "users", data.userId))
-              if (userDoc.exists()) {
-                const userData = userDoc.data()
-                name = userData.fullName || userData.displayName || "Anonymous"
-                photoURL = userData.photoURL || null
+          // If name not in testimonial, fetch from user document
+          if (!name || name === "Anonymous") {
+            if (data.userId) {
+              try {
+                const userDoc = await getDoc(doc(db, "users", data.userId))
+                if (userDoc.exists()) {
+                  const userData = userDoc.data()
+                  name = userData.fullName || userData.displayName || userData.name || "Anonymous"
+                  if (!photoURL) {
+                    photoURL = userData.photoURL || null
+                  }
+                }
+              } catch (err) {
+                console.error("Error fetching user:", err)
               }
-            } catch (err) {
-              console.error("Error fetching user:", err)
             }
           }
 

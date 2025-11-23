@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
-import { ChevronDown, User, LogOut, MessageSquare, Users, Palette } from "lucide-react"
+import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LogoutModal from "./logout-modal"
@@ -123,12 +123,21 @@ export default function AdminMobileHeader() {
 
                 {/* Mobile Navigation Items */}
                 <Link
-                  href="/admin/feedback"
+                  href="/admin/testimonials"
                   onClick={() => setIsProfileOpen(false)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors mt-1"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span>Feedback</span>
+                  <span>Testimonials</span>
+                </Link>
+
+                <Link
+                  href="/admin/scholars"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>Scholars</span>
                 </Link>
 
                 <Link

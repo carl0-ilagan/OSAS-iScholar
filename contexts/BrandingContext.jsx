@@ -47,13 +47,20 @@ export const BrandingProvider = ({ children }) => {
           footer: data.footer || DEFAULT_BRANDING.footer,
         })
       } else {
-        // Initialize with default values (only if user is admin)
+        // Document doesn't exist - create it with default values
+        // This will only work if user has write permissions (admin)
         try {
-          await setDoc(doc(db, "settings", "branding"), DEFAULT_BRANDING)
-          setBranding(DEFAULT_BRANDING)
+          const initialData = {
+            ...DEFAULT_BRANDING,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          await setDoc(doc(db, "settings", "branding"), initialData)
+          setBranding(initialData)
+          console.log("Branding document created in Firebase")
         } catch (initError) {
-          // If can't write, just use defaults
-          console.log("Using default branding (no write permission)")
+          // If can't write, just use defaults (non-admin user)
+          console.log("Using default branding (no write permission):", initError.message)
           setBranding(DEFAULT_BRANDING)
         }
       }
@@ -68,7 +75,24 @@ export const BrandingProvider = ({ children }) => {
 
   const updateBranding = async (updates) => {
     try {
-      const newBranding = { ...branding, ...updates, updatedAt: new Date().toISOString() }
+      // Deep merge to preserve nested objects like footer
+      const newBranding = {
+        ...branding,
+        ...updates,
+        // Ensure footer is properly merged if it exists in updates
+        footer: updates.footer ? {
+          ...branding.footer,
+          ...updates.footer,
+          // Ensure socialLinks is properly merged
+          socialLinks: updates.footer.socialLinks ? {
+            ...branding.footer?.socialLinks,
+            ...updates.footer.socialLinks,
+          } : branding.footer?.socialLinks,
+        } : branding.footer,
+        updatedAt: new Date().toISOString()
+      }
+      
+      // Save to Firestore with merge to preserve other fields
       await setDoc(doc(db, "settings", "branding"), newBranding, { merge: true })
       setBranding(newBranding)
       return true

@@ -20,15 +20,17 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
   const [hoverRating, setHoverRating] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [userPhotoURL, setUserPhotoURL] = useState(null)
+  const [userFullName, setUserFullName] = useState("")
   const [selectedScholarship, setSelectedScholarship] = useState("")
   const [userCourse, setUserCourse] = useState("")
   const [userCampus, setUserCampus] = useState("")
 
-  // Fetch user profile picture, course, and campus
+  // Fetch user profile picture, name, course, and campus
   useEffect(() => {
     const fetchUserData = async () => {
       if (!userId) {
         setUserPhotoURL(null)
+        setUserFullName("")
         setUserCourse("")
         setUserCampus("")
         return
@@ -39,12 +41,14 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
         if (userDoc.exists()) {
           const data = userDoc.data()
           setUserPhotoURL(data.photoURL || null)
+          setUserFullName(data.fullName || data.displayName || data.name || "")
           setUserCourse(data.course || "")
           setUserCampus(data.campus || "")
         }
       } catch (error) {
         console.error("Error fetching user data:", error)
         setUserPhotoURL(null)
+        setUserFullName("")
         setUserCourse("")
         setUserCampus("")
       }
@@ -99,8 +103,13 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
     try {
       setSubmitting(true)
       
+      // Use fetched name or fallback to userName prop
+      const displayName = userFullName || userName || "Anonymous"
+
       await addDoc(collection(db, "testimonials"), {
         userId: userId,
+        name: displayName,
+        photoURL: userPhotoURL || null,
         testimonial: testimonial.trim(),
         rating: rating,
         scholarship: selectedScholarship,

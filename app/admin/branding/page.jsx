@@ -139,8 +139,8 @@ export default function BrandingSettingsPage() {
         faviconBase64 = faviconPreview
       }
 
-      // Update branding in Firestore
-      await updateBranding({
+      // Prepare branding data
+      const brandingData = {
         logo: logoBase64,
         favicon: faviconBase64,
         name: formData.name.trim(),
@@ -156,7 +156,12 @@ export default function BrandingSettingsPage() {
             twitter: formData.footer.socialLinks.twitter.trim(),
           },
         },
-      })
+        updatedAt: new Date().toISOString(),
+        createdAt: branding.createdAt || new Date().toISOString(),
+      }
+
+      // Update branding in Firestore
+      await updateBranding(brandingData)
 
       // Refresh branding to update all components
       await refreshBranding()

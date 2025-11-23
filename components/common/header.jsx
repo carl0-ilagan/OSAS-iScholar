@@ -62,7 +62,7 @@ export default function Header() {
               iS
             </div>
             )}
-            <span className="hidden sm:block font-bold text-primary text-lg">
+            <span className="font-bold text-primary text-base sm:text-lg">
               {branding?.name || "iScholar"}
             </span>
           </Link>
