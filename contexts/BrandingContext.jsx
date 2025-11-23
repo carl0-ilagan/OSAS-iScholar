@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { doc, getDoc, setDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 const BrandingContext = createContext({})
@@ -31,7 +31,50 @@ export const BrandingProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadBranding()
+    const brandingDocRef = doc(db, "settings", "branding")
+    
+    // Set up real-time listener for branding updates
+    const unsubscribe = onSnapshot(
+      brandingDocRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data()
+          const newBranding = {
+            logo: data.logo || null,
+            name: data.name || DEFAULT_BRANDING.name,
+            tabTitle: data.tabTitle || DEFAULT_BRANDING.tabTitle,
+            favicon: data.favicon || null,
+            footer: data.footer || DEFAULT_BRANDING.footer,
+          }
+          setBranding(newBranding)
+          console.log("Branding updated from Firebase:", newBranding.name)
+        } else {
+          // Document doesn't exist - try to create it with default values
+          // This will only work if user has write permissions (admin)
+          setDoc(brandingDocRef, {
+            ...DEFAULT_BRANDING,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }, { merge: true }).then(() => {
+            console.log("Branding document created in Firebase")
+            setBranding(DEFAULT_BRANDING)
+          }).catch((initError) => {
+            // If can't write, just use defaults (non-admin user)
+            console.log("Using default branding (no write permission):", initError.message)
+            setBranding(DEFAULT_BRANDING)
+          })
+        }
+        setLoading(false)
+      },
+      (error) => {
+        console.error("Error loading branding:", error)
+        // Use defaults if there's a permission error
+        setBranding(DEFAULT_BRANDING)
+        setLoading(false)
+      }
+    )
+
+    return () => unsubscribe()
   }, [])
 
   const loadBranding = async () => {

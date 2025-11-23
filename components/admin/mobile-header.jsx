@@ -48,9 +48,14 @@ export default function AdminMobileHeader() {
           <div className="flex items-center gap-2">
             {branding?.logo ? (
               <img 
+                key={branding.logo} 
                 src={branding.logo} 
                 alt={branding.name || "Logo"} 
                 className="w-8 h-8 object-contain rounded-lg bg-white/10 p-1"
+                onError={(e) => {
+                  console.error("Error loading logo:", branding.logo)
+                  e.target.style.display = 'none'
+                }}
               />
             ) : (
               <div className="w-8 h-8 bg-gradient-to-br from-accent to-accent/90 rounded-lg flex items-center justify-center font-bold text-primary text-sm">

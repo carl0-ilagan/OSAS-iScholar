@@ -53,9 +53,14 @@ export default function Header() {
           <Link href="/" className="flex items-center gap-2">
             {branding?.logo ? (
               <img 
+                key={branding.logo} 
                 src={branding.logo} 
                 alt={branding.name || "Logo"} 
                 className="w-10 h-10 object-contain"
+                onError={(e) => {
+                  console.error("Error loading logo:", branding.logo)
+                  e.target.style.display = 'none'
+                }}
               />
             ) : (
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">

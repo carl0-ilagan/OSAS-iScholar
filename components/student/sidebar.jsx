@@ -128,9 +128,14 @@ export default function StudentSidebar() {
           >
             {branding?.logo ? (
               <img 
+                key={branding.logo} 
                 src={branding.logo} 
                 alt={branding.name || "Logo"} 
                 className="w-11 h-11 object-contain rounded-xl flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg shadow-md bg-white/10 p-1"
+                onError={(e) => {
+                  console.error("Error loading logo:", branding.logo)
+                  e.target.style.display = 'none'
+                }}
               />
             ) : (
               <div className="w-11 h-11 bg-gradient-to-br from-accent to-accent/90 rounded-xl flex items-center justify-center font-bold text-primary text-lg flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg shadow-md">

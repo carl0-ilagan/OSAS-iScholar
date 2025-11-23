@@ -32,9 +32,14 @@ export default function AdminSidebar() {
         <Link href="/admin" className="flex items-center gap-2">
           {branding?.logo ? (
             <img 
+              key={branding.logo} 
               src={branding.logo} 
               alt={branding.name || "Logo"} 
               className="w-10 h-10 object-contain"
+              onError={(e) => {
+                console.error("Error loading logo:", branding.logo)
+                e.target.style.display = 'none'
+              }}
             />
           ) : (
           <div className="w-10 h-10 bg-sidebar-accent rounded-lg flex items-center justify-center font-bold">iA</div>
