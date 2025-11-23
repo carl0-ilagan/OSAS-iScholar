@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { BrandingProvider } from '@/contexts/BrandingContext'
 import ServiceWorkerRegistration from '@/components/pwa/service-worker-register'
+import DynamicManifest from '@/components/pwa/dynamic-manifest'
 import './globals.css'
 
 const poppins = Poppins({ 
@@ -50,6 +51,7 @@ export default function RootLayout({
         <Toaster position="top-right" richColors />
         <Analytics />
         <ServiceWorkerRegistration />
+        <DynamicManifest />
       </body>
     </html>
   )
