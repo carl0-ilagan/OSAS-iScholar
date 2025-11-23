@@ -1,0 +1,119 @@
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      // Users collection - users can read/write their own document
+      match /users/{userId} {
+        // Allow read if user is authenticated and reading their own document, or if admin
+        allow read: if request.auth != null && (
+          request.auth.uid == userId ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow write (create/update) if user is authenticated and writing their own document, or if admin
+        allow write: if request.auth != null && (
+          request.auth.uid == userId ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+      }
+      
+      // Settings collection - branding settings
+      match /settings/{settingId} {
+        // Allow read for all authenticated users (for branding display)
+        allow read: if request.auth != null;
+        
+        // Allow write only for admin (contact.ischolar@gmail.com)
+        allow write: if request.auth != null && request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+      
+      // Verifications collection - student verification requests
+      match /verifications/{verificationId} {
+        // Allow read if user is authenticated and reading their own verification
+        allow read: if request.auth != null && (
+          request.auth.uid == resource.data.userId ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create if user is authenticated and creating their own verification
+        allow create: if request.auth != null && 
+                      request.auth.uid == request.resource.data.userId;
+        
+        // Allow update only for admin (to change status)
+        allow update: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
+        
+        // Allow delete only for admin
+        allow delete: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Applications collection - scholarship applications
+      match /applications/{applicationId} {
+        // Allow read if user is authenticated and reading their own application, or if admin
+        allow read: if request.auth != null && (
+          request.auth.uid == resource.data.userId ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create if user is authenticated and creating their own application
+        allow create: if request.auth != null && 
+                      request.auth.uid == request.resource.data.userId &&
+                      request.resource.data.userId == request.auth.uid;
+        
+        // Allow update only for admin (to change status)
+        allow update: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
+        
+        // Allow delete only for admin
+        allow delete: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Scholarships collection - scholarship programs
+      match /scholarships/{scholarshipId} {
+        // Allow read for all authenticated users
+        allow read: if request.auth != null;
+        
+        // Allow write only for admin
+        allow write: if request.auth != null && 
+                     request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Announcements collection
+      match /announcements/{announcementId} {
+        // Allow read for all authenticated users
+        allow read: if request.auth != null;
+        
+        // Allow write only for admin
+        allow write: if request.auth != null && 
+                     request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Feedback collection
+      match /feedback/{feedbackId} {
+        // Allow read if user is reading their own feedback, or if admin
+        allow read: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create for authenticated users
+        allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+      }
+
+      // Testimonials collection
+      match /testimonials/{testimonialId} {
+        // Allow read for all (including unauthenticated for landing page)
+        allow read: if true;
+        
+        // Allow create for authenticated users
+        allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+        
+        // Allow write (update/delete) only for admin
+        allow write: if request.auth != null && 
+                     request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+    }
+  }
+
