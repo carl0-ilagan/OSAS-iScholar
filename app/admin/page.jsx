@@ -171,13 +171,27 @@ export default function AdminDashboard() {
           )
           verificationsSnapshot.docs.forEach((doc) => {
             const data = doc.data()
+            // Handle timestamp conversion
+            let timestamp = new Date()
+            if (data.submittedAt) {
+              if (data.submittedAt.toDate && typeof data.submittedAt.toDate === 'function') {
+                timestamp = data.submittedAt.toDate()
+              } else if (data.submittedAt instanceof Date) {
+                timestamp = data.submittedAt
+              } else if (typeof data.submittedAt === 'string') {
+                timestamp = new Date(data.submittedAt)
+              } else if (data.submittedAt.seconds) {
+                timestamp = new Date(data.submittedAt.seconds * 1000)
+              }
+            }
+            
             allNotifications.push({
               id: `verification-${doc.id}`,
               type: "verification",
               message: `New verification request from ${data.fullName || "Student"}`,
               userName: data.fullName || data.email || "Unknown",
               status: data.status || "pending",
-              timestamp: data.submittedAt?.toDate() || new Date(),
+              timestamp: timestamp,
               read: false,
               referenceId: doc.id,
               referenceType: "verification",
@@ -194,13 +208,27 @@ export default function AdminDashboard() {
           )
           applicationsSnapshot.docs.forEach((doc) => {
             const data = doc.data()
+            // Handle timestamp conversion
+            let timestamp = new Date()
+            if (data.submittedAt) {
+              if (data.submittedAt.toDate && typeof data.submittedAt.toDate === 'function') {
+                timestamp = data.submittedAt.toDate()
+              } else if (data.submittedAt instanceof Date) {
+                timestamp = data.submittedAt
+              } else if (typeof data.submittedAt === 'string') {
+                timestamp = new Date(data.submittedAt)
+              } else if (data.submittedAt.seconds) {
+                timestamp = new Date(data.submittedAt.seconds * 1000)
+              }
+            }
+            
             allNotifications.push({
               id: `application-${doc.id}`,
               type: "application",
               message: `New ${data.scholarship || "scholarship"} application from ${data.fullName || "Student"}`,
               userName: data.fullName || data.email || "Unknown",
               status: data.status || "pending",
-              timestamp: data.submittedAt?.toDate() || new Date(),
+              timestamp: timestamp,
               read: false,
               referenceId: doc.id,
               referenceType: "application",
