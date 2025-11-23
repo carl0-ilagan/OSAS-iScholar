@@ -35,7 +35,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/download.ico" type="image/x-icon" />
         <link rel="shortcut icon" href="/download.ico" type="image/x-icon" />
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/manifest" />
         <meta name="theme-color" content="#005c2b" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
