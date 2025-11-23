@@ -479,9 +479,9 @@ export default function ApplicationsTable({ applications, onUpdate }) {
     <>
       {/* Desktop Table View - Enhanced */}
       <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
               <tr className="border-b border-border bg-gradient-to-r from-primary to-secondary">
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Tracker Code</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Program</th>
@@ -489,9 +489,9 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Benefit Amount</th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-white">Action</th>
-              </tr>
-            </thead>
-            <tbody>
+            </tr>
+          </thead>
+          <tbody>
               {applications.map((app, index) => (
                 <tr
                   key={app.id}
@@ -502,8 +502,8 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                   <td className="px-6 py-4">
                     <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2.5 py-1.5 rounded-md border border-primary/20">
                       {app.trackerCode || "N/A"}
-                    </span>
-                  </td>
+                  </span>
+                </td>
                   <td className="px-6 py-4">
                     <p className="text-foreground font-semibold">{app.program}</p>
                   </td>
@@ -517,21 +517,21 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                       <p className="text-xs text-muted-foreground mt-0.5">{app.benefit}</p>
                     )}
                   </td>
-                  <td className="px-6 py-4">
+                <td className="px-6 py-4">
                     <button
                       onClick={() => handleView(app)}
                       className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium transition-all duration-200 hover:shadow-md mx-auto text-sm"
                     >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+    </div>
 
       {/* Mobile Card View - Enhanced */}
       <div className="md:hidden space-y-3">

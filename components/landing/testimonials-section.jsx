@@ -35,45 +35,22 @@ export default function TestimonialsSection() {
       )
       const snapshot = await getDocs(testimonialsQuery)
       
-      // Fetch user data for each testimonial
-      const testimonialsData = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const data = docSnap.data()
-          let name = data.name || "Anonymous" // Check if name is stored in testimonial first
-          let photoURL = data.photoURL || null
-          
-          // If name not in testimonial, fetch from user document
-          if (!name || name === "Anonymous") {
-            if (data.userId) {
-              try {
-                const userDoc = await getDoc(doc(db, "users", data.userId))
-                if (userDoc.exists()) {
-                  const userData = userDoc.data()
-                  name = userData.fullName || userData.displayName || userData.name || "Anonymous"
-                  if (!photoURL) {
-                    photoURL = userData.photoURL || null
-                  }
-                }
-              } catch (err) {
-                console.error("Error fetching user:", err)
-              }
-            }
-          }
-
-          return {
-            id: docSnap.id,
-            userId: data.userId,
-            name: name,
-            photoURL: photoURL,
-            testimonial: data.testimonial || "",
-            rating: data.rating || 0,
-            scholarship: data.scholarship || "N/A",
-            course: data.course || "N/A",
-            campus: data.campus || "N/A",
-            createdAt: data.createdAt?.toDate() || new Date()
-          }
-        })
-      )
+      // Use data directly from testimonial document (name and photoURL are stored there)
+      const testimonialsData = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data()
+        return {
+          id: docSnap.id,
+          userId: data.userId,
+          name: data.name || "Anonymous",
+          photoURL: data.photoURL || null,
+          testimonial: data.testimonial || "",
+          rating: data.rating || 0,
+          scholarship: data.scholarship || "N/A",
+          course: data.course || "N/A",
+          campus: data.campus || "N/A",
+          createdAt: data.createdAt?.toDate() || new Date()
+        }
+      })
       
       setTestimonials(testimonialsData)
     } catch (error) {
@@ -144,7 +121,7 @@ export default function TestimonialsSection() {
           {/* Testimonials Carousel */}
           <div className="grid md:grid-cols-3 gap-8 overflow-hidden">
             {visibleTestimonials.map((testimonial, index) => (
-              <div
+            <div
                 key={testimonial.id}
                 className="bg-card border border-border/50 rounded-xl p-8 hover:border-border transition-all duration-300 animate-in fade-in slide-in-from-right"
                 style={{ animationDelay: `${index * 100}ms` }}
@@ -187,8 +164,8 @@ export default function TestimonialsSection() {
                           : "text-gray-200"
                       }`}
                     />
-                  ))}
-                </div>
+                ))}
+              </div>
 
                 {/* Testimonial Text */}
                 <p className="text-foreground mb-6 leading-relaxed text-sm min-h-[80px]">

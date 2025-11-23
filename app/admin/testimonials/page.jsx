@@ -31,41 +31,23 @@ export default function TestimonialsPage() {
       )
       const snapshot = await getDocs(testimonialsQuery)
       
-      // Fetch user data for each testimonial
-      const testimonialsData = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const data = docSnap.data()
-          let name = "Anonymous"
-          let photoURL = null
-          
-          if (data.userId) {
-            try {
-              const userDoc = await getDoc(doc(db, "users", data.userId))
-              if (userDoc.exists()) {
-                const userData = userDoc.data()
-                name = userData.fullName || userData.displayName || "Anonymous"
-                photoURL = userData.photoURL || null
-              }
-            } catch (err) {
-              console.error("Error fetching user:", err)
-            }
-          }
-
-          return {
-            id: docSnap.id,
-            userId: data.userId,
-            name: name,
-            photoURL: photoURL,
-            testimonial: data.testimonial || "",
-            rating: data.rating || 0,
-            scholarship: data.scholarship || "N/A",
-            course: data.course || "N/A",
-            campus: data.campus || "N/A",
-            featuredOnLanding: data.featuredOnLanding || false,
-            createdAt: data.createdAt?.toDate() || new Date()
-          }
-        })
-      )
+      // Use data directly from testimonial document (name and photoURL are stored there)
+      const testimonialsData = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data()
+        return {
+          id: docSnap.id,
+          userId: data.userId,
+          name: data.name || "Anonymous",
+          photoURL: data.photoURL || null,
+          testimonial: data.testimonial || "",
+          rating: data.rating || 0,
+          scholarship: data.scholarship || "N/A",
+          course: data.course || "N/A",
+          campus: data.campus || "N/A",
+          featuredOnLanding: data.featuredOnLanding || false,
+          createdAt: data.createdAt?.toDate() || new Date()
+        }
+      })
       
       setTestimonials(testimonialsData)
     } catch (error) {

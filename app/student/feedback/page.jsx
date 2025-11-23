@@ -136,27 +136,12 @@ export default function TestimonialsPage() {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data()
           
-          // Fetch user data for each testimonial
-          let name = "Anonymous"
-          let photoURL = null
-          if (data.userId) {
-            try {
-              const userDoc = await getDoc(doc(db, "users", data.userId))
-              if (userDoc.exists()) {
-                const userData = userDoc.data()
-                name = userData.fullName || userData.displayName || "Anonymous"
-                photoURL = userData.photoURL || null
-              }
-            } catch (err) {
-              console.error("Error fetching user:", err)
-            }
-          }
-
+          // Use data directly from testimonial document (name and photoURL are stored there)
           testimonialsData.push({
             id: docSnap.id,
             userId: data.userId,
-            name: name,
-            photoURL: photoURL,
+            name: data.name || "Anonymous",
+            photoURL: data.photoURL || null,
             testimonial: data.testimonial || "",
             rating: data.rating || 0,
             scholarship: data.scholarship || "N/A",
