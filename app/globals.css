@@ -76,8 +76,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-poppins), "Poppins", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: var(--font-manrope), "Manrope", "Segoe UI", "Segoe UI Web (West European)", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", "Fira Code", "Consolas", "Monaco", "Courier New", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -123,9 +123,42 @@
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 4rem; /* Account for sticky header */
+    /* Hide scrollbar but keep scrolling */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+    overflow-x: hidden;
   }
+  
+  html::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+    width: 0;
+    height: 0;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    /* Hide scrollbar but keep scrolling */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+    overflow-x: hidden;
+  }
+  
+  body::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+    width: 0;
+    height: 0;
+  }
+  
+  /* Hide scrollbar for all elements globally */
+  * {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  *::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+    width: 0;
+    height: 0;
   }
   
   /* Enhanced smooth scrolling */
@@ -242,6 +275,49 @@
   
   .zoom-in-95 {
     animation-name: zoom-in;
+  }
+
+  .slide-in-from-left {
+    animation-name: slide-in-left;
+  }
+
+  .slide-in-from-right {
+    animation-name: slide-in-right;
+  }
+
+  /* Select dropdown hover and focus animations */
+  select:focus {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 3px rgba(0, 92, 43, 0.1);
+  }
+
+  select:hover:not(:disabled) {
+    border-color: rgba(0, 92, 43, 0.5);
+  }
+
+  /* Dropdown option fade-in animation */
+  @keyframes gradient-x {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient-x {
+    animation: gradient-x 3s ease infinite;
+  }
+
+  @keyframes dropdownOptionFade {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 

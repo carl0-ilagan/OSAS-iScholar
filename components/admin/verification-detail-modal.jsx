@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle, XCircle, Loader2, FileText, Image as ImageIcon, ZoomIn, X } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, FileText, Image as ImageIcon, ZoomIn, X, MapPin } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc } from "firebase/firestore"
+import { doc, updateDoc, getDoc } from "firebase/firestore"
 import ImageZoomModal from "./image-zoom-modal"
 
 export default function VerificationDetailModal({ isOpen, onClose, verification, onUpdate }) {
@@ -100,6 +100,64 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
             verified: true,
             updatedAt: new Date().toISOString(),
           })
+          
+          // Send email notification
+          try {
+            const userDoc = await getDoc(doc(db, "users", verification.userId))
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+              const studentName = userData.fullName || userData.displayName || "Student"
+              const secondaryEmail = userData.secondaryEmail
+              
+              if (secondaryEmail) {
+                await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: secondaryEmail,
+                    subject: 'Account Verification Approved - iScholar',
+                    html: `
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <meta charset="utf-8">
+                        <style>
+                          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="container">
+                          <div class="header">
+                            <h1>Account Verification Approved</h1>
+                          </div>
+                          <div class="content">
+                            <p>Dear ${studentName},</p>
+                            <p>Great news! Your account verification has been <strong>approved</strong>.</p>
+                            <p>Your account is now verified and you can access all features of the iScholar platform.</p>
+                            <p>You can now:</p>
+                            <ul>
+                              <li>Apply for scholarships</li>
+                              <li>Submit testimonials</li>
+                              <li>Track your applications</li>
+                              <li>Access all platform features</li>
+                            </ul>
+                            <p>Thank you for your patience during the verification process.</p>
+                            <p>Best regards,<br>iScholar Team</p>
+                          </div>
+                        </div>
+                      </body>
+                      </html>
+                    `
+                  })
+                })
+              }
+            }
+          } catch (emailError) {
+            console.error("Error sending verification approval email:", emailError)
+          }
         } catch (error) {
           console.error("Error updating user status:", error)
         }
@@ -149,6 +207,64 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
         adminRemarks: remarks.trim(),
         reviewedAt: new Date().toISOString(),
       })
+
+      // Send email notification
+      try {
+        if (verification.userId) {
+          const userDoc = await getDoc(doc(db, "users", verification.userId))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            const studentName = userData.fullName || userData.displayName || "Student"
+            const secondaryEmail = userData.secondaryEmail
+            
+            if (secondaryEmail) {
+              await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  to: secondaryEmail,
+                  subject: 'Account Verification Update - iScholar',
+                  html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <meta charset="utf-8">
+                      <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                        .reason-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="container">
+                        <div class="header">
+                          <h1>Account Verification Update</h1>
+                        </div>
+                        <div class="content">
+                          <p>Dear ${studentName},</p>
+                          <p>We regret to inform you that your account verification has been <strong>declined</strong>.</p>
+                          <div class="reason-box">
+                            <strong>Reason:</strong><br>
+                            ${remarks.trim()}
+                          </div>
+                          <p>Please review the reason above and resubmit your verification with the necessary corrections.</p>
+                          <p>If you have any questions, please contact our support team.</p>
+                          <p>Best regards,<br>iScholar Team</p>
+                        </div>
+                      </div>
+                    </body>
+                    </html>
+                  `
+                })
+              })
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error("Error sending verification decline email:", emailError)
+      }
 
       toast.success("Verification declined", {
         icon: <XCircle className="w-5 h-5" />,
@@ -253,6 +369,17 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                     <span className="font-medium text-foreground">{verification.campus}</span>
                   </div>
                 </div>
+                {verification.address && (
+                  <div className="mt-3 pt-3 border-t border-border/30">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground mb-1">Address</p>
+                        <p className="text-sm font-medium text-foreground">{verification.address}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

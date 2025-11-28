@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
-import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award } from "lucide-react"
+import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award, FolderCheck, BookOpen } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LogoutModal from "./logout-modal"
@@ -126,42 +126,66 @@ export default function AdminMobileHeader() {
                   <span>Profile</span>
                 </button>
 
-                {/* Mobile Navigation Items */}
-                <Link
-                  href="/admin/testimonials"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors mt-1"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Testimonials</span>
-                </Link>
+                {/* Mobile Navigation Items - Items NOT in bottom nav */}
+                <div className="border-t border-border pt-2 mt-2">
+                  <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    More Options
+                  </p>
+                  
+                  <Link
+                    href="/admin/requirements"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <FolderCheck className="w-4 h-4" />
+                    <span>Document Requirements</span>
+                  </Link>
 
-                <Link
-                  href="/admin/scholars"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>Scholars</span>
-                </Link>
+                  <Link
+                    href="/admin/scholarships"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Scholarships</span>
+                  </Link>
 
-                <Link
-                  href="/admin/users"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>User Management</span>
-                </Link>
+                  <Link
+                    href="/admin/testimonials"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Testimonials</span>
+                  </Link>
 
-                <Link
-                  href="/admin/branding"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
-                  <Palette className="w-4 h-4" />
-                  <span>Brand Settings</span>
-                </Link>
+                  <Link
+                    href="/admin/scholars"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>Scholars</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/users"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>User Management</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/branding"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <Palette className="w-4 h-4" />
+                    <span>Brand Settings</span>
+                  </Link>
+                </div>
 
                 {/* Logout Button */}
                 <button

@@ -83,7 +83,8 @@ export default function ApplyPage() {
         const snapshot = await getDocs(scholarshipsQuery)
         
         if (!snapshot.empty) {
-          const scholarshipsData = snapshot.docs.map(doc => {
+          const scholarshipsData = snapshot.docs
+            .map(doc => {
             const data = doc.data()
             const scholarshipName = data.name || ""
             const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
@@ -95,8 +96,19 @@ export default function ApplyPage() {
               // Use Firestore data if available, otherwise use static fallback
               benefit: data.benefit || staticData.benefit || "N/A",
               benefitAmount: data.benefitAmount || data.amount || staticData.benefitAmount || "N/A",
+              // Include document requirement IDs
+              documentRequirementIds: data.documentRequirementIds || [],
+              // Include slots and batchName
+              slots: data.slots || null,
+              batchName: data.batchName || null,
+              // Include logo
+              logo: data.logo || null,
+              // Include status fields
+              temporarilyClosed: data.temporarilyClosed || false,
+              active: data.active !== undefined ? data.active : true,
             }
           })
+            .filter(scholarship => scholarship.active !== false) // Only show active scholarships
           setScholarships(scholarshipsData)
         } else {
           // Fallback to static data with correct requirements
@@ -336,8 +348,8 @@ export default function ApplyPage() {
             <div className="flex items-center gap-3">
               <GraduationCap className="w-5 h-5 md:w-6 md:h-6" />
               <div>
-                <h2 className="text-base md:text-lg font-semibold">Apply for Scholarship</h2>
-                <p className="text-xs text-white/80">Select a scholarship program to apply</p>
+                <h2 className="text-base md:text-lg font-semibold">Select a scholarship program to apply</h2>
+                <p className="text-xs text-white/80">Browse available scholarships and submit your application</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg">

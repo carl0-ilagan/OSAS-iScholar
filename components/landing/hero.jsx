@@ -12,7 +12,7 @@ export default function Hero() {
   const [signupOpen, setSignupOpen] = useState(false)
 
   return (
-    <section id="home" className="relative bg-gradient-to-br from-primary via-primary to-secondary pt-20 pb-32 overflow-hidden">
+    <section id="home" className="relative bg-gradient-to-br from-primary via-primary to-secondary pt-24 md:pt-20 pb-32 overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 left-0 w-96 h-96 bg-accent rounded-full blur-3xl"></div>

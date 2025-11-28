@@ -30,7 +30,7 @@ export default function AdminLayoutWrapper({ children }) {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto md:ml-0">
+      <main className="flex-1 overflow-auto scrollbar-hide md:ml-0">
         {/* Mobile padding for header and bottom nav */}
         <div className="pt-16 pb-20 md:pt-0 md:pb-0">
           {children}

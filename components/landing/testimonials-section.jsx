@@ -14,11 +14,29 @@ export default function TestimonialsSection() {
     fetchFeaturedTestimonials()
   }, [])
 
+  // Auto-slide functionality - start from center
+  useEffect(() => {
+    if (testimonials.length <= 3) return
+
+    // Start from center (if 6 items, start at index 1 to show items 1, 2, 3)
+    const centerStart = Math.floor((testimonials.length - 3) / 2)
+    setCurrentIndex(centerStart)
+  }, [testimonials.length])
+
   useEffect(() => {
     if (testimonials.length <= 3) return
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 3) % testimonials.length)
+      setCurrentIndex((prev) => {
+        // Calculate next index, wrapping around
+        const nextIndex = prev + 3
+        if (nextIndex >= testimonials.length) {
+          // If we've reached the end, go back to center
+          const centerStart = Math.floor((testimonials.length - 3) / 2)
+          return centerStart
+        }
+        return nextIndex
+      })
     }, 5000) // Auto-scroll every 5 seconds
 
     return () => clearInterval(interval)
@@ -64,12 +82,27 @@ export default function TestimonialsSection() {
 
   const nextSlide = () => {
     if (testimonials.length <= 3) return
-    setCurrentIndex((prev) => (prev + 3) % testimonials.length)
+    setCurrentIndex((prev) => {
+      const nextIndex = prev + 3
+      if (nextIndex >= testimonials.length) {
+        const centerStart = Math.floor((testimonials.length - 3) / 2)
+        return centerStart
+      }
+      return nextIndex
+    })
   }
 
   const prevSlide = () => {
     if (testimonials.length <= 3) return
-    setCurrentIndex((prev) => (prev - 3 + testimonials.length) % testimonials.length)
+    setCurrentIndex((prev) => {
+      const prevIndex = prev - 3
+      if (prevIndex < 0) {
+        // If we've reached the beginning, go to the last possible position
+        const lastStart = testimonials.length - 3
+        return lastStart
+      }
+      return prevIndex
+    })
   }
 
   const visibleTestimonials = testimonials.slice(currentIndex, currentIndex + 3)
@@ -82,7 +115,7 @@ export default function TestimonialsSection() {
             <h2 className="text-4xl font-bold text-foreground mb-4">Student Stories</h2>
             <p className="text-muted-foreground text-lg">Hear from our scholarship recipients</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 justify-center">
             {[1, 2, 3].map((i) => (
               <div key={i} className="bg-card border border-border/50 rounded-xl p-8 animate-pulse">
                 <div className="flex items-center gap-4 mb-6">
@@ -119,11 +152,11 @@ export default function TestimonialsSection() {
 
         <div className="relative">
           {/* Testimonials Carousel */}
-          <div className="grid md:grid-cols-3 gap-8 overflow-hidden">
+          <div className="flex flex-wrap justify-center md:grid md:grid-cols-3 gap-8 overflow-hidden">
             {visibleTestimonials.map((testimonial, index) => (
             <div
                 key={testimonial.id}
-                className="bg-card border border-border/50 rounded-xl p-8 hover:border-border transition-all duration-300 animate-in fade-in slide-in-from-right"
+                className="w-full max-w-sm md:max-w-none bg-card border border-border/50 rounded-xl p-8 hover:border-border transition-all duration-300 animate-in fade-in slide-in-from-right"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 {/* Profile Section - Top */}

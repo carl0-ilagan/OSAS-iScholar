@@ -42,6 +42,23 @@ export default function ImageZoomModal({ isOpen, onClose, imageSrc, alt }) {
 
   if (!isOpen || !imageSrc) return null
 
+  // Check if imageSrc is a valid image URL
+  const isValidImage = imageSrc && (
+    imageSrc.startsWith('data:image/') ||
+    imageSrc.startsWith('http://') ||
+    imageSrc.startsWith('https://') ||
+    imageSrc.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i)
+  )
+
+  if (!isValidImage) {
+    // If not a valid image, open in new tab
+    if (imageSrc) {
+      window.open(imageSrc, '_blank', 'noopener,noreferrer')
+      onClose()
+    }
+    return null
+  }
+
   return (
     <>
       <div
@@ -63,7 +80,7 @@ export default function ImageZoomModal({ isOpen, onClose, imageSrc, alt }) {
       >
         <div 
           ref={modalRef}
-          className="relative w-full h-full flex items-center justify-center"
+          className="relative w-full h-full flex items-center justify-center max-w-[95vw] max-h-[95vh]"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -73,14 +90,19 @@ export default function ImageZoomModal({ isOpen, onClose, imageSrc, alt }) {
               onClose()
             }}
             className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+            aria-label="Close"
           >
             <X className="w-6 h-6 text-white" />
           </button>
           <img
             src={imageSrc}
-            alt={alt}
+            alt={alt || "Preview"}
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
             onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              console.error("Error loading image:", imageSrc)
+              e.target.style.display = 'none'
+            }}
           />
         </div>
       </div>

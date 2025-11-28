@@ -3,16 +3,9 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore"
+import { collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy } from "firebase/firestore"
 import { Star, Send, Loader2, User, GraduationCap } from "lucide-react"
 import { toast } from "sonner"
-
-const SCHOLARSHIPS = [
-  "Merit Scholarship",
-  "Needs-Based Grant",
-  "Tertiary Education Subsidy (TES)",
-  "Teacher Development Program (TDP)",
-]
 
 export default function TestimonialModal({ isOpen, onClose, userId, userName, onTestimonialSubmitted }) {
   const [testimonial, setTestimonial] = useState("")
@@ -24,6 +17,53 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
   const [selectedScholarship, setSelectedScholarship] = useState("")
   const [userCourse, setUserCourse] = useState("")
   const [userCampus, setUserCampus] = useState("")
+  const [scholarships, setScholarships] = useState([])
+  const [loadingScholarships, setLoadingScholarships] = useState(false)
+
+  // Fetch scholarships from database
+  useEffect(() => {
+    const fetchScholarships = async () => {
+      if (!isOpen) return
+      
+      setLoadingScholarships(true)
+      try {
+        let snapshot
+        try {
+          const scholarshipsQuery = query(
+            collection(db, "scholarships"),
+            orderBy("createdAt", "desc")
+          )
+          snapshot = await getDocs(scholarshipsQuery)
+        } catch (error) {
+          // Fallback without orderBy
+          snapshot = await getDocs(collection(db, "scholarships"))
+        }
+        
+        const scholarshipsData = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            name: doc.data().name || "",
+            ...doc.data()
+          }))
+          .filter(sch => sch.name && sch.name.trim() !== "") // Filter out empty names
+          .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+        
+        setScholarships(scholarshipsData)
+      } catch (error) {
+        console.error("Error fetching scholarships:", error)
+        toast.error("Failed to load scholarships", {
+          duration: 3000,
+        })
+        setScholarships([])
+      } finally {
+        setLoadingScholarships(false)
+      }
+    }
+
+    if (isOpen) {
+      fetchScholarships()
+    }
+  }, [isOpen])
 
   // Fetch user profile picture, name, course, and campus
   useEffect(() => {
@@ -118,6 +158,58 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
         createdAt: serverTimestamp(),
       })
 
+      // Send email notification
+      try {
+        const userData = await getDoc(doc(db, "users", userId))
+        if (userData.exists()) {
+          const userDataObj = userData.data()
+          const studentName = userDataObj.fullName || userDataObj.displayName || displayName
+          const secondaryEmail = userDataObj.secondaryEmail
+          
+          if (secondaryEmail) {
+            await fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: secondaryEmail,
+                subject: 'Testimonial Submitted - iScholar',
+                html: `
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="utf-8">
+                    <style>
+                      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                      .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                      .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <div class="header">
+                        <h1>Testimonial Submitted</h1>
+                      </div>
+                      <div class="content">
+                        <p>Dear ${studentName},</p>
+                        <p>Thank you for sharing your testimonial with us!</p>
+                        <p>Your testimonial has been submitted successfully and is now under review. Once approved, it will be displayed on the platform.</p>
+                        <p>We appreciate your feedback and contribution to the iScholar community.</p>
+                        <p>Best regards,<br>iScholar Team</p>
+                      </div>
+                    </div>
+                  </body>
+                  </html>
+                `
+              })
+            })
+          }
+        }
+      } catch (emailError) {
+        console.error("Error sending testimonial email:", emailError)
+        // Don't block the submission if email fails
+      }
+
       toast.success("Testimonial submitted successfully!", {
         duration: 3000,
       })
@@ -171,35 +263,47 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
                   Scholarship <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
-                  <select
-                    value={selectedScholarship}
-                    onChange={(e) => setSelectedScholarship(e.target.value)}
-                    className="w-full px-4 py-3 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md font-light"
-                    required
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 1rem center',
-                      paddingRight: '2.5rem',
-                    }}
-                  >
-                    <option value="">Select a scholarship</option>
-                    {SCHOLARSHIPS.map((scholarship) => (
-                      <option key={scholarship} value={scholarship}>
-                        {scholarship}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform duration-300 ease-in-out">
-                    <svg 
-                      className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${selectedScholarship ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
+                  {loadingScholarships ? (
+                    <div className="w-full px-4 py-3 border border-border rounded-lg bg-input flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Loading scholarships...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={selectedScholarship}
+                        onChange={(e) => setSelectedScholarship(e.target.value)}
+                        className="w-full px-4 py-3 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md font-light"
+                        required
+                        disabled={scholarships.length === 0}
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 1rem center',
+                          paddingRight: '2.5rem',
+                        }}
+                      >
+                        <option value="">
+                          {scholarships.length === 0 ? "No scholarships available" : "Select a scholarship"}
+                        </option>
+                        {scholarships.map((scholarship) => (
+                          <option key={scholarship.id} value={scholarship.name}>
+                            {scholarship.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform duration-300 ease-in-out">
+                        <svg 
+                          className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${selectedScholarship ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </>
+                  )}
                 </div>
                 {selectedScholarship && (
                   <div className="mt-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg animate-in fade-in slide-in-from-top-2 duration-300">
@@ -207,6 +311,11 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
                       Selected: <span className="font-semibold">{selectedScholarship}</span>
                     </p>
                   </div>
+                )}
+                {scholarships.length === 0 && !loadingScholarships && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No scholarships found in the database. Please contact the administrator.
+                  </p>
                 )}
               </div>
 

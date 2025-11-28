@@ -3,8 +3,7 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-
-const ADMIN_EMAIL = "contact.ischolar@gmail.com"
+import { isAdmin, isStudent } from "@/lib/role-check"
 
 export default function AdminLayout({ children }) {
   const router = useRouter()
@@ -22,8 +21,14 @@ export default function AdminLayout({ children }) {
       return
     }
 
+    // If user is authenticated but not admin (i.e., student), redirect to student dashboard
+    if (user && isStudent(user)) {
+      router.push("/student")
+      return
+    }
+
     // Redirect to login if not authenticated or not authorized
-    if (!user || user.email !== ADMIN_EMAIL) {
+    if (!user || !isAdmin(user)) {
       router.push("/admin/login")
     }
   }, [user, loading, pathname, router])
@@ -41,7 +46,13 @@ export default function AdminLayout({ children }) {
   }
 
   // Don't render protected content if not authorized (except login page)
-  if (pathname !== "/admin/login" && (!user || user.email !== ADMIN_EMAIL)) {
+  // Also don't render if user is a student (they should be redirected)
+  if (pathname !== "/admin/login" && (!user || !isAdmin(user))) {
+    return null
+  }
+
+  // If user is authenticated but not admin, don't render (redirect is happening)
+  if (user && isStudent(user)) {
     return null
   }
 

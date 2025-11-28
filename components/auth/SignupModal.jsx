@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import { collection, doc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
+import SuccessSignupModal from "./success-signup-modal"
 
 // Courses data by campus
 const coursesByCampus = {
@@ -43,11 +44,13 @@ const coursesByCampus = {
 
 export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
   const router = useRouter()
-  const { signInWithMicrosoft, signOut } = useAuth()
+  const { signInWithMicrosoft, signOut, user } = useAuth()
   const [step, setStep] = useState(1)
   const [prevStep, setPrevStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [signedUpUserId, setSignedUpUserId] = useState(null)
   
   const [formData, setFormData] = useState({
     fullName: "",
@@ -212,9 +215,10 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
         // The user is already authenticated
       }
       
-      // Close modal on success and redirect to student dashboard
+      // Show success modal instead of redirecting immediately
+      setSignedUpUserId(user.uid)
       onOpenChange(false)
-      router.push("/student")
+      setShowSuccessModal(true)
     } catch (error) {
       console.error("Signup error:", error)
       setError(error.message || "Failed to create account. Please try again.")
@@ -515,6 +519,16 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
           </div>
         </div>
       </DialogContent>
+      
+      {/* Success Sign Up Modal */}
+      <SuccessSignupModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false)
+          router.push("/student")
+        }}
+        userId={signedUpUserId}
+      />
     </Dialog>
   )
 }

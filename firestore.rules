@@ -76,6 +76,13 @@
         // Allow write only for admin
         allow write: if request.auth != null && 
                      request.auth.token.email == "contact.ischolar@gmail.com";
+          
+          // Allow students to update slots field only (for application slot decrement)
+          allow update: if request.auth != null &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slots']) &&
+                      request.resource.data.slots is int &&
+                      request.resource.data.slots >= 0 &&
+                      request.resource.data.slots < resource.data.slots;
       }
 
       // Announcements collection
@@ -113,6 +120,112 @@
         // Allow write (update/delete) only for admin
         allow write: if request.auth != null && 
                      request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Document Requirements collection - requirements set by admin
+      match /documentRequirements/{requirementId} {
+        // Allow read for all authenticated users (students can see requirements)
+        allow read: if request.auth != null;
+        
+        // Allow write only for admin
+        allow write: if request.auth != null && 
+                     request.auth.token.email == "contact.ischolar@gmail.com";
+          
+          // Sample chunks subcollection for large PDF files
+          match /sampleChunks/{chunkId} {
+            // Allow read for all authenticated users (students need to download PDF samples)
+            allow read: if request.auth != null;
+            
+            // Allow write only for admin
+            allow write: if request.auth != null && 
+                        request.auth.token.email == "contact.ischolar@gmail.com";
+          }
+      }
+
+      // Student Documents collection - documents uploaded by students
+      match /studentDocuments/{documentId} {
+        // Allow read if user is reading their own document, or if admin
+        allow read: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create if user is authenticated and creating their own document
+        allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+        
+        // Allow update if user is updating their own document, or if admin
+        allow update: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow delete if user is deleting their own document, or if admin
+        allow delete: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Chunks subcollection for large files
+        match /chunks/{chunkId} {
+          // Allow read if user owns the parent document, or if admin
+          allow read: if request.auth != null && (
+            get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId == request.auth.uid ||
+            request.auth.token.email == "contact.ischolar@gmail.com"
+          );
+          
+          // Allow write if user owns the parent document, or if admin
+          allow write: if request.auth != null && (
+            get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId == request.auth.uid ||
+            request.auth.token.email == "contact.ischolar@gmail.com"
+          );
+        }
+      }
+
+      // Student Profile Forms collection - profile forms submitted by students
+      match /studentProfileForms/{formId} {
+        // Allow read if user is reading their own form, or if admin
+        allow read: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create if user is authenticated and creating their own form
+        allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+        
+        // Allow update if user is updating their own form, or if admin
+        allow update: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow delete only for admin
+        allow delete: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
+      }
+
+      // Application Forms collection - application forms submitted by students
+      match /applicationForms/{formId} {
+        // Allow read if user is reading their own form, or if admin
+        allow read: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow create if user is authenticated and creating their own form
+        allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+        
+        // Allow update if user is updating their own form, or if admin
+        allow update: if request.auth != null && (
+          resource.data.userId == request.auth.uid ||
+          request.auth.token.email == "contact.ischolar@gmail.com"
+        );
+        
+        // Allow delete only for admin
+        allow delete: if request.auth != null && 
+                      request.auth.token.email == "contact.ischolar@gmail.com";
       }
     }
   }

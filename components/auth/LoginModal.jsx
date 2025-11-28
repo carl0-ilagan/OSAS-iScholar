@@ -8,12 +8,15 @@ import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
+import WelcomeLoginModal from "./welcome-login-modal"
 
 export default function LoginModal({ open, onOpenChange }) {
   const router = useRouter()
-  const { signInWithMicrosoft, signOut } = useAuth()
+  const { signInWithMicrosoft, signOut, user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [loggedInUserId, setLoggedInUserId] = useState(null)
 
   const handleMicrosoftSignIn = async () => {
     try {
@@ -67,9 +70,10 @@ export default function LoginModal({ open, onOpenChange }) {
       }
       
       // User is registered, proceed with login
-      // Success - close modal and redirect to student dashboard
+      // Show welcome modal instead of redirecting immediately
+      setLoggedInUserId(user.uid)
       onOpenChange(false)
-      router.push("/student")
+      setShowWelcomeModal(true)
     } catch (error) {
       console.error("Login error:", error)
       setError(error.message || "Failed to sign in. Please try again.")
@@ -151,6 +155,16 @@ export default function LoginModal({ open, onOpenChange }) {
           </div>
         </div>
       </DialogContent>
+      
+      {/* Welcome Login Modal */}
+      <WelcomeLoginModal
+        isOpen={showWelcomeModal}
+        onClose={() => {
+          setShowWelcomeModal(false)
+          router.push("/student")
+        }}
+        userId={loggedInUserId}
+      />
     </Dialog>
   )
 }

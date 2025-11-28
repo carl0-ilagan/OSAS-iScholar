@@ -1,6 +1,6 @@
 "use client"
 
-import { User, Mail, Hash, GraduationCap, MapPin, Calendar, ShieldCheck, ShieldAlert, Circle } from "lucide-react"
+import { User, Mail, Hash, GraduationCap, MapPin, Calendar, Circle } from "lucide-react"
 
 export default function UsersTable({ users }) {
   const getStatusBadge = (status) => {
@@ -21,23 +21,6 @@ export default function UsersTable({ users }) {
     }
   }
 
-  const getVerificationBadge = (isVerified) => {
-    if (isVerified) {
-      return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-600 border border-green-500/30 flex items-center gap-1.5">
-          <ShieldCheck className="w-3 h-3" />
-          Verified
-        </span>
-      )
-    } else {
-      return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 flex items-center gap-1.5">
-          <ShieldAlert className="w-3 h-3" />
-          Not Verified
-        </span>
-      )
-    }
-  }
 
   if (users.length === 0) {
     return (
@@ -62,7 +45,6 @@ export default function UsersTable({ users }) {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Campus</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Verification</th>
               </tr>
             </thead>
             <tbody>
@@ -132,9 +114,6 @@ export default function UsersTable({ users }) {
                   <td className="px-6 py-4">
                     {getStatusBadge(user.status)}
                   </td>
-                  <td className="px-6 py-4">
-                    {getVerificationBadge(user.isVerified)}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -173,7 +152,6 @@ export default function UsersTable({ users }) {
                 </h3>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {getStatusBadge(user.status)}
-                  {getVerificationBadge(user.isVerified)}
                 </div>
               </div>
             </div>

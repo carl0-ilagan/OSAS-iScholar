@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
-import { ChevronDown, User, LogOut } from "lucide-react"
+import { ChevronDown, User, LogOut, FileText, History, ClipboardCheck, MessageSquare } from "lucide-react"
 import { useRouter } from "next/navigation"
 import LogoutModal from "./logout-modal"
 
@@ -156,6 +156,9 @@ export default function MobileHeader() {
                   <User className="w-4 h-4" />
                   <span>Profile</span>
                 </Link>
+
+                {/* Mobile Navigation Items - Items NOT in bottom nav (currently all are in bottom nav, but keeping structure for future items) */}
+                {/* Note: All navigation items are currently in bottom nav, so this section is empty but ready for future additions */}
 
                 {/* Logout Button */}
                 <button

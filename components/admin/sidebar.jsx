@@ -3,17 +3,18 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, Megaphone, MessageSquare, Users, Award, LogOut, Palette } from "lucide-react"
+import { LayoutDashboard, FileText, Megaphone, MessageSquare, Users, Award, LogOut, Palette, BookOpen, FolderCheck } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import AdminLogoutModal from "./logout-modal"
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-  { icon: FileCheck, label: "Verifications", href: "/admin/verifications" },
   { icon: FileText, label: "Applications", href: "/admin/applications" },
+  { icon: FolderCheck, label: "Document Requirements", href: "/admin/requirements" },
   { icon: Megaphone, label: "Announcements", href: "/admin/announcements" },
   { icon: MessageSquare, label: "Testimonials", href: "/admin/testimonials" },
+  { icon: BookOpen, label: "Scholarships", href: "/admin/scholarships" },
   { icon: Award, label: "Scholars", href: "/admin/scholars" },
   { icon: Users, label: "User Management", href: "/admin/users" },
   { icon: Palette, label: "Branding Settings", href: "/admin/branding" },

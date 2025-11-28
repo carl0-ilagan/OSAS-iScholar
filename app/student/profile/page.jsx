@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import StudentPageBanner from "@/components/student/page-banner"
-import { User, Upload, Save, Mail, Loader2, CheckCircle, XCircle, GraduationCap, MapPin, Calendar, Hash, X, ShieldCheck, ShieldAlert, Circle } from "lucide-react"
+import { User, Upload, Save, Mail, Loader2, CheckCircle, XCircle, GraduationCap, MapPin, Calendar, Hash, X } from "lucide-react"
 import { toast } from "sonner"
 
 export default function ProfilePage() {
@@ -25,7 +25,6 @@ export default function ProfilePage() {
   const [profilePicture, setProfilePicture] = useState(null)
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
   const [userName, setUserName] = useState("")
-  const [isVerified, setIsVerified] = useState(false)
   const [userStatus, setUserStatus] = useState("offline")
 
   // Fetch user data
@@ -53,48 +52,8 @@ export default function ProfilePage() {
           setUserName(data.fullName || data.displayName || "Student")
           setProfilePicturePreview(data.photoURL || user.photoURL || null)
           setUserStatus(data.status || "offline")
-          
-          // Check verification status from users collection first
-          let verified = data.verificationStatus === "verified" || data.verified === true
-          
-          // Also check from verifications collection
-          if (!verified) {
-            try {
-              const verificationsQuery = query(
-                collection(db, "verifications"),
-                where("userId", "==", user.uid),
-                orderBy("submittedAt", "desc"),
-                limit(1)
-              )
-              const verificationSnapshot = await getDocs(verificationsQuery)
-              
-              if (!verificationSnapshot.empty) {
-                const verificationData = verificationSnapshot.docs[0].data()
-                verified = verificationData.status === "verified"
-              }
-            } catch (queryError) {
-              // If orderBy fails, try without it
-              try {
-                const simpleQuery = query(
-                  collection(db, "verifications"),
-                  where("userId", "==", user.uid),
-                  limit(1)
-                )
-                const simpleSnapshot = await getDocs(simpleQuery)
-                if (!simpleSnapshot.empty) {
-                  const verificationData = simpleSnapshot.docs[0].data()
-                  verified = verificationData.status === "verified"
-                }
-              } catch (simpleError) {
-                console.log("Error checking verification:", simpleError)
-              }
-            }
-          }
-          
-          setIsVerified(verified)
         } else {
           setUserName("Student")
-          setIsVerified(false)
         }
       } catch (error) {
         console.error("Error fetching user data:", error)
@@ -276,7 +235,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-foreground">Profile Picture</h3>
-                <p className="text-sm text-muted-foreground">Update your profile photo and view verification status</p>
+                <p className="text-sm text-muted-foreground">Update your profile photo</p>
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -335,16 +294,6 @@ export default function ProfilePage() {
                 
                 {/* Status Indicators - Minimalist Design */}
                 <div className="flex flex-col sm:flex-row gap-3">
-                  {/* Verification Status - Minimalist */}
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border rounded-lg">
-                    <div className={`w-2.5 h-2.5 rounded-full ${
-                      isVerified ? "bg-green-500" : "bg-yellow-500"
-                    }`}></div>
-                    <span className="text-sm font-medium text-foreground">
-                      {isVerified ? "Account Verified" : "Account Not Verified"}
-                    </span>
-                  </div>
-                  
                   {/* Active Status - Minimalist */}
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border rounded-lg">
                     <div className={`w-2.5 h-2.5 rounded-full ${
@@ -521,6 +470,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
     </div>
   )
 }

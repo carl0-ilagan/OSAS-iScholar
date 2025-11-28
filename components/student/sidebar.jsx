@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, LogOut, Menu, X, ChevronLeft, ChevronRight, User, ChevronDown } from "lucide-react"
+import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, LogOut, ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
@@ -12,9 +12,9 @@ import LogoutModal from "./logout-modal"
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/student" },
-  { icon: FileCheck, label: "Verify Account", href: "/student/verify" },
   { icon: FileText, label: "Apply Scholarship", href: "/student/apply" },
   { icon: History, label: "Application History", href: "/student/applications" },
+  { icon: ClipboardCheck, label: "Requirements", href: "/student/requirements" },
   { icon: MessageSquare, label: "Testimonials", href: "/student/feedback" },
 ]
 
@@ -26,12 +26,14 @@ export default function StudentSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const [userPhotoURL, setUserPhotoURL] = useState(null)
   const [userDisplayName, setUserDisplayName] = useState(null)
 
   useEffect(() => {
+    setMounted(true)
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
     }
@@ -72,51 +74,18 @@ export default function StudentSidebar() {
     fetchUserData()
   }, [user])
 
-  const toggleMobileMenu = () => {
-    setIsMobileOpen(!isMobileOpen)
-  }
-
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed)
   }
 
   return (
     <>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-primary text-white rounded-xl shadow-xl hover:bg-primary/90 transition-all duration-300 hover:scale-110 border border-white/10"
-        aria-label="Toggle menu"
-      >
-        <div className="relative w-6 h-6">
-          <Menu 
-            className={`absolute inset-0 w-6 h-6 transition-all duration-300 ${
-              isMobileOpen ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100"
-            }`}
-          />
-          <X 
-            className={`absolute inset-0 w-6 h-6 transition-all duration-300 ${
-              isMobileOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-0"
-            }`}
-          />
-        </div>
-      </button>
-
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-300"
-          onClick={toggleMobileMenu}
-        />
-      )}
-
-      {/* Sidebar */}
+      {/* Sidebar - Desktop Only */}
       <aside
         className={`
-          fixed md:relative h-screen bg-gradient-to-b from-primary via-primary to-secondary text-white border-r border-primary/20 flex flex-col z-40 shadow-2xl
+          hidden md:flex md:relative h-screen bg-gradient-to-b from-primary via-primary to-secondary text-white border-r border-primary/20 flex flex-col z-40 shadow-2xl
           transition-all duration-300 ease-in-out
-          ${isMobile ? (isMobileOpen ? "translate-x-0" : "-translate-x-full") : ""}
-          ${isCollapsed && !isMobile ? "w-20" : "w-64"}
+          ${isCollapsed ? "w-20" : "w-64"}
         `}
       >
       {/* Logo */}
@@ -172,7 +141,7 @@ export default function StudentSidebar() {
         <nav className="hidden md:flex flex-col flex-1 p-3 md:p-4 space-y-2 overflow-y-auto scrollbar-hide">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = mounted && pathname === item.href
           return (
             <Link
               key={item.href}
@@ -188,7 +157,7 @@ export default function StudentSidebar() {
                   }
                 `}
                 title={isCollapsed ? item.label : ""}
-              >
+            >
                 {/* Active indicator bar - Yellow/Gold only for active */}
                 {isActive && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />
@@ -213,50 +182,7 @@ export default function StudentSidebar() {
         })}
       </nav>
 
-        {/* Navigation - Mobile */}
-        <nav className="md:hidden flex-1 p-4 space-y-2 overflow-y-auto scrollbar-hide">
-          <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              isMobileOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
-            }`}
-          >
-            <div className="space-y-2 pt-2">
-              {navItems.map((item, index) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMobileOpen(false)}
-                    className={`
-                      block px-4 py-3 rounded-xl
-                      transition-all duration-200
-                      transform relative group
-                  ${isActive
-                    ? "bg-accent text-primary shadow-lg"
-                    : "text-white/90 hover:text-white hover:bg-white/10 active:bg-white/20"
-                  }
-                      ${isMobileOpen
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-4 opacity-0"
-                      }
-                    `}
-                    style={{
-                      transitionDelay: isMobileOpen ? `${index * 50}ms` : "0ms",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="relative z-10 font-medium">{item.label}</span>
-                    </div>
-                    <span className="absolute left-0 top-0 h-full w-0 bg-white/10 group-hover:w-full transition-all duration-300 rounded-xl"></span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </nav>
+        {/* Mobile navigation removed - now in profile dropdown */}
 
         {/* User Profile Section */}
         <div className="p-4 md:p-5 border-t border-white/10 bg-primary/50 backdrop-blur-sm">
@@ -295,63 +221,11 @@ export default function StudentSidebar() {
             </Link>
           </div>
 
-          {/* Mobile: Profile Dropdown */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-              className="w-full flex items-center gap-3 mb-3 p-2 rounded-xl bg-white/10 transition-all duration-300 hover:bg-white/20"
-            >
-              <div className="flex-shrink-0 w-11 h-11 rounded-full bg-gradient-to-br from-accent to-accent/90 overflow-hidden ring-2 ring-accent/30 shadow-md relative">
-                {user?.photoURL && user.photoURL.trim() !== '' ? (
-                  <img 
-                    src={user.photoURL} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                      const fallback = e.target.nextElementSibling
-                      if (fallback) fallback.style.display = 'flex'
-                    }}
-                  />
-                ) : null}
-                <div 
-                  className={`w-full h-full flex items-center justify-center font-bold text-primary text-base bg-gradient-to-br from-accent to-accent/90 ${user?.photoURL && user.photoURL.trim() !== '' ? 'hidden' : ''}`}
-                >
-                  {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-white truncate">
-                  {user?.email || "user@example.com"}
-                </p>
-                <p className="text-xs text-white/70 font-medium">Student</p>
-              </div>
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Profile Dropdown Menu */}
-            {isProfileDropdownOpen && (
-              <div className="mb-3 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                <Link
-                  href="/student/profile"
-                  onClick={() => {
-                    setIsMobileOpen(false)
-                    setIsProfileDropdownOpen(false)
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/90 hover:bg-white/10 transition-all duration-200"
-                >
-                  <User className="w-4 h-4" />
-                  <span className="text-sm font-medium">View Profile</span>
-                </Link>
-              </div>
-            )}
-          </div>
 
       {/* Logout */}
           <button 
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/90 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 ease-in-out group relative overflow-hidden hover:shadow-md hover:scale-[1.01] ${isCollapsed && !isMobile ? "justify-center" : ""}`}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/90 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 ease-in-out group relative overflow-hidden hover:shadow-md hover:scale-[1.01] ${isCollapsed ? "justify-center" : ""}`}
             onClick={() => {
-              setIsMobileOpen(false)
               setIsLogoutModalOpen(true)
             }}
             title={isCollapsed ? "Logout" : ""}

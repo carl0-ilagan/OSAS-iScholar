@@ -76,15 +76,15 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
+      <div className="hidden md:block bg-gradient-to-br from-card/50 to-card border-2 border-border/50 rounded-xl overflow-hidden shadow-lg">
         <table className="w-full">
           <thead>
-            <tr className="bg-gradient-to-r from-primary to-secondary">
-              <th className="px-6 py-4 text-left text-sm font-semibold text-white">Type</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-white">Message</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-white">Time</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-white">Action</th>
+            <tr className="bg-gradient-to-r from-primary via-primary/95 to-secondary">
+              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Type</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Message</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Status</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Time</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -97,21 +97,21 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
               return (
                 <tr
                   key={notification.id || index}
-                  className={`border-b border-border/50 transition-colors ${
-                    index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
-                  } ${!notification.read ? 'bg-primary/5' : ''}`}
+                  className={`border-b border-border/30 transition-all duration-200 hover:bg-muted/50 ${
+                    index % 2 === 0 ? 'bg-card/50' : 'bg-muted/20'
+                  } ${!notification.read ? 'bg-primary/10 border-l-4 border-l-primary' : ''}`}
                 >
                   <td className="px-6 py-4">
-                    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${colorClass}`}>
-                      <Icon className="w-5 h-5" />
-                      <span className="text-sm font-medium capitalize">{notification.type}</span>
+                    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border-2 shadow-sm ${colorClass}`}>
+                      <Icon className="w-4 h-4" />
+                      <span className="text-xs md:text-sm font-bold capitalize tracking-wide">{notification.type}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">{notification.message}</p>
+                      <p className="text-sm font-semibold text-foreground">{notification.message}</p>
                       {notification.userName && (
-                        <p className="text-xs text-muted-foreground">From: {notification.userName}</p>
+                        <p className="text-xs text-muted-foreground font-medium">From: <span className="font-semibold text-foreground/80">{notification.userName}</span></p>
                       )}
                     </div>
                   </td>
@@ -135,7 +135,7 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
                       {onView && (
                         <button
                           onClick={() => onView(notification)}
-                          className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                          className="px-3 py-1.5 text-xs md:text-sm text-primary hover:text-primary-foreground hover:bg-primary font-semibold rounded-lg border border-primary/30 hover:border-primary transition-all duration-200 hover:shadow-md"
                         >
                           View
                         </button>
@@ -143,7 +143,7 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
                       {!notification.read && onMarkRead && (
                         <button
                           onClick={() => onMarkRead(notification.id)}
-                          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200"
                           title="Mark as read"
                         >
                           <X className="w-4 h-4" />
@@ -169,8 +169,8 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
           return (
             <div
               key={notification.id || index}
-              className={`bg-card border border-border rounded-xl p-4 space-y-3 ${
-                !notification.read ? 'bg-primary/5 border-primary/20' : ''
+              className={`bg-gradient-to-br from-card to-card/80 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-md hover:shadow-lg transition-all duration-300 ${
+                !notification.read ? 'bg-primary/10 border-primary/40 border-l-4' : ''
               }`}
             >
               <div className="flex items-start justify-between">

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Poppins } from 'next/font/google'
+import { Manrope } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -8,10 +8,10 @@ import ServiceWorkerRegistration from '@/components/pwa/service-worker-register'
 import DynamicManifest from '@/components/pwa/dynamic-manifest'
 import './globals.css'
 
-const poppins = Poppins({ 
+const manrope = Manrope({ 
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-  variable: "--font-poppins",
+  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
   display: 'swap',
 });
 
@@ -42,7 +42,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="iScholar" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${poppins.variable} font-sans antialiased`}>
+      <body className={`${manrope.variable} font-sans antialiased scrollbar-hide`}>
         <AuthProvider>
           <BrandingProvider>
           {children}

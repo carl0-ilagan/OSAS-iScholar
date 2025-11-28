@@ -1,5 +1,7 @@
 import Header from "@/components/common/header"
 import Hero from "@/components/landing/hero"
+import ApplicationTrackerSection from "@/components/landing/application-tracker-section"
+import AnnouncementsSection from "@/components/landing/announcements-section"
 import FeaturesSection from "@/components/landing/features-section"
 import ScholarshipsSection from "@/components/landing/scholarships-section"
 import BenefitsSection from "@/components/landing/benefits-section"
@@ -17,6 +19,8 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Header />
       <Hero />
+      <ApplicationTrackerSection />
+      <AnnouncementsSection />
       <FeaturesSection />
       <ScholarshipsSection />
       <BenefitsSection />

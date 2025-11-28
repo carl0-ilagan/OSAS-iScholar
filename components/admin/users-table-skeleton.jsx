@@ -16,7 +16,6 @@ export default function UsersTableSkeleton() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Campus</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Verification</th>
               </tr>
             </thead>
             <tbody>
@@ -53,9 +52,6 @@ export default function UsersTableSkeleton() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="h-6 w-20 bg-muted rounded-full animate-pulse"></div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="h-6 w-24 bg-muted rounded-full animate-pulse"></div>
                   </td>
                 </tr>
               ))}

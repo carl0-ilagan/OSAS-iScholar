@@ -1,22 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { Eye, CheckCircle, XCircle, Clock, FileText, User, GraduationCap, MapPin, Calendar, X, Edit, Save, Loader2, Upload, X as XIcon } from "lucide-react"
-import { toast } from "sonner"
+import { Eye, CheckCircle, XCircle, Clock, FileText, User, GraduationCap, MapPin, Calendar, FolderOpen, ClipboardList, Loader2 } from "lucide-react"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc } from "firebase/firestore"
+import { doc, getDoc, collection, getDocs, query, where, orderBy } from "firebase/firestore"
+import { useAuth } from "@/contexts/AuthContext"
 import ImageZoomModal from "@/components/admin/image-zoom-modal"
+import DocumentPreviewModal from "@/components/admin/document-preview-modal"
+import FormViewModal from "@/components/admin/form-view-modal"
 
 export default function ApplicationsTable({ applications, onUpdate }) {
+  const { user } = useAuth()
   const [selectedApplication, setSelectedApplication] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState(null)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [editedFormData, setEditedFormData] = useState({})
-  const [editedFiles, setEditedFiles] = useState({})
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [studentDocuments, setStudentDocuments] = useState([])
+  const [applicationForm, setApplicationForm] = useState(null)
+  const [profileForm, setProfileForm] = useState(null)
+  const [loadingData, setLoadingData] = useState(true)
+  const [isApplicationFormModalOpen, setIsApplicationFormModalOpen] = useState(false)
+  const [isProfileFormModalOpen, setIsProfileFormModalOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState(null)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
+  const [userPhoto, setUserPhoto] = useState(null)
 
   const getStatusBadge = (status) => {
     const statusLower = status?.toLowerCase() || "pending"
@@ -54,105 +62,143 @@ export default function ApplicationsTable({ applications, onUpdate }) {
 
   const handleView = (application) => {
     setSelectedApplication(application)
-    setEditedFormData(application.formData || {})
-    setEditedFiles(application.files || {})
-    setIsEditMode(false)
     setIsModalOpen(true)
   }
 
   const handleClose = () => {
     setIsModalOpen(false)
     setSelectedApplication(null)
-    setIsEditMode(false)
-    setEditedFormData({})
-    setEditedFiles({})
+    setStudentDocuments([])
+    setApplicationForm(null)
+    setProfileForm(null)
   }
 
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = (error) => reject(error)
-    })
-  }
-
-  const handleFileChange = async (key, file) => {
-    if (file) {
-      try {
-        const base64 = await fileToBase64(file)
-        setEditedFiles(prev => ({
-          ...prev,
-          [key]: base64
-        }))
-        toast.success("File updated", {
-          icon: <CheckCircle className="w-4 h-4" />,
-          duration: 2000,
-        })
-      } catch (error) {
-        console.error("Error converting file:", error)
-        toast.error("Failed to process file", {
-          icon: <XCircle className="w-4 h-4" />,
-          duration: 3000,
-        })
+  // Fetch student documents, application form, and profile form
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isModalOpen || !selectedApplication?.id || !user?.uid) {
+        setLoadingData(false)
+        return
       }
-    }
-  }
 
-  const handleRemoveFile = (key) => {
-    setEditedFiles(prev => {
-      const newFiles = { ...prev }
-      delete newFiles[key]
-      return newFiles
-    })
-  }
+      try {
+        setLoadingData(true)
 
-  const handleUpdate = async () => {
-    if (!selectedApplication) return
+        // Fetch student documents
+        try {
+          const studentDocsQuery = query(
+            collection(db, "studentDocuments"),
+            where("userId", "==", user.uid)
+          )
+          const studentDocsSnapshot = await getDocs(studentDocsQuery)
+          const docs = []
+          
+          // Reconstruct fileUrl from chunks for each document
+          for (const docSnap of studentDocsSnapshot.docs) {
+            const data = docSnap.data()
+            let fileUrl = data.fileUrl || data.file || ''
+            
+            // If document is chunked, fetch and reconstruct from subcollection
+            if (data.isChunked) {
+              try {
+                let chunksSnapshot
+                try {
+                  const chunksQuery = query(collection(db, "studentDocuments", docSnap.id, "chunks"), orderBy("index"))
+                  chunksSnapshot = await getDocs(chunksQuery)
+      } catch (error) {
+                  chunksSnapshot = await getDocs(collection(db, "studentDocuments", docSnap.id, "chunks"))
+                }
+                const chunks = chunksSnapshot.docs
+                  .sort((a, b) => {
+                    const indexA = a.data().index ?? parseInt(a.id.split('_')[1] || '0')
+                    const indexB = b.data().index ?? parseInt(b.id.split('_')[1] || '0')
+                    return indexA - indexB
+                  })
+                  .map(chunkDoc => chunkDoc.data().data)
+                
+                if (chunks.length > 0) {
+                  fileUrl = fileUrl + chunks.join('')
+                }
+              } catch (error) {
+                console.error(`Error reconstructing chunks for document ${docSnap.id}:`, error)
+              }
+            }
+            
+            docs.push({
+              id: docSnap.id,
+              name: data.documentName || data.name || "Document",
+              fileName: data.fileName || data.name || "Document",
+              fileUrl: fileUrl,
+              uploadedAt: data.uploadedAt || data.createdAt,
+              requirementId: data.requirementId || null,
+            })
+          }
+          
+          docs.sort((a, b) => {
+            const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0
+            const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0
+            return dateB - dateA
+          })
+          setStudentDocuments(docs)
+        } catch (error) {
+          console.error("Error fetching student documents:", error)
+        }
 
-    try {
-      setIsUpdating(true)
+        // Fetch application form
+        try {
+          const applicationFormsQuery = query(
+            collection(db, "applicationForms"),
+            where("userId", "==", user.uid)
+          )
+          const applicationFormsSnapshot = await getDocs(applicationFormsQuery)
+          if (!applicationFormsSnapshot.empty) {
+            const sortedForms = applicationFormsSnapshot.docs.map(doc => doc.data())
+                                                          .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0))
+            setApplicationForm(sortedForms[0])
+          }
+        } catch (error) {
+          console.error("Error fetching application form:", error)
+        }
 
-      const applicationRef = doc(db, "applications", selectedApplication.id)
-      await updateDoc(applicationRef, {
-        formData: editedFormData,
-        files: editedFiles,
-        updatedAt: new Date().toISOString(),
-      })
+        // Fetch student profile form
+        try {
+          const profileFormsQuery = query(
+            collection(db, "studentProfileForms"),
+            where("userId", "==", user.uid)
+          )
+          const profileFormsSnapshot = await getDocs(profileFormsQuery)
+          if (!profileFormsSnapshot.empty) {
+            const sortedForms = profileFormsSnapshot.docs.map(doc => doc.data())
+                                                        .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0))
+            setProfileForm(sortedForms[0])
+          }
+        } catch (error) {
+          console.error("Error fetching profile form:", error)
+        }
 
-      toast.success("Application updated successfully!", {
-        icon: <CheckCircle className="w-5 h-5" />,
-        duration: 3000,
-        position: "top-right",
-      })
-
-      // Update local state
-      setSelectedApplication(prev => ({
-        ...prev,
-        formData: editedFormData,
-        files: editedFiles,
-      }))
-
-      setIsEditMode(false)
-
-      // Refresh applications list
-      if (onUpdate) {
-        onUpdate()
+        // Fetch user photo from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setUserPhoto(userData.photoURL || user?.photoURL || null)
+          }
+        } catch (error) {
+          console.error("Error fetching user photo:", error)
+          // Fallback to auth user photoURL
+          setUserPhoto(user?.photoURL || null)
       }
     } catch (error) {
-      console.error("Error updating application:", error)
-      toast.error("Failed to update application", {
-        icon: <XCircle className="w-5 h-5" />,
-        description: error.message || "Please try again later.",
-        duration: 4000,
-        position: "top-right",
-      })
+        console.error("Error fetching application data:", error)
     } finally {
-      setIsUpdating(false)
+        setLoadingData(false)
     }
   }
 
-  const canEdit = selectedApplication?.status === "pending" || selectedApplication?.status === "under-review"
+    fetchData()
+  }, [isModalOpen, selectedApplication?.id, user?.uid])
+
+  // Removed edit functionality - students can only view their applications
 
   if (applications.length === 0) {
     return (
@@ -164,8 +210,7 @@ export default function ApplicationsTable({ applications, onUpdate }) {
     )
   }
 
-  const formData = isEditMode ? editedFormData : (selectedApplication?.formData || {})
-  const files = isEditMode ? editedFiles : (selectedApplication?.files || {})
+  const formData = selectedApplication?.formData || {}
 
   const modalContent = isModalOpen && selectedApplication ? (
     <>
@@ -191,36 +236,9 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                         {selectedApplication.program}
                       </h2>
                       <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Submitted: {selectedApplication.dateSubmitted}</p>
-                      {canEdit && !isEditMode && (
-                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-xs text-blue-800 font-medium">
-                            💡 You can update your application while it's not yet approved
-                          </p>
-                        </div>
-                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {getStatusBadge(selectedApplication.status)}
-                      {canEdit && (
-                        <button
-                          onClick={() => setIsEditMode(!isEditMode)}
-                          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                            isEditMode 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'hover:bg-muted text-muted-foreground'
-                          }`}
-                          aria-label={isEditMode ? "Cancel edit" : "Edit application"}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={handleClose}
-                        className="p-1.5 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
-                        aria-label="Close modal"
-                      >
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </button>
                     </div>
               </div>
             </div>
@@ -260,20 +278,7 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                     {Object.entries(formData).map(([key, value]) => (
                       <div key={key} className="p-2 bg-card rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/20 transition-all shadow-sm">
                         <p className="text-xs text-muted-foreground mb-1 font-medium">{key}</p>
-                        {isEditMode ? (
-                          <input
-                            type="text"
-                            value={value || ""}
-                            onChange={(e) => setEditedFormData(prev => ({
-                              ...prev,
-                              [key]: e.target.value
-                            }))}
-                            className="w-full px-2 py-1.5 text-sm font-semibold text-foreground bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                            placeholder="Enter value..."
-                          />
-                        ) : (
                           <p className="text-sm font-semibold text-foreground break-words">{value || "N/A"}</p>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -301,173 +306,200 @@ export default function ApplicationsTable({ applications, onUpdate }) {
             </div>
           </div>
 
-          {/* Right Side - Documents */}
+          {/* Right Side - Documents and Forms */}
           <div className="w-full md:w-3/5 flex flex-col flex-shrink-0 min-h-0 bg-card">
-            {/* Update Button - Fixed at top right */}
-            {isEditMode && (
-              <div className="p-2.5 sm:p-3 md:p-3.5 border-b border-border/30 flex-shrink-0 bg-card/50 backdrop-blur-sm">
-                <button
-                  onClick={handleUpdate}
-                  disabled={isUpdating}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                >
-                  {isUpdating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      Save Changes
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* Documents Section - Scrollable */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 md:p-3.5 custom-scrollbar" style={{ 
+            {/* Content Section - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 md:p-3.5 space-y-4 custom-scrollbar" style={{ 
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(156, 163, 175, 0.5) transparent'
             }}>
+              {loadingData ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <>
+                  {/* Submitted Documents */}
               <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-lg bg-primary/10">
-                      <FileText className="w-3.5 h-3.5 text-primary" />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <FolderOpen className="w-4 h-4 text-primary" />
                     </div>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Submitted Documents</p>
                   </div>
-                  {isEditMode && (
-                    <label className="flex items-center gap-1.5 px-2 py-1 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Add File</span>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const fileName = e.target.files[0].name || `Document ${Object.keys(editedFiles).length + 1}`
-                            handleFileChange(fileName, e.target.files[0])
+                    {studentDocuments.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {studentDocuments.map((doc) => {
+                          const isBase64 = doc.fileUrl && doc.fileUrl.startsWith('data:')
+                          let fileType = null
+                          if (isBase64) {
+                            const mimeType = doc.fileUrl.split(';')[0].split(':')[1]
+                            if (mimeType?.startsWith('image/')) {
+                              fileType = 'image'
+                            } else if (mimeType === 'application/pdf') {
+                              fileType = 'pdf'
+                            }
+                          } else if (doc.fileUrl) {
+                            if (doc.fileUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i)) {
+                              fileType = 'image'
+                            } else if (doc.fileUrl.toLowerCase().match(/\.(pdf)$/i)) {
+                              fileType = 'pdf'
+                            }
                           }
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-                {Object.keys(files).length > 0 ? (
-                  <div className="space-y-2">
-                    {Object.entries(files).map(([key, fileData]) => (
-                      <div
-                        key={key}
-                        className={`p-2.5 rounded-lg border transition-all ${
-                          fileData && typeof fileData === 'string' && fileData.startsWith('data:')
-                            ? isEditMode 
-                              ? 'border-border/50 bg-gradient-to-br from-primary/5 to-secondary/5'
-                              : 'cursor-pointer border-border/50 bg-gradient-to-br from-primary/5 to-secondary/5 hover:border-primary/50 hover:from-primary/10 hover:to-secondary/10 hover:shadow-md'
-                            : 'border-border/30 bg-muted/20 opacity-60'
-                        }`}
-                        onClick={() => {
-                          if (!isEditMode && fileData && typeof fileData === 'string' && fileData.startsWith('data:')) {
-                            setSelectedImage(fileData)
-                            setIsImageModalOpen(true)
+                          
+                          const handleDocumentClick = (e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            if (doc.fileUrl) {
+                              if (fileType === 'image') {
+                                setSelectedDocument({
+                                  url: doc.fileUrl,
+                                  name: doc.fileName || doc.name || 'Document',
+                                  type: fileType
+                                })
+                                setIsDocumentModalOpen(true)
+                              } else if (fileType === 'pdf') {
+                                // For PDFs, download directly
+                                const link = document.createElement('a')
+                                link.href = doc.fileUrl
+                                link.download = doc.fileName || doc.name || 'document'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              } else {
+                                window.open(doc.fileUrl, '_blank', 'noopener,noreferrer')
+                              }
+                            }
                           }
-                        }}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${
-                            fileData && typeof fileData === 'string' && fileData.startsWith('data:')
+                          
+                          return (
+                            <div
+                              key={doc.id}
+                              onClick={handleDocumentClick}
+                              className={`p-3 rounded-lg border transition-all ${
+                                doc.fileUrl
+                                  ? 'cursor-pointer border-border/50 bg-gradient-to-br from-primary/5 to-secondary/5 hover:border-primary/50 hover:from-primary/10 hover:to-secondary/10 hover:shadow-md'
+                                  : 'border-border/30 bg-muted/20 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg flex-shrink-0 transition-colors ${
+                                  doc.fileUrl
                               ? 'bg-primary/20 text-primary'
                               : 'bg-muted text-muted-foreground'
                           }`}>
-                            <FileText className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            {isEditMode ? (
-                              <input
-                                type="text"
-                                value={key}
-                                onChange={(e) => {
-                                  const newKey = e.target.value
-                                  if (newKey && newKey !== key) {
-                                    setEditedFiles(prev => {
-                                      const newFiles = { ...prev }
-                                      newFiles[newKey] = newFiles[key]
-                                      delete newFiles[key]
-                                      return newFiles
-                                    })
-                                  }
-                                }}
-                                className="w-full px-2 py-1 text-sm font-semibold text-foreground bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary mb-1.5"
-                                placeholder="Document name..."
-                              />
-                            ) : (
-                              <p className="text-sm font-semibold text-foreground break-words">{key}</p>
-                            )}
-                            {isEditMode ? (
-                              <div className="mt-1.5 space-y-1">
-                                <label className="flex items-center gap-2 text-xs text-primary cursor-pointer hover:text-primary/80">
-                                  <Upload className="w-3.5 h-3.5" />
-                                  <span>Replace file</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={(e) => {
-                                      if (e.target.files && e.target.files[0]) {
-                                        handleFileChange(key, e.target.files[0])
-                                      }
-                                    }}
-                                    className="hidden"
-                                  />
-                                </label>
-                                <button
-                                  onClick={() => handleRemoveFile(key)}
-                                  className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80"
-                                >
-                                  <XIcon className="w-3.5 h-3.5" />
-                                  <span>Remove</span>
-                                </button>
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-foreground break-words">{doc.name}</p>
+                                  {doc.fileUrl && (
+                                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                      {fileType === 'image' ? 'Click to preview' : fileType === 'pdf' ? 'Click to download' : 'Click to open file'}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            ) : fileData && typeof fileData === 'string' && fileData.startsWith('data:') ? (
-                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                                Click to preview
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-border/50 rounded-lg">
+                        <div className="p-4 rounded-full bg-muted/30 mb-3">
+                          <FileText className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground font-medium">No documents submitted</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Forms Status Section */}
+                  <div className="pt-4 border-t border-border/30">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <ClipboardList className="w-4 h-4 text-primary" />
+                      </div>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Forms Status</p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {/* Application Form Status */}
+                      <div className="p-4 bg-card rounded-lg border border-border/50">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className={`p-2 rounded-lg flex-shrink-0 ${
+                              applicationForm
+                                ? 'bg-green-500/20 text-green-600'
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Application Form</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {applicationForm ? 'Form has been submitted' : 'Form not submitted yet'}
                               </p>
-                            ) : null}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {applicationForm ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                <button
+                                  onClick={() => setIsApplicationFormModalOpen(true)}
+                                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs font-medium"
+                                >
+                                  View
+                                </button>
+                              </>
+                            ) : (
+                              <XCircle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            )}
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-border/50 rounded-lg">
-                    <div className="p-3 rounded-full bg-muted/30 mb-2">
-                      <FileText className="w-6 h-6 text-muted-foreground" />
+
+                      {/* Profile Form Status */}
+                      <div className="p-4 bg-card rounded-lg border border-border/50">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className={`p-2 rounded-lg flex-shrink-0 ${
+                              profileForm
+                                ? 'bg-green-500/20 text-green-600'
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              <ClipboardList className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Student Profile Form</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {profileForm ? 'Form has been submitted' : 'Form not submitted yet'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {profileForm ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                <button
+                                  onClick={() => setIsProfileFormModalOpen(true)}
+                                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs font-medium"
+                                >
+                                  View
+                                </button>
+                              </>
+                            ) : (
+                              <XCircle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground font-medium mb-2">No documents submitted</p>
-                    {isEditMode && (
-                      <label className="flex items-center gap-2 px-3 py-1.5 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Add Document</span>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const fileName = e.target.files[0].name || "Document 1"
-                              handleFileChange(fileName, e.target.files[0])
-                            }
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
                   </div>
+                </>
                 )}
-              </div>
             </div>
           </div>
         </div>
@@ -587,6 +619,49 @@ export default function ApplicationsTable({ applications, onUpdate }) {
             setIsImageModalOpen(false)
             setSelectedImage(null)
           }}
+        />,
+        document.body
+      )}
+
+      {/* Document Preview Modal */}
+      {isDocumentModalOpen && selectedDocument && typeof window !== 'undefined' && createPortal(
+        <DocumentPreviewModal
+          isOpen={isDocumentModalOpen}
+          onClose={() => {
+            setIsDocumentModalOpen(false)
+            setSelectedDocument(null)
+          }}
+          fileUrl={selectedDocument.url}
+          fileName={selectedDocument.name}
+          fileType={selectedDocument.type}
+        />,
+        document.body
+      )}
+
+      {/* Application Form View Modal */}
+      {isApplicationFormModalOpen && applicationForm && typeof window !== 'undefined' && createPortal(
+        <FormViewModal
+          formData={applicationForm}
+          formType="applicationForm"
+          userPhoto={userPhoto}
+          isOpen={isApplicationFormModalOpen}
+          onClose={() => setIsApplicationFormModalOpen(false)}
+          loading={loadingData || !applicationForm}
+          formName="Application Form"
+        />,
+        document.body
+      )}
+
+      {/* Profile Form View Modal */}
+      {isProfileFormModalOpen && profileForm && typeof window !== 'undefined' && createPortal(
+        <FormViewModal
+          formData={profileForm}
+          formType="studentProfileForm"
+          userPhoto={userPhoto}
+          isOpen={isProfileFormModalOpen}
+          onClose={() => setIsProfileFormModalOpen(false)}
+          loading={loadingData || !profileForm}
+          formName="Student Profile Form"
         />,
         document.body
       )}

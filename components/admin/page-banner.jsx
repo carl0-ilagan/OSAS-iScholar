@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { Clock } from "lucide-react"
 
-export default function AdminPageBanner({ icon: Icon, title, description }) {
+export default function AdminPageBanner({ icon: Icon, title, description, sidebarWidth: propSidebarWidth, className = "" }) {
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [sidebarWidth, setSidebarWidth] = useState(256)
+  const [sidebarWidth, setSidebarWidth] = useState(propSidebarWidth || 256)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -14,8 +14,14 @@ export default function AdminPageBanner({ icon: Icon, title, description }) {
     return () => clearInterval(timer)
   }, [])
 
-  // Detect sidebar width for desktop banner positioning
+  // Use prop sidebarWidth if provided, otherwise detect it
   useEffect(() => {
+    if (propSidebarWidth !== undefined) {
+      setSidebarWidth(propSidebarWidth)
+      return
+    }
+    
+    // Fallback: detect sidebar width if not provided as prop
     const detectSidebarWidth = () => {
       if (typeof window === 'undefined' || window.innerWidth < 768) return
       const sidebar = document.querySelector('aside')
@@ -34,7 +40,7 @@ export default function AdminPageBanner({ icon: Icon, title, description }) {
       observer.disconnect()
       window.removeEventListener('resize', detectSidebarWidth)
     }
-  }, [])
+  }, [propSidebarWidth])
 
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', { 
@@ -56,12 +62,13 @@ export default function AdminPageBanner({ icon: Icon, title, description }) {
 
   return (
     <div 
-      className="fixed top-20 md:top-4 z-40 transition-all duration-300"
+      className={`fixed top-20 md:top-4 z-40 transition-all duration-300 ${className}`}
       style={{ 
+        boxSizing: 'border-box',
         left: typeof window !== 'undefined' && window.innerWidth >= 768 
-          ? `${sidebarWidth + 16}px` 
-          : '1rem',
-        right: typeof window !== 'undefined' && window.innerWidth >= 768 ? '1.5rem' : '1rem'
+          ? `${sidebarWidth + 12}px` 
+          : '16px',
+        right: typeof window !== 'undefined' && window.innerWidth >= 768 ? '12px' : '16px'
       }}
     >
       <div className="bg-gradient-to-r from-primary to-secondary text-white p-4 md:p-5 rounded-2xl shadow-lg">
