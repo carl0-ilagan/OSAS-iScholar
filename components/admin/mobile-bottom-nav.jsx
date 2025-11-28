@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, FileText, Megaphone, Award } from "lucide-react"
@@ -14,49 +14,43 @@ const navItems = [
 export default function AdminMobileBottomNav() {
   const pathname = usePathname()
   const [isVisible, setIsVisible] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  const lastScrollYRef = useRef(0)
+  const scrollFrame = useRef(null)
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
+      const lastScrollY = lastScrollYRef.current
 
-      // Show navigation when at the top
-      if (currentScrollY < 10) {
+      if (currentScrollY < 40) {
         setIsVisible(true)
-        setLastScrollY(currentScrollY)
+        lastScrollYRef.current = currentScrollY
         return
       }
 
-      // Determine scroll direction
-      if (currentScrollY > lastScrollY) {
-        // Scrolling down - hide navigation
-        setIsVisible(false)
-      } else if (currentScrollY < lastScrollY) {
-        // Scrolling up - show navigation
-        setIsVisible(true)
-      }
+      const delta = Math.abs(currentScrollY - lastScrollY)
+      if (delta < 8) return
 
-      setLastScrollY(currentScrollY)
+      setIsVisible(currentScrollY < lastScrollY)
+      lastScrollYRef.current = currentScrollY
     }
 
-    // Throttle scroll events for better performance
-    let ticking = false
-    const throttledHandleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          handleScroll()
-          ticking = false
-        })
-        ticking = true
+    const onScroll = () => {
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current)
       }
+      scrollFrame.current = window.requestAnimationFrame(handleScroll)
     }
 
-    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
+    window.addEventListener("scroll", onScroll, { passive: true })
 
     return () => {
-      window.removeEventListener("scroll", throttledHandleScroll)
+      window.removeEventListener("scroll", onScroll)
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current)
+      }
     }
-  }, [lastScrollY])
+  }, [])
 
   return (
     <nav 

@@ -148,13 +148,13 @@ export default function ApplicationTrackerSection() {
         </div>
 
         {/* Search Form */}
-        <div className="bg-card border-2 border-primary/20 rounded-xl p-6 md:p-8 shadow-lg mb-8">
+        <div className="bg-card border-2 border-primary/20 rounded-xl p-4 sm:p-6 md:p-8 shadow-lg mb-8">
           <form onSubmit={handleTrack} className="space-y-4">
             <div>
               <label htmlFor="trackingCode" className="block text-sm font-semibold text-foreground mb-2">
                 Tracking Code
               </label>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   id="trackingCode"
                   type="text"
@@ -165,22 +165,22 @@ export default function ApplicationTrackerSection() {
                     setApplication(null)
                   }}
                   placeholder="MINSU-2025-0101-000123"
-                  className="flex-1 px-4 py-3 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all font-mono text-sm"
+                  className="flex-1 min-w-0 px-3 sm:px-4 py-3 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all font-mono text-xs sm:text-sm"
                 />
                 <button
                   type="submit"
                   disabled={loading || !trackingCode.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 sm:px-6 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap flex-shrink-0"
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Tracking...</span>
+                      <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                      <span className="text-sm sm:text-base">Tracking...</span>
                     </>
                   ) : (
                     <>
-                      <Search className="w-5 h-5" />
-                      <span>Track</span>
+                      <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-sm sm:text-base">Track</span>
                     </>
                   )}
                 </button>

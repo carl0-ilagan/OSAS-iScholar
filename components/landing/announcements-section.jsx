@@ -13,6 +13,9 @@ export default function AnnouncementsSection() {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
+        setLoading(true)
+        // Add cache-busting timestamp to ensure fresh data
+        const timestamp = Date.now()
         let snapshot
         try {
           snapshot = await getDocs(query(collection(db, "announcements"), orderBy("createdAt", "desc")))
@@ -75,6 +78,28 @@ export default function AnnouncementsSection() {
     }
 
     fetchAnnouncements()
+
+    // Refetch when page becomes visible (handles mobile/PWA tab switching)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAnnouncements()
+      }
+    }
+
+    // Refetch when window regains focus
+    const handleFocus = () => {
+      fetchAnnouncements()
+    }
+
+    // Add event listeners for visibility and focus
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // Auto-slide functionality
