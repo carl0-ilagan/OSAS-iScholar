@@ -370,7 +370,7 @@ export default function ApplyPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
             Available Scholarships
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-4">
             Choose a scholarship program that fits your profile
           </p>
         </div>

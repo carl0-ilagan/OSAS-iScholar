@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import AdminPageBanner from "@/components/admin/page-banner"
-import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, AlertCircle, Search, Filter } from "lucide-react"
+import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { sendNewDocumentRequirementEmail } from "@/lib/email-service"
 import DocumentPreviewModal from "@/components/admin/document-preview-modal"
@@ -54,6 +54,8 @@ export default function DocumentRequirementsPage() {
     maxImageUploads: 1, // Default to 1 image
   })
   const [sampleFilePreview, setSampleFilePreview] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Fetch requirements
   useEffect(() => {
@@ -350,6 +352,8 @@ export default function DocumentRequirementsPage() {
       return
     }
 
+    setIsSubmitting(true)
+
     try {
       let sampleFileBase64 = null
       let needsChunking = false
@@ -639,6 +643,8 @@ export default function DocumentRequirementsPage() {
     } catch (error) {
       console.error("Error saving requirement:", error)
       toast.error("Failed to save requirement. Please try again.")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -650,6 +656,8 @@ export default function DocumentRequirementsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!requirementToDelete) return
+
+    setIsDeleting(true)
 
     try {
       // Delete chunks if they exist
@@ -732,6 +740,8 @@ export default function DocumentRequirementsPage() {
       toast.error("Failed to delete requirement. Please try again.", {
         icon: <AlertCircle className="w-4 h-4" />,
       })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -1899,10 +1909,20 @@ export default function DocumentRequirementsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-all font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-all font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
                   >
-                    <Save className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span>{editingRequirement ? "Update Requirement" : "Add Requirement"}</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                        <span>{editingRequirement ? "Updating..." : "Adding..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>{editingRequirement ? "Update Requirement" : "Add Requirement"}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1951,16 +1971,27 @@ export default function DocumentRequirementsPage() {
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <button
                     onClick={handleDeleteCancel}
-                    className="flex-1 px-4 py-2.5 sm:py-3 border-2 border-border rounded-lg hover:bg-muted transition-colors font-medium text-sm sm:text-base order-2 sm:order-1"
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-2.5 sm:py-3 border-2 border-border rounded-lg hover:bg-muted transition-colors font-medium text-sm sm:text-base order-2 sm:order-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDeleteConfirm}
-                    className="flex-1 px-4 py-2.5 sm:py-3 bg-destructive text-white rounded-lg hover:bg-destructive/90 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base order-1 sm:order-2 flex items-center justify-center gap-2"
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-2.5 sm:py-3 bg-destructive text-white rounded-lg hover:bg-destructive/90 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base order-1 sm:order-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md"
                   >
-                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span>Delete Requirement</span>
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>Delete Requirement</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

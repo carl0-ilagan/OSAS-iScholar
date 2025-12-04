@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import ApplicationsTable from "@/components/student/applications-table"
 import StudentPageBanner from "@/components/student/page-banner"
 import ApplicationsTableSkeleton from "@/components/student/applications-table-skeleton"
-import { History, Search } from "lucide-react"
+import { History, Search, Activity } from "lucide-react"
 
 // Static scholarship data fallback (from apply page)
 const STATIC_SCHOLARSHIP_DATA = {
@@ -291,7 +291,7 @@ export default function ApplicationsPage() {
       <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
         {/* Search Bar - Right Side */}
         {!loading && applications.length > 0 && (
-          <div className="mb-6 flex justify-end">
+          <div className="mb-6 flex flex-col md:flex-row md:justify-end gap-3">
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
@@ -302,6 +302,18 @@ export default function ApplicationsPage() {
                 className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
               />
             </div>
+            {/* Track Button - Mobile Only (Below Search Bar) */}
+            <button
+              onClick={() => {
+                // Refresh applications or scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+                setSearchQuery("")
+              }}
+              className="md:hidden w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium text-sm shadow-md active:scale-95"
+            >
+              <Activity className="w-4 h-4" />
+              <span>Track Applications</span>
+            </button>
           </div>
         )}
 
