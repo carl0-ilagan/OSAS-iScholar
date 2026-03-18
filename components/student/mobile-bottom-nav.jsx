@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, ClipboardCheck, FilePenLine } from "lucide-react"
+import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, ClipboardCheck, FilePenLine, Video } from "lucide-react"
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/student" },
   { icon: FileText, label: "Apply", href: "/student/apply" },
   { icon: FilePenLine, label: "PDF", href: "/student/pdf-forms" },
   { icon: History, label: "History", href: "/student/applications" },
+  { icon: Video, label: "Consult", href: "/student/consultations" },
   { icon: ClipboardCheck, label: "Requirements", href: "/student/requirements" },
   { icon: MessageSquare, label: "Testimonials", href: "/student/feedback" },
 ]
@@ -61,7 +62,7 @@ export default function MobileBottomNav() {
         isVisible ? "translate-y-0" : "translate-y-full"
       }`}
     >
-      <div className="flex items-center justify-around px-2 py-2">
+      <div className="flex items-center justify-around px-1 py-2">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -70,7 +71,7 @@ export default function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={`
-                flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl
+                flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-xl
                 transition-all duration-200
                 ${isActive
                   ? "text-primary scale-110"

@@ -2,37 +2,39 @@
 
 import { useState, useEffect } from "react"
 import AdminSidebar from "@/components/admin/sidebar"
-import AdminMobileHeader from "@/components/admin/mobile-header"
 import AdminMobileBottomNav from "@/components/admin/mobile-bottom-nav"
+import AdminTopHeader from "@/components/admin/top-header"
 
 export default function AdminLayoutWrapper({ children }) {
-  const [isMobile, setIsMobile] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+    const savedTheme = localStorage.getItem("admin-theme")
+    if (savedTheme === "dark") {
+      setIsDarkMode(true)
     }
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
+  const handleToggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev
+      localStorage.setItem("admin-theme", next ? "dark" : "light")
+      return next
+    })
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className={`flex h-screen overflow-hidden bg-background ${isDarkMode ? "admin-dark" : ""}`}>
       {/* Desktop Sidebar */}
-      <div className="hidden w-56 flex-shrink-0 md:block">
+      <div className="hidden w-64 flex-shrink-0 md:block">
         <AdminSidebar />
       </div>
 
-      {/* Mobile Header */}
-      <div className="md:hidden">
-        <AdminMobileHeader />
-      </div>
+      <AdminTopHeader isDarkMode={isDarkMode} onToggleTheme={handleToggleTheme} />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto scrollbar-hide">
-        {/* Mobile padding for header and bottom nav */}
-        <div className="pt-16 pb-20 md:pt-0 md:pb-0">
+        <div className="pt-16 pb-20 md:pb-0">
           {children}
         </div>
       </main>

@@ -5,8 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react"
 export default function PdfOverlayStage({
   pdfUrl,
   scale = 1.3,
+  maxPageWidth = null,
   className = "",
   onPageClick,
+  onPageMouseDown,
+  onPageMouseMove,
+  onPageMouseUp,
+  onPageContextMenu,
   renderOverlay,
 }) {
   const containerRef = useRef(null)
@@ -43,7 +48,12 @@ export default function PdfOverlayStage({
           }
 
           const page = await pdf.getPage(pageIndex)
-          const viewport = page.getViewport({ scale })
+          const baseViewport = page.getViewport({ scale: 1 })
+          const fitScale =
+            typeof maxPageWidth === "number" && maxPageWidth > 0
+              ? Math.min(scale, maxPageWidth / Math.max(1, baseViewport.width))
+              : scale
+          const viewport = page.getViewport({ scale: fitScale })
 
           const pageWrapper = document.createElement("div")
           pageWrapper.className = "relative mx-auto mb-4 w-fit overflow-hidden rounded-lg border border-border bg-white shadow"
@@ -67,6 +77,7 @@ export default function PdfOverlayStage({
             page: pageIndex,
             width: viewport.width,
             height: viewport.height,
+            renderScale: fitScale,
           })
         }
 
@@ -95,7 +106,7 @@ export default function PdfOverlayStage({
         canvas.height = 0
       })
     }
-  }, [pdfUrl, scale])
+  }, [pdfUrl, scale, maxPageWidth])
 
   const pagesByNumber = useMemo(() => {
     return pages.reduce((acc, current) => {
@@ -104,24 +115,55 @@ export default function PdfOverlayStage({
     }, {})
   }, [pages])
 
+  function buildPagePointerPayload(event) {
+    if (!event?.target) return null
+    const wrapper = event.target.closest?.("[data-page]")
+    if (!wrapper) return null
+
+    const page = Number(wrapper.dataset.page)
+    const metrics = pagesByNumber[page]
+    if (!metrics) return null
+
+    const rect = wrapper.getBoundingClientRect()
+    const x = (event.clientX - rect.left) / rect.width
+    const y = (event.clientY - rect.top) / rect.height
+    return { page, x, y, width: rect.width, height: rect.height, nativeEvent: event }
+  }
+
   return (
     <div className={`relative ${className}`}>
       <div
         ref={containerRef}
         className="relative"
         onClick={(event) => {
-          if (!onPageClick || !event.target) return
-          const wrapper = event.target.closest?.("[data-page]")
-          if (!wrapper) return
-
-          const page = Number(wrapper.dataset.page)
-          const metrics = pagesByNumber[page]
-          if (!metrics) return
-
-          const rect = wrapper.getBoundingClientRect()
-          const x = (event.clientX - rect.left) / rect.width
-          const y = (event.clientY - rect.top) / rect.height
-          onPageClick({ page, x, y, width: rect.width, height: rect.height })
+          if (!onPageClick) return
+          const payload = buildPagePointerPayload(event)
+          if (!payload) return
+          onPageClick(payload)
+        }}
+        onMouseDown={(event) => {
+          if (!onPageMouseDown) return
+          const payload = buildPagePointerPayload(event)
+          if (!payload) return
+          onPageMouseDown(payload)
+        }}
+        onMouseMove={(event) => {
+          if (!onPageMouseMove) return
+          const payload = buildPagePointerPayload(event)
+          if (!payload) return
+          onPageMouseMove(payload)
+        }}
+        onMouseUp={(event) => {
+          if (!onPageMouseUp) return
+          const payload = buildPagePointerPayload(event)
+          if (!payload) return
+          onPageMouseUp(payload)
+        }}
+        onContextMenu={(event) => {
+          if (!onPageContextMenu) return
+          const payload = buildPagePointerPayload(event)
+          if (!payload) return
+          onPageContextMenu(payload)
         }}
       />
 

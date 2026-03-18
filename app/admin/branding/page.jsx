@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { useBranding } from "@/contexts/BrandingContext"
 import { Upload, Save, Loader2, Image as ImageIcon, X, CheckCircle2, AlertCircle, Sparkles, Palette, Globe, Eye } from "lucide-react"
 import { toast } from "sonner"
@@ -205,15 +204,7 @@ export default function BrandingSettingsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative bg-gradient-to-br from-background via-background to-muted/20 min-h-screen">
-        {/* Floating Banner */}
-        <AdminPageBanner
-          icon={Palette}
-          title="Branding Settings"
-          description="Customize your website logo, name, and favicon"
-        />
-
-        {/* Content */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {/* Enhanced Header */}
             <div className="mb-10">

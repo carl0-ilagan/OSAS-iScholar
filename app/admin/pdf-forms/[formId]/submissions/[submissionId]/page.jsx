@@ -188,7 +188,7 @@ export default function AdminSubmissionViewerPage() {
           continue
         }
 
-        if (field.type === "image" && typeof value === "string" && value) {
+        if ((field.type === "image" || field.type === "signature") && typeof value === "string" && value) {
           try {
             const imageBytes = await fetch(value).then((response) => response.arrayBuffer())
             let image
@@ -212,7 +212,12 @@ export default function AdminSubmissionViewerPage() {
         if (value != null && value !== "") {
           const font = await pickFont(field)
           const fontSize = Math.max(7, Number(field.fontSize || 10))
-          const rawText = field.uppercaseOnly ? String(value).toUpperCase() : String(value)
+          const stringValue = Array.isArray(value)
+            ? value
+                .map((row) => (Array.isArray(row) ? row.join(" | ") : String(row || "")))
+                .join("\n")
+            : String(value)
+          const rawText = field.uppercaseOnly ? stringValue.toUpperCase() : stringValue
           const renderedWidth = font.widthOfTextAtSize(rawText, fontSize)
           const padding = 2
           let textX = x + padding
@@ -230,6 +235,7 @@ export default function AdminSubmissionViewerPage() {
             font,
             color: hexToRgbColor(field.textColor),
             maxWidth: fieldWidth - 4,
+            lineHeight: fontSize + 1,
           })
         }
       }

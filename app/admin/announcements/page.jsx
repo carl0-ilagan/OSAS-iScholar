@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { Megaphone, Plus, Search, Filter, ChevronDown, Archive, Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import AnnouncementsList from "@/components/admin/announcements-list"
@@ -437,16 +436,7 @@ export default function AnnouncementsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        {/* Banner */}
-        <AdminPageBanner
-          icon={Megaphone}
-          title="Announcements"
-          description="Manage and post announcements for all students"
-          className={isModalOpen || deleteModalOpen ? "blur-sm" : ""}
-        />
-
-        {/* Content */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Header with Add Button, Search, and Filter */}
           <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
             {/* Add Button - Left Side */}

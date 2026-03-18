@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { isAdmin, isStudent } from "@/lib/role-check"
+import { canAccessRoute, isPrimaryAdmin } from "@/lib/role-check"
 
 export default function AdminLayout({ children }) {
   const router = useRouter()
@@ -21,15 +21,15 @@ export default function AdminLayout({ children }) {
       return
     }
 
-    // If user is authenticated but not admin (i.e., student), redirect to student dashboard
-    if (user && isStudent(user)) {
-      router.push("/student")
+    if (!user) {
+      router.replace("/admin/login")
       return
     }
 
-    // Redirect to login if not authenticated or not authorized
-    if (!user || !isAdmin(user)) {
-      router.push("/admin/login")
+    // Authenticated but wrong role -> permission page
+    if (!canAccessRoute(user, "/admin")) {
+      router.replace("/unauthorized")
+      return
     }
   }, [user, loading, pathname, router])
 
@@ -45,14 +45,8 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  // Don't render protected content if not authorized (except login page)
-  // Also don't render if user is a student (they should be redirected)
-  if (pathname !== "/admin/login" && (!user || !isAdmin(user))) {
-    return null
-  }
-
-  // If user is authenticated but not admin, don't render (redirect is happening)
-  if (user && isStudent(user)) {
+  // Don't render protected content if auth/role check is redirecting
+  if (pathname !== "/admin/login" && (!user || !isPrimaryAdmin(user))) {
     return null
   }
 

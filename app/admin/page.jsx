@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import AdminLayoutWrapper from "./admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import AdminDashboardCard from "@/components/admin/dashboard-card"
 import EnhancedDashboardCard from "@/components/admin/enhanced-dashboard-card"
 import DashboardSkeleton from "@/components/admin/dashboard-skeleton"
@@ -473,15 +472,7 @@ export default function AdminDashboard() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        {/* Floating Banner */}
-        <AdminPageBanner
-          icon={LayoutDashboard}
-          title="Admin Dashboard"
-          description="System overview and management"
-        />
-
-        {/* Content - matches other admin pages */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           <div className="w-full p-4 md:p-5">
           {loading ? (
             <DashboardSkeleton />

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, LogOut, ChevronLeft, ChevronRight, ClipboardCheck, FilePenLine } from "lucide-react"
+import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, LogOut, ChevronLeft, ChevronRight, ClipboardCheck, FilePenLine, Video } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
@@ -15,6 +15,7 @@ const navItems = [
   { icon: FileText, label: "Apply Scholarship", href: "/student/apply" },
   { icon: FilePenLine, label: "PDF Forms", href: "/student/pdf-forms" },
   { icon: History, label: "Application History", href: "/student/applications" },
+  { icon: Video, label: "Consultation", href: "/student/consultations" },
   { icon: ClipboardCheck, label: "Requirements", href: "/student/requirements" },
   { icon: MessageSquare, label: "Testimonials", href: "/student/feedback" },
 ]

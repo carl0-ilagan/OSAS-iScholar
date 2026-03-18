@@ -1,18 +1,62 @@
     rules_version = '2';
     service cloud.firestore {
       match /databases/{database}/documents {
+        function isAuthenticated() {
+          return request.auth != null;
+        }
+
+        function isSuperAdmin() {
+          return isAuthenticated() && request.auth.token.email == "contact.ischolar@gmail.com";
+        }
+
+        function isCampusAdmin() {
+          return isAuthenticated() &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campus_admin";
+        }
+
+        function sameCampus(campus) {
+          return isCampusAdmin() &&
+            campus != null &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus == campus;
+        }
+
+        function sameCampusByUserId(userId) {
+          return isCampusAdmin() &&
+            userId != null &&
+            get(/databases/$(database)/documents/users/$(userId)).data.campus ==
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus;
+        }
+
+        function userCampus() {
+          return isAuthenticated()
+            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus
+            : null;
+        }
+
+        function sameUserCampus(campus) {
+          return isAuthenticated() &&
+            campus != null &&
+            userCampus() == campus;
+        }
+
+        function sameRoomCreatorCampus(roomId) {
+          return isAuthenticated() &&
+            sameCampusByUserId(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy);
+        }
+
         // Users collection - users can read/write their own document
         match /users/{userId} {
           // Allow read if user is authenticated and reading their own document, or if admin
-          allow read: if request.auth != null && (
+          allow read: if isAuthenticated() && (
             request.auth.uid == userId ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampus(resource.data.campus)
           );
           
           // Allow write (create/update) if user is authenticated and writing their own document, or if admin
-          allow write: if request.auth != null && (
+          allow write: if isAuthenticated() && (
             request.auth.uid == userId ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin()
           );
         }
         
@@ -22,7 +66,7 @@
           allow read: if true;
           
           // Allow write only for admin (contact.ischolar@gmail.com)
-          allow write: if request.auth != null && request.auth.token.email == "contact.ischolar@gmail.com";
+          allow write: if isSuperAdmin();
         }
         
         // Verifications collection - student verification requests
@@ -30,7 +74,7 @@
           // Allow read if user is authenticated and reading their own verification
           allow read: if request.auth != null && (
             request.auth.uid == resource.data.userId ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin()
           );
           
           // Allow create if user is authenticated and creating their own verification
@@ -39,11 +83,11 @@
           
           // Allow update only for admin (to change status)
           allow update: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+                        isSuperAdmin();
           
           // Allow delete only for admin
           allow delete: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+                        isSuperAdmin();
         }
 
         // Applications collection - scholarship applications
@@ -51,7 +95,9 @@
           // Allow read if user is authenticated and reading their own application, or if admin
           allow read: if request.auth != null && (
             request.auth.uid == resource.data.userId ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId) ||
+            sameCampus(resource.data.campus)
           );
           
           // Allow create if user is authenticated and creating their own application
@@ -60,22 +106,39 @@
                         request.resource.data.userId == request.auth.uid;
           
           // Allow update only for admin (to change status)
-          allow update: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+          allow update: if request.auth != null && (
+                        isSuperAdmin() ||
+                        sameCampusByUserId(resource.data.userId) ||
+                        sameCampus(resource.data.campus)
+                      );
           
           // Allow delete only for admin
-          allow delete: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+          allow delete: if request.auth != null && (
+                        isSuperAdmin() ||
+                        sameCampusByUserId(resource.data.userId) ||
+                        sameCampus(resource.data.campus)
+                      );
         }
 
         // Scholarships collection - scholarship programs
         match /scholarships/{scholarshipId} {
-          // Allow read for all authenticated users
-          allow read: if request.auth != null;
+          // Super admin can read all; campus admins can only read same-campus scholarships.
+          // Non-campus-admin authenticated users (students/regular admin flows) keep existing read behavior.
+          allow read: if request.auth != null && (
+            isSuperAdmin() ||
+            !isCampusAdmin() ||
+            sameCampus(resource.data.campus)
+          );
           
-          // Allow write only for admin
-          allow write: if request.auth != null && 
-                      request.auth.token.email == "contact.ischolar@gmail.com";
+          // Super admin has full write access; campus admin can manage own campus scholarships
+          allow create: if request.auth != null && (
+                        isSuperAdmin() ||
+                        sameCampus(request.resource.data.campus)
+                      );
+          allow update, delete: if request.auth != null && (
+                                isSuperAdmin() ||
+                                sameCampus(resource.data.campus)
+                              );
           
           // Allow students to update slots field only (for application slot decrement)
           allow update: if request.auth != null &&
@@ -92,7 +155,7 @@
           
           // Allow write only for admin
           allow write: if request.auth != null && 
-                      request.auth.token.email == "contact.ischolar@gmail.com";
+                      isSuperAdmin();
         }
 
         // Feedback collection
@@ -100,7 +163,7 @@
           // Allow read if user is reading their own feedback, or if admin
           allow read: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin()
           );
           
           // Allow create for authenticated users
@@ -110,16 +173,24 @@
 
         // Testimonials collection
         match /testimonials/{testimonialId} {
-          // Allow read for all (including unauthenticated for landing page)
-          allow read: if true;
+          // Keep landing page public access, but scope authenticated campus admins to their campus only.
+          allow read: if request.auth == null || (
+            isSuperAdmin() ||
+            !isCampusAdmin() ||
+            sameCampus(resource.data.campus) ||
+            sameCampusByUserId(resource.data.userId)
+          );
           
           // Allow create for authenticated users
           allow create: if request.auth != null && 
                         request.resource.data.userId == request.auth.uid;
           
-          // Allow write (update/delete) only for admin
-          allow write: if request.auth != null && 
-                      request.auth.token.email == "contact.ischolar@gmail.com";
+          // Super admin can manage all; campus admin can manage testimonials from own campus users
+          allow update, delete: if request.auth != null && (
+                                isSuperAdmin() ||
+                                sameCampusByUserId(resource.data.userId) ||
+                                sameCampus(resource.data.campus)
+                              );
         }
 
         // Document Requirements collection - requirements set by admin
@@ -129,7 +200,7 @@
           
           // Allow write only for admin
           allow write: if request.auth != null && 
-                      request.auth.token.email == "contact.ischolar@gmail.com";
+                      isSuperAdmin();
           
           // Sample chunks subcollection for large PDF files
           match /sampleChunks/{chunkId} {
@@ -138,7 +209,7 @@
             
             // Allow write only for admin
             allow write: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+                        isSuperAdmin();
           }
         }
 
@@ -147,7 +218,8 @@
           // Allow read if user is reading their own document, or if admin
           allow read: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow create if user is authenticated and creating their own document
@@ -157,13 +229,15 @@
           // Allow update if user is updating their own document, or if admin
           allow update: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow delete if user is deleting their own document, or if admin
           allow delete: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Chunks subcollection for large files
@@ -171,13 +245,15 @@
             // Allow read if user owns the parent document, or if admin
             allow read: if request.auth != null && (
               get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId == request.auth.uid ||
-              request.auth.token.email == "contact.ischolar@gmail.com"
+              isSuperAdmin() ||
+              sameCampusByUserId(get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId)
             );
             
             // Allow write if user owns the parent document, or if admin
             allow write: if request.auth != null && (
               get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId == request.auth.uid ||
-              request.auth.token.email == "contact.ischolar@gmail.com"
+              isSuperAdmin() ||
+              sameCampusByUserId(get(/databases/$(database)/documents/studentDocuments/$(documentId)).data.userId)
             );
           }
         }
@@ -187,7 +263,8 @@
           // Allow read if user is reading their own form, or if admin
           allow read: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow create if user is authenticated and creating their own form
@@ -197,12 +274,13 @@
           // Allow update if user is updating their own form, or if admin
           allow update: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow delete only for admin
           allow delete: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+                        isSuperAdmin();
         }
 
         // Application Forms collection - application forms submitted by students
@@ -210,7 +288,8 @@
           // Allow read if user is reading their own form, or if admin
           allow read: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow create if user is authenticated and creating their own form
@@ -220,12 +299,13 @@
           // Allow update if user is updating their own form, or if admin
           allow update: if request.auth != null && (
             resource.data.userId == request.auth.uid ||
-            request.auth.token.email == "contact.ischolar@gmail.com"
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.userId)
           );
           
           // Allow delete only for admin
           allow delete: if request.auth != null && 
-                        request.auth.token.email == "contact.ischolar@gmail.com";
+                        isSuperAdmin();
         }
 
         // Dynamic PDF forms managed by admin
@@ -235,7 +315,7 @@
 
           // Only admin can create/update/delete forms
           allow create, update, delete: if request.auth != null &&
-                                        request.auth.token.email == "contact.ischolar@gmail.com";
+                                        isSuperAdmin();
         }
 
         // PDF template chunks (stored in Firestore to avoid Firebase Storage dependency)
@@ -245,7 +325,7 @@
 
           // Only admin can create/update/delete chunk documents
           allow create, update, delete: if request.auth != null &&
-                                        request.auth.token.email == "contact.ischolar@gmail.com";
+                                        isSuperAdmin();
         }
 
         // Field definitions for each dynamic PDF form
@@ -255,45 +335,147 @@
 
           // Only admin can create/update/delete fields
           allow create, update, delete: if request.auth != null &&
-                                        request.auth.token.email == "contact.ischolar@gmail.com";
+                                        isSuperAdmin();
         }
 
         // Student submissions metadata
         match /submissions/{submissionId} {
           // Student can create only for their own uid; admin can create if needed
           allow create: if request.auth != null && (
-            request.auth.token.email == "contact.ischolar@gmail.com" ||
+            isSuperAdmin() ||
+            sameCampusByUserId(request.resource.data.studentId) ||
+            sameCampus(request.resource.data.campus) ||
             request.resource.data.studentId == request.auth.uid
           );
 
           // Student can read own submissions, admin can read all
           allow read: if request.auth != null && (
-            request.auth.token.email == "contact.ischolar@gmail.com" ||
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.studentId) ||
+            sameCampus(resource.data.campus) ||
             resource.data.studentId == request.auth.uid
           );
 
           // Only admin can edit/delete submission metadata
-          allow update, delete: if request.auth != null &&
-                                request.auth.token.email == "contact.ischolar@gmail.com";
+          allow update, delete: if request.auth != null && (
+                                isSuperAdmin() ||
+                                sameCampusByUserId(resource.data.studentId) ||
+                                sameCampus(resource.data.campus)
+                              );
         }
 
         // Values for each field in a submission
         match /submission_values/{valueId} {
           // Student can create values only under their own submission; admin can create/read/update/delete
           allow create: if request.auth != null && (
-            request.auth.token.email == "contact.ischolar@gmail.com" ||
+            isSuperAdmin() ||
+            sameCampusByUserId(get(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId)).data.studentId) ||
+            sameCampus(get(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId)).data.campus) ||
             get(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId)).data.studentId == request.auth.uid
           );
 
           // Read own values through submission ownership, or as admin
           allow read: if request.auth != null && (
-            request.auth.token.email == "contact.ischolar@gmail.com" ||
+            isSuperAdmin() ||
+            sameCampusByUserId(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId) ||
+            sameCampus(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.campus) ||
             get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId == request.auth.uid
           );
 
           // Editing values post-submit is admin-only in this flow
-          allow update, delete: if request.auth != null &&
-                                request.auth.token.email == "contact.ischolar@gmail.com";
+          allow update, delete: if request.auth != null && (
+                                isSuperAdmin() ||
+                                sameCampusByUserId(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId) ||
+                                sameCampus(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.campus)
+                              );
+        }
+
+        // Consultation rooms for campus-admin video consult scheduling
+        match /consultation_rooms/{roomId} {
+          // Any authenticated user from same campus can read room list/details.
+          allow read: if request.auth != null && (
+            isSuperAdmin() ||
+            sameUserCampus(resource.data.campus) ||
+            sameCampusByUserId(resource.data.createdBy)
+          );
+
+          // Room creation is campus-admin scoped to own campus.
+          allow create: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampus(request.resource.data.campus)
+          );
+
+          // Update:
+          // - super admin
+          // - campus admin of same campus
+          // - student from same campus only for join/call signaling fields
+          allow update: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampus(resource.data.campus) ||
+            sameCampusByUserId(resource.data.createdBy) ||
+            (
+              (sameUserCampus(resource.data.campus) || sameCampusByUserId(resource.data.createdBy)) &&
+              (
+                resource.data.joinedStudentId == request.auth.uid ||
+                (resource.data.joinedStudentId == null && request.resource.data.joinedStudentId == request.auth.uid)
+              ) &&
+              request.resource.data.campus == resource.data.campus &&
+              request.resource.data.createdBy == resource.data.createdBy &&
+              request.resource.data.createdAt == resource.data.createdAt &&
+              request.resource.data.roomName == resource.data.roomName &&
+              request.resource.data.durationMinutes == resource.data.durationMinutes &&
+              request.resource.data.expiresAt == resource.data.expiresAt
+            )
+          );
+
+          // Delete remains admin-only.
+          allow delete: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampus(resource.data.campus)
+          );
+
+          // WebRTC ICE candidates for caller/admin side
+          match /offerCandidates/{candidateId} {
+            allow read, create: if request.auth != null && (
+              isSuperAdmin() ||
+              sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+            allow update, delete: if request.auth != null && (
+              isSuperAdmin() ||
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+          }
+
+          // WebRTC ICE candidates for callee/student side
+          match /answerCandidates/{candidateId} {
+            allow read, create: if request.auth != null && (
+              isSuperAdmin() ||
+              sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+            allow update, delete: if request.auth != null && (
+              isSuperAdmin() ||
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+          }
+
+          // Consultation room chat messages
+          match /messages/{messageId} {
+            allow read, create: if request.auth != null && (
+              isSuperAdmin() ||
+              sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+            allow update, delete: if request.auth != null && (
+              isSuperAdmin() ||
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId) ||
+              resource.data.senderId == request.auth.uid
+            );
+          }
         }
       }
     }

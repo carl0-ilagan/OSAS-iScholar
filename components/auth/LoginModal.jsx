@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
@@ -10,7 +9,6 @@ import { Loader2 } from "lucide-react"
 import WelcomeLoginModal from "./welcome-login-modal"
 
 export default function LoginModal({ open, onOpenChange }) {
-  const router = useRouter()
   const { signInWithEmail, resetPassword, signOut } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -173,7 +171,6 @@ export default function LoginModal({ open, onOpenChange }) {
         isOpen={showWelcomeModal}
         onClose={() => {
           setShowWelcomeModal(false)
-          router.push("/student")
         }}
         userId={loggedInUserId}
       />

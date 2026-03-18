@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { FileText, Search, Filter, ChevronDown } from "lucide-react"
 import ApplicationsTable from "@/components/admin/applications-table"
 import ApplicationsTableSkeleton from "@/components/admin/applications-table-skeleton"
@@ -204,15 +203,7 @@ export default function ApplicationsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        {/* Banner */}
-        <AdminPageBanner
-          icon={FileText}
-          title="Scholarship Applications"
-          description="Review and manage student scholarship applications"
-        />
-
-        {/* Content */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Search and Filters */}
           <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-end">
             {/* Search Bar */}

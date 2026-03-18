@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { Users, Search, Filter, ChevronDown, FileText, User, BarChart3, PieChart, TrendingUp, Eye, Mail, Hash, GraduationCap, Calendar, CheckCircle, MapPin, Download } from "lucide-react"
 import UsersTable from "@/components/admin/users-table"
 import UsersTableSkeleton from "@/components/admin/users-table-skeleton"
@@ -100,8 +99,9 @@ export default function UsersPage() {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data()
           
-          // Filter out admin accounts - only show student users
-          if (data.email === ADMIN_EMAIL) {
+          // Filter out admin and campus admin accounts - only show student users
+          const normalizedRole = String(data.role || "").trim().toLowerCase()
+          if (data.email === ADMIN_EMAIL || normalizedRole === "admin" || normalizedRole === "campus_admin") {
             continue
           }
           
@@ -1096,13 +1096,7 @@ export default function UsersPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <AdminPageBanner
-          icon={Users}
-          title="User Management"
-          description="Manage and view all registered students"
-        />
-
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Tab Control - Enhanced for Desktop and Mobile */}
           <div className="relative mb-6">
             <div className="flex gap-1 md:gap-2 border-b-2 border-border relative bg-gradient-to-r from-card/80 via-card/60 to-card/80 backdrop-blur-md rounded-t-xl p-1.5 md:p-2 overflow-x-auto scrollbar-hide shadow-lg">

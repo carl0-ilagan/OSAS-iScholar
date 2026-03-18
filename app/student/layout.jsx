@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { isAdmin } from "@/lib/role-check"
+import { canAccessRoute } from "@/lib/role-check"
 import StudentSidebar from "@/components/student/sidebar"
 import MobileHeader from "@/components/student/mobile-header"
 import MobileBottomNav from "@/components/student/mobile-bottom-nav"
@@ -13,6 +13,7 @@ export default function StudentLayout({ children }) {
   const pathname = usePathname()
   const { user, loading } = useAuth()
   const [isMobile, setIsMobile] = useState(false)
+  const isConsultationRoute = pathname?.startsWith("/student/consultations")
 
   useEffect(() => {
     const checkMobile = () => {
@@ -23,22 +24,21 @@ export default function StudentLayout({ children }) {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // Role-based access control: Prevent admin from accessing student routes
+  // Role-based access control for student area
   useEffect(() => {
     // Wait for auth to load
     if (loading) {
       return
     }
 
-    // If user is admin, redirect to admin dashboard
-    if (user && isAdmin(user)) {
-      router.push("/admin")
+    if (!user) {
+      router.replace("/")
       return
     }
 
-    // If user is not authenticated, redirect to landing page
-    if (!user) {
-      router.push("/")
+    // Authenticated but wrong role -> permission page
+    if (!canAccessRoute(user, "/student")) {
+      router.replace("/unauthorized")
       return
     }
   }, [user, loading, router])
@@ -55,35 +55,41 @@ export default function StudentLayout({ children }) {
     )
   }
 
-  // Don't render content if user is admin or not authenticated
-  if (!user || isAdmin(user)) {
+  // Don't render content while redirecting unauthenticated/wrong role users
+  if (!user || !canAccessRoute(user, "/student")) {
     return null
   }
 
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
-        <StudentSidebar />
-      </div>
+      {!isConsultationRoute ? (
+        <div className="hidden md:block">
+          <StudentSidebar />
+        </div>
+      ) : null}
 
       {/* Mobile Header */}
-      <div className="md:hidden">
-        <MobileHeader />
-      </div>
+      {!isConsultationRoute ? (
+        <div className="md:hidden">
+          <MobileHeader />
+        </div>
+      ) : null}
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto scrollbar-hide md:ml-0">
         {/* Mobile padding for header and bottom nav */}
-        <div className="pt-16 pb-20 md:pt-0 md:pb-0">
+        <div className={isConsultationRoute ? "h-full" : "pt-16 pb-20 md:pt-0 md:pb-0"}>
           {children}
         </div>
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden">
-        <MobileBottomNav />
-      </div>
+      {!isConsultationRoute ? (
+        <div className="md:hidden">
+          <MobileBottomNav />
+        </div>
+      ) : null}
     </div>
   )
 }

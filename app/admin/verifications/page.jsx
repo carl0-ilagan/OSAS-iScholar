@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import VerificationTable from "@/components/admin/verification-table"
 import VerificationTableSkeleton from "@/components/admin/verification-table-skeleton"
 import VerificationFilter from "@/components/admin/verification-filter"
@@ -213,15 +212,7 @@ export default function VerificationsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        {/* Floating Banner */}
-        <AdminPageBanner
-          icon={ShieldCheck}
-          title="Student Verifications"
-          description="Review and approve student account verifications"
-        />
-
-        {/* Content - Full width on desktop */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           <div className="w-full">
             {/* Filters */}
             <div className="mb-6 md:mb-8">

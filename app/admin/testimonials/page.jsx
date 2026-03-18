@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, updateDoc, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { MessageSquare, Star, CheckCircle2, Loader2, Award, GraduationCap, Filter, ArrowUpDown, Calendar } from "lucide-react"
 import { toast } from "sonner"
 import TestimonialsSkeleton from "@/components/admin/testimonials-skeleton"
@@ -153,13 +152,7 @@ export default function TestimonialsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <AdminPageBanner
-          icon={MessageSquare}
-          title="Testimonials Management"
-          description="Select which testimonials to display on the landing page"
-        />
-
-        <div className="mt-36 md:mt-28 p-6 space-y-6">
+        <div className="p-6 space-y-6">
           {/* Featured Count Card - Enhanced */}
           <div className="bg-gradient-to-br from-green-500/10 via-green-500/5 to-green-600/5 border-2 border-green-500/30 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between">

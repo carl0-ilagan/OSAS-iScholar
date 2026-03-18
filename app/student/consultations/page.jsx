@@ -1,0 +1,375 @@
+"use client"
+
+import { useEffect, useMemo, useRef, useState } from "react"
+import { addDoc, collection, onSnapshot, query, where } from "firebase/firestore"
+import { Clock3, MessageCircle, PanelRightClose, PanelRightOpen, Video } from "lucide-react"
+import Link from "next/link"
+import { useAuth } from "@/contexts/AuthContext"
+import { db } from "@/lib/firebase"
+import { normalizeCampus } from "@/lib/campus-admin-config"
+import WebRtcRoom from "@/components/consultations/webrtc-room"
+
+function formatRemainingTime(expiresAt) {
+  if (!expiresAt) return "No timer"
+  const diffMs = new Date(expiresAt).getTime() - Date.now()
+  if (diffMs <= 0) return "Expired"
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const mins = Math.floor(totalSeconds / 60)
+  const secs = totalSeconds % 60
+  return `${mins}:${String(secs).padStart(2, "0")} left`
+}
+
+export default function StudentConsultationsPage() {
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [rooms, setRooms] = useState([])
+  const [activeRoomId, setActiveRoomId] = useState(null)
+  const [isRoomListOpen, setIsRoomListOpen] = useState(true)
+  const [sidebarTab, setSidebarTab] = useState("rooms")
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState("")
+  const [sendingChat, setSendingChat] = useState(false)
+  const [previewError, setPreviewError] = useState("")
+  const localPreviewRef = useRef(null)
+  const previewStreamRef = useRef(null)
+  const activeCampus = useMemo(() => normalizeCampus(user?.campus || null), [user?.campus])
+
+  useEffect(() => {
+    if (!user?.uid || !activeCampus) {
+      setRooms([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const roomsQuery = query(collection(db, "consultation_rooms"), where("campus", "==", activeCampus))
+    const unsub = onSnapshot(
+      roomsQuery,
+      (snapshot) => {
+        const rows = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((row) => String(row.status || "active") === "active")
+          .filter((row) => {
+            if (!row.expiresAt) return true
+            return new Date(row.expiresAt).getTime() > Date.now()
+          })
+          .sort((a, b) => {
+            const aInvited = a.invitedStudentId && a.invitedStudentId === user.uid ? 1 : 0
+            const bInvited = b.invitedStudentId && b.invitedStudentId === user.uid ? 1 : 0
+            if (aInvited !== bInvited) return bInvited - aInvited
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          })
+        setRooms(rows)
+        setLoading(false)
+      },
+      (error) => {
+        console.error("Error loading consultation rooms:", error)
+        setRooms([])
+        setLoading(false)
+      },
+    )
+
+    return () => unsub()
+  }, [activeCampus, user?.uid])
+
+  useEffect(() => {
+    let mounted = true
+    const startPreview = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        if (!mounted) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+        previewStreamRef.current = stream
+        setPreviewError("")
+        if (localPreviewRef.current) {
+          localPreviewRef.current.srcObject = stream
+        }
+      } catch (error) {
+        console.error("Student preview camera error:", error)
+        if (mounted) {
+          setPreviewError("Enable camera permission to show your POV.")
+        }
+      }
+    }
+
+    startPreview()
+
+    return () => {
+      mounted = false
+      if (previewStreamRef.current) {
+        previewStreamRef.current.getTracks().forEach((track) => track.stop())
+        previewStreamRef.current = null
+      }
+      if (localPreviewRef.current) {
+        localPreviewRef.current.srcObject = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!rooms.length) {
+      setActiveRoomId(null)
+      return
+    }
+    if (activeRoomId && rooms.some((room) => room.id === activeRoomId)) {
+      return
+    }
+    const invited = rooms.find((room) => room.invitedStudentId && room.invitedStudentId === user?.uid)
+    setActiveRoomId(invited?.id || rooms[0]?.id || null)
+  }, [rooms, activeRoomId, user?.uid])
+
+  useEffect(() => {
+    if (!activeRoomId) {
+      setChatMessages([])
+      return
+    }
+    const unsubscribe = onSnapshot(
+      collection(db, "consultation_rooms", activeRoomId, "messages"),
+      (snapshot) => {
+        const rows = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+        setChatMessages(rows)
+      },
+      (error) => {
+        console.error("Error loading consultation chat:", error)
+        setChatMessages([])
+      },
+    )
+    return () => unsubscribe()
+  }, [activeRoomId])
+
+  const activeRoom = useMemo(
+    () => rooms.find((room) => room.id === activeRoomId) || null,
+    [rooms, activeRoomId],
+  )
+
+  const sendChatMessage = async () => {
+    const text = chatInput.trim()
+    if (!text || !activeRoomId) return
+    try {
+      setSendingChat(true)
+      await addDoc(collection(db, "consultation_rooms", activeRoomId, "messages"), {
+        text,
+        senderId: user?.uid || null,
+        senderName: user?.fullName || user?.displayName || user?.email || "Student",
+        senderRole: "student",
+        createdAt: new Date().toISOString(),
+      })
+      setChatInput("")
+    } catch (error) {
+      console.error("Error sending chat message:", error)
+    } finally {
+      setSendingChat(false)
+    }
+  }
+
+  return (
+    <div className="h-[100dvh] w-full bg-slate-950">
+      <div className="h-full w-full">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden border border-slate-800/80 bg-slate-950 text-slate-100 shadow-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <Link
+                href="/student"
+                className="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-800 px-3 text-xs font-medium text-slate-100 hover:bg-slate-700"
+              >
+                Back
+              </Link>
+              <div>
+                <p className="flex items-center gap-2 text-xl font-semibold">
+                  <Video className="h-4 w-4 text-emerald-400" />
+                  Student Consultation Room
+                </p>
+                <p className="text-sm text-slate-400">
+                  {activeRoom ? String(activeRoom.callState || "waiting") : "Not connected"}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-right">
+              <p className="text-[10px] uppercase tracking-wide text-slate-400">Remaining</p>
+              <p className="text-sm font-semibold text-slate-100">
+                {activeRoom ? formatRemainingTime(activeRoom.expiresAt) : "No timer"}
+              </p>
+            </div>
+          </div>
+
+          <div className="border-b border-slate-800 px-4 py-2">
+            <p className="text-xs text-slate-400">Room Creator View</p>
+          </div>
+
+          <div className="relative min-h-0 flex-1">
+            <div className="h-full p-2 md:p-3">
+              {activeRoomId ? (
+                <WebRtcRoom
+                  roomId={activeRoomId}
+                  role="student"
+                  backHref="/student/consultations"
+                  showHeader={false}
+                  showBackButton={false}
+                  showMeta={false}
+                  compact
+                />
+              ) : (
+                <div className="relative h-full overflow-hidden rounded-xl border border-slate-800 bg-black">
+                  <div className="h-full min-h-[260px] w-full bg-black" />
+                  <div className="absolute bottom-3 right-3 z-20 w-[120px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]">
+                    <p className="border-b border-slate-700 bg-black/70 px-2 py-1 text-[10px] text-slate-300">You</p>
+                    <video
+                      ref={localPreviewRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="h-[82px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[95px] md:h-[110px]"
+                    />
+                  </div>
+                  {previewError ? (
+                    <div className="absolute bottom-3 left-3 z-20 rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] text-amber-700">
+                      {previewError}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {!isRoomListOpen ? (
+            <button
+              onClick={() => setIsRoomListOpen(true)}
+              className="absolute right-3 top-14 z-30 inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900/90 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800 md:top-16"
+            >
+              <PanelRightOpen className="h-3.5 w-3.5" />
+              Room List
+            </button>
+          ) : null}
+
+          <aside
+            className={`absolute inset-y-0 right-0 z-20 w-[330px] border-l border-slate-800 bg-slate-900/95 backdrop-blur transition-transform duration-300 ${
+              isRoomListOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+                <div className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1">
+                  <button
+                    onClick={() => setSidebarTab("rooms")}
+                    className={`rounded px-2 py-1 text-[11px] ${
+                      sidebarTab === "rooms" ? "bg-slate-700 text-slate-100" : "text-slate-300 hover:bg-slate-800"
+                    }`}
+                  >
+                    Rooms
+                  </button>
+                  <button
+                    onClick={() => setSidebarTab("chat")}
+                    className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] ${
+                      sidebarTab === "chat" ? "bg-slate-700 text-slate-100" : "text-slate-300 hover:bg-slate-800"
+                    }`}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Chat
+                  </button>
+                </div>
+                <button
+                  onClick={() => setIsRoomListOpen(false)}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                >
+                  <PanelRightClose className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {sidebarTab === "rooms" ? (
+                <div className="flex-1 overflow-y-auto">
+                  {loading ? (
+                    <p className="px-4 py-3 text-sm text-slate-400">Loading consultation rooms...</p>
+                  ) : rooms.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-slate-400">No active consultation room available right now.</p>
+                  ) : (
+                    rooms.map((room) => (
+                      <div key={room.id} className="border-b border-slate-800 px-4 py-3 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-slate-100">{room.roomName || "Consultation Room"}</p>
+                          {room.invitedStudentId === user?.uid ? (
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] text-sky-300">Invited</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-300">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {Number(room.durationMinutes || 0)} min
+                          </span>
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300">
+                            {String(room.status || "active")}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <button
+                            onClick={() => setActiveRoomId(room.id)}
+                            disabled={!!room.invitedStudentId && room.invitedStudentId !== user?.uid}
+                            className="rounded-md border border-slate-600 px-2 py-1 text-xs text-emerald-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Open
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="flex h-full min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
+                    {!activeRoomId ? (
+                      <p className="text-xs text-slate-500">Open a room first to chat.</p>
+                    ) : chatMessages.length === 0 ? (
+                      <p className="text-xs text-slate-500">No messages yet.</p>
+                    ) : (
+                      chatMessages.map((msg) => {
+                        const mine = msg.senderId === user?.uid
+                        return (
+                          <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                            <div
+                              className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${
+                                mine ? "bg-emerald-500/25 text-emerald-100" : "bg-slate-800 text-slate-100"
+                              }`}
+                            >
+                              <p className="mb-0.5 text-[10px] text-slate-300">{msg.senderName || "User"}</p>
+                              <p className="break-words">{msg.text}</p>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                  <div className="border-t border-slate-800 p-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            sendChatMessage()
+                          }
+                        }}
+                        placeholder="Type a message..."
+                        className="h-9 flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      />
+                      <button
+                        onClick={sendChatMessage}
+                        disabled={sendingChat || !chatInput.trim() || !activeRoomId}
+                        className="h-9 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  )
+}

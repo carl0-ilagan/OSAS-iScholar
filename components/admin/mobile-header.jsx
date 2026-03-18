@@ -3,12 +3,25 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
-import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award, FolderCheck, BookOpen, FilePenLine } from "lucide-react"
+import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award, FolderCheck, BookOpen, FilePenLine, FileText, LayoutDashboard, Moon, Sun } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LogoutModal from "./logout-modal"
+import { Switch } from "@/components/ui/switch"
 
-export default function AdminMobileHeader() {
+const quickLinks = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/applications", label: "Applications", icon: FileText },
+  { href: "/admin/pdf-forms", label: "PDF Builder", icon: FilePenLine },
+  { href: "/admin/requirements", label: "Requirements", icon: FolderCheck },
+  { href: "/admin/scholarships", label: "Scholarships", icon: BookOpen },
+  { href: "/admin/scholars", label: "Scholars", icon: Award },
+  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/branding", label: "Branding", icon: Palette },
+  { href: "/admin/testimonials", label: "Testimonials", icon: MessageSquare },
+]
+
+export default function AdminMobileHeader({ isDarkMode = false, onToggleTheme = () => {} }) {
   const { user } = useAuth()
   const { branding } = useBranding()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -45,7 +58,7 @@ export default function AdminMobileHeader() {
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary via-primary to-secondary text-white shadow-lg border-b border-white/10">
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo and Name */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {branding?.logo ? (
               <img 
                 key={branding.logo} 
@@ -62,7 +75,7 @@ export default function AdminMobileHeader() {
                 iA
               </div>
             )}
-            <span className="font-bold text-lg">
+            <span className="font-bold text-base">
               {branding?.name || "iScholar"} Admin
             </span>
           </div>
@@ -99,13 +112,13 @@ export default function AdminMobileHeader() {
 
             {/* Dropdown Menu */}
             <div
-              className={`absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-border overflow-hidden transition-all duration-300 ${
+              className={`absolute right-0 top-full mt-2 w-[19rem] bg-white rounded-2xl shadow-2xl border border-border overflow-hidden transition-all duration-300 ${
                 isProfileOpen 
                   ? "opacity-100 translate-y-0 pointer-events-auto" 
                   : "opacity-0 -translate-y-2 pointer-events-none"
               }`}
             >
-              <div className="p-2">
+              <div className="p-2.5">
                 {/* Profile Info */}
                 <div className="px-3 py-2 mb-2 border-b border-border">
                   <p className="text-sm font-semibold text-foreground truncate">
@@ -126,74 +139,40 @@ export default function AdminMobileHeader() {
                   <span>Profile</span>
                 </button>
 
-                {/* Mobile Navigation Items - Items NOT in bottom nav */}
+                <div className="mx-1 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm text-foreground">
+                      {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                      <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
+                    </div>
+                    <Switch
+                      checked={isDarkMode}
+                      onCheckedChange={(checked) => {
+                        if (checked !== isDarkMode) onToggleTheme()
+                      }}
+                      aria-label="Toggle admin dark mode"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Navigation */}
                 <div className="border-t border-border pt-2 mt-2">
-                  <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    More Options
+                  <p className="px-3 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Quick Navigation
                   </p>
-                  
-                  <Link
-                    href="/admin/pdf-forms"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <FilePenLine className="w-4 h-4" />
-                    <span>PDF Form Builder</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/requirements"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <FolderCheck className="w-4 h-4" />
-                    <span>Document Requirements</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/scholarships"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Scholarships</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/testimonials"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Testimonials</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/scholars"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <Award className="w-4 h-4" />
-                    <span>Scholars</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/users"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>User Management</span>
-                  </Link>
-
-                  <Link
-                    href="/admin/branding"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <Palette className="w-4 h-4" />
-                    <span>Brand Settings</span>
-                  </Link>
+                  <div className="grid grid-cols-2 gap-1.5 px-1">
+                    {quickLinks.map(({ href, label, icon: Icon }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="truncate">{label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Logout Button */}

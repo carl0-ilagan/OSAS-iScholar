@@ -55,12 +55,12 @@ export default function AdminMobileBottomNav() {
 
   return (
     <nav 
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border shadow-2xl transition-transform duration-300 ease-in-out ${
+      className={`md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-white/95 backdrop-blur transition-transform duration-300 ease-in-out ${
         isVisible ? "translate-y-0" : "translate-y-full"
       }`}
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex items-center justify-around px-0.5 py-1.5">
+      <div className="mx-2 my-1.5 flex items-center justify-around rounded-2xl bg-muted/60 px-1.5 py-1.5">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -69,10 +69,10 @@ export default function AdminMobileBottomNav() {
               key={item.href}
               href={item.href}
               className={`
-                flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded-lg
-                transition-all duration-200 min-w-0 flex-1 max-w-[20%]
+                flex flex-col items-center justify-center gap-0.5 rounded-xl px-1.5 py-1.5
+                transition-all duration-200 min-w-0 flex-1 max-w-[24%]
                 ${isActive
-                  ? "text-primary"
+                  ? "bg-white text-primary shadow-sm"
                   : "text-muted-foreground hover:text-primary"
                 }
               `}

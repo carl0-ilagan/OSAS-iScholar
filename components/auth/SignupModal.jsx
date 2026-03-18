@@ -357,6 +357,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
           major: formData.major !== "none" ? formData.major : null,
           yearLevel: formData.yearLevel,
           campus: formData.campus,
+          role: "student",
           status: "online",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),

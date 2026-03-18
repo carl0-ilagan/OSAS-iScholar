@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
+import { db } from "@/lib/firebase"
+import { doc, getDoc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
+import { getCampusAdminProfileByEmail, normalizeCampus } from "@/lib/campus-admin-config"
 
 const ADMIN_EMAIL = "contact.ischolar@gmail.com"
 
@@ -18,7 +22,13 @@ export default function AdminLoginPage() {
 
   // Redirect if already logged in as admin
   useEffect(() => {
-    if (!authLoading && user && user.email === ADMIN_EMAIL) {
+    const role = String(user?.appRole || user?.role || "").toLowerCase()
+    const canAccessAdmin = user && (user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin")
+    if (!authLoading && canAccessAdmin) {
+      if (role === "campus_admin" && user?.email !== ADMIN_EMAIL) {
+        router.push("/campus-admin")
+        return
+      }
       router.push("/admin")
     }
   }, [user, authLoading, router])
@@ -28,18 +38,58 @@ export default function AdminLoginPage() {
       setLoading(true)
       setError("")
       const user = await signInWithGoogle()
-      
-      // Validate admin email
-      if (user.email !== ADMIN_EMAIL) {
+      const userDocRef = doc(db, "users", user.uid)
+      const userDoc = await getDoc(userDocRef)
+      const role = String(userDoc.exists() ? userDoc.data()?.role : "").trim().toLowerCase()
+      const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
+      const canAccessAdmin =
+        user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin" || Boolean(campusAdminProfile)
+
+      if (!canAccessAdmin) {
         setError("Access denied. Only authorized administrators can access this page.")
         // Sign out if not authorized
         await signOut()
         setLoading(false)
         return
       }
+
+      if (user.email === ADMIN_EMAIL) {
+        await setDoc(
+          userDocRef,
+          {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || "Administrator",
+            role: "admin",
+            status: "online",
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true },
+        )
+      }
+
+      if (campusAdminProfile) {
+        await setDoc(
+          userDocRef,
+          {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || campusAdminProfile.label,
+            role: "campus_admin",
+            campus: normalizeCampus(campusAdminProfile.campus),
+            status: "online",
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true },
+        )
+      }
       
-      // Success - redirect to admin dashboard
-      router.push("/admin")
+      // Success - redirect to role portal
+      if ((role === "campus_admin" || campusAdminProfile) && user.email !== ADMIN_EMAIL) {
+        router.push("/campus-admin")
+      } else {
+        router.push("/admin")
+      }
     } catch (error) {
       console.error("Login error:", error)
       setError(error.message || "Failed to sign in. Please try again.")
@@ -143,6 +193,9 @@ export default function AdminLoginPage() {
                 <p className="text-xs text-muted-foreground">
                   Authorized email: {ADMIN_EMAIL}
                 </p>
+                <Link href="/campus-admin/login" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+                  Campus Admin Login
+                </Link>
               </div>
             </div>
           </div>

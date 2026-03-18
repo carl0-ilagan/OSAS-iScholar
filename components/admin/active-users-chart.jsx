@@ -14,8 +14,9 @@ export default function ActiveUsersChart({ users, uniqueCampuses, uniqueCourses 
   // Filter out admin accounts and invalid users - only show valid student users
   const studentUsers = useMemo(() => {
     return users.filter(user => {
-      // Filter out admin
-      if (user.email === ADMIN_EMAIL) return false
+      // Filter out admin and campus admin
+      const role = String(user.role || user.appRole || "").trim().toLowerCase()
+      if (user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin") return false
       
       // Filter out users without @minsu.edu.ph email
       if (!user.email || !user.email.endsWith("@minsu.edu.ph")) return false

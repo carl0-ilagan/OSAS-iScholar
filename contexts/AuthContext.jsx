@@ -11,7 +11,9 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
-import { doc, updateDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, updateDoc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
+import { ADMIN_EMAIL, ROLE_ADMIN, ROLE_CAMPUS_ADMIN, ROLE_STUDENT } from "@/lib/role-check"
+import { getCampusAdminProfileByEmail, normalizeCampus } from "@/lib/campus-admin-config"
 
 const AuthContext = createContext({})
 
@@ -23,25 +25,74 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user)
-      setLoading(false)
-      
-      // Update user status to online when logged in
-      if (user?.uid) {
-        try {
-          const userDocRef = doc(db, "users", user.uid)
-          const userDoc = await getDoc(userDocRef)
-          
-          if (userDoc.exists()) {
-            await updateDoc(userDocRef, {
-              status: "online",
-              lastSeen: serverTimestamp(),
-              updatedAt: new Date().toISOString(),
-            })
-          }
-        } catch (error) {
-          console.error("Error updating user status:", error)
+      if (!user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        const userDocRef = doc(db, "users", user.uid)
+        const userDoc = await getDoc(userDocRef)
+        const profile = userDoc.exists() ? userDoc.data() : {}
+        const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
+        const normalizedRole = String(profile?.role || "").trim().toLowerCase()
+        const appRole =
+          normalizedRole ||
+          (user.email === ADMIN_EMAIL
+            ? ROLE_ADMIN
+            : campusAdminProfile
+              ? ROLE_CAMPUS_ADMIN
+              : ROLE_STUDENT)
+        const resolvedCampus = normalizeCampus(profile?.campus || campusAdminProfile?.campus || null)
+
+        setUser({
+          ...user,
+          appRole,
+          role: appRole,
+          campus: resolvedCampus,
+          fullName: profile?.fullName || user.displayName || "",
+        })
+
+        const basePayload = {
+          uid: user.uid,
+          email: user.email || "",
+          displayName: user.displayName || profile?.displayName || "",
+          fullName: profile?.fullName || user.displayName || "",
+          role: appRole,
+          ...(resolvedCampus ? { campus: resolvedCampus } : {}),
+          status: "online",
+          lastSeen: serverTimestamp(),
+          updatedAt: new Date().toISOString(),
         }
+
+        if (userDoc.exists()) {
+          await updateDoc(userDocRef, {
+            status: "online",
+            lastSeen: serverTimestamp(),
+            updatedAt: new Date().toISOString(),
+            role: appRole,
+            ...(resolvedCampus ? { campus: resolvedCampus } : {}),
+          })
+        } else {
+          await setDoc(userDocRef, {
+            ...basePayload,
+            createdAt: new Date().toISOString(),
+          }, { merge: true })
+        }
+      } catch (error) {
+        console.error("Error updating user status:", error)
+        const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
+        const fallbackRole =
+          user.email === ADMIN_EMAIL ? ROLE_ADMIN : campusAdminProfile ? ROLE_CAMPUS_ADMIN : ROLE_STUDENT
+        setUser({
+          ...user,
+          appRole: fallbackRole,
+          role: fallbackRole,
+          campus: normalizeCampus(campusAdminProfile?.campus || null),
+        })
+      } finally {
+        setLoading(false)
       }
     })
 

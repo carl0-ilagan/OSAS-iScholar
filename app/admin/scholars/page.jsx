@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { Award, Search, Filter, ChevronDown } from "lucide-react"
 import ScholarsTable from "@/components/admin/scholars-table"
 import ScholarsTableSkeleton from "@/components/admin/scholars-table-skeleton"
@@ -190,15 +189,7 @@ export default function ScholarsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        {/* Banner */}
-        <AdminPageBanner
-          icon={Award}
-          title="Scholars"
-          description="View and manage approved scholarship recipients"
-        />
-
-        {/* Content */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Search and Filters */}
           <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-end">
             {/* Search Bar */}

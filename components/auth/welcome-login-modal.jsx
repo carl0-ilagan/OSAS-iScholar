@@ -40,7 +40,16 @@ export default function WelcomeLoginModal({ isOpen, onClose, userId }) {
   }, [isOpen, userId, user])
 
   const handleContinue = () => {
+    const role = String(userData?.role || user?.appRole || user?.role || "").trim().toLowerCase()
     onClose()
+    if (role === "campus_admin") {
+      router.push("/campus-admin")
+      return
+    }
+    if (role === "admin") {
+      router.push("/admin")
+      return
+    }
     router.push("/student")
   }
 

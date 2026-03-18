@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { Award, Plus, Edit, Trash2, X, Save, FileText, Users, Calendar, Upload, FolderCheck, CheckCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
@@ -352,13 +351,7 @@ export default function ScholarshipsManagementPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <AdminPageBanner
-          icon={Award}
-          title="Scholarships Management"
-          description="Manage available scholarship programs"
-        />
-
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Header with Add Button */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>

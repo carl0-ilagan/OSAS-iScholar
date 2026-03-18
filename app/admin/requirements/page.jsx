@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import AdminPageBanner from "@/components/admin/page-banner"
 import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { sendNewDocumentRequirementEmail } from "@/lib/email-service"
@@ -945,13 +944,7 @@ export default function DocumentRequirementsPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <AdminPageBanner
-          icon={FolderCheck}
-          title="Document Requirements"
-          description="Manage document requirements that students need to submit"
-        />
-
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Tab Controls */}
           <div className="relative mb-6">
             <div className="flex gap-1 md:gap-2 border-b-2 border-border relative bg-card/50 backdrop-blur-sm rounded-t-lg p-1 md:p-0 overflow-x-auto scrollbar-hide">

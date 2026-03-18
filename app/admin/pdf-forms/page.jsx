@@ -5,6 +5,7 @@ import Link from "next/link"
 import interact from "interactjs"
 import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore"
 import {
+  AlertTriangle,
   FilePlus2,
   Save,
   Trash2,
@@ -27,13 +28,25 @@ import { db } from "@/lib/firebase"
 import { useAuth } from "@/contexts/AuthContext"
 import AdminLayoutWrapper from "@/app/admin/admin-layout"
 import PdfOverlayStage from "@/components/pdf-forms/PdfOverlayStage"
-import { clamp01, createId, ensureUniqueFieldName, fileToDataUrl, loadProtectedPdfObjectUrl, normalizeFieldName, splitIntoChunks, withFieldDefaults } from "@/lib/pdf-form-utils"
+import {
+  clamp01,
+  createId,
+  ensureUniqueFieldName,
+  fileToDataUrl,
+  loadProtectedPdfObjectUrl,
+  normalizeFieldName,
+  normalizeTableRatios,
+  splitIntoChunks,
+  withFieldDefaults,
+} from "@/lib/pdf-form-utils"
 
 const FIELD_TYPES = [
   { value: "textbox", label: "Textbox" },
   { value: "checkbox", label: "Checkbox" },
   { value: "date", label: "Date (Calendar)" },
-  { value: "image", label: "Image / Signature" },
+  { value: "image", label: "Image Upload" },
+  { value: "signature", label: "Signature (Draw on screen)" },
+  { value: "table", label: "Table" },
 ]
 
 const FONT_FAMILIES = [
@@ -65,6 +78,8 @@ const TEXT_ALIGNMENTS = [
   { value: "center", label: "Center" },
   { value: "right", label: "Right" },
 ]
+const COLOR_SWATCHES = ["#111827", "#000000", "#ffffff", "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#2563eb", "#7c3aed", "#db2777"]
+const MAX_TABLE_DIMENSION = 50
 
 function getCssFontFamily(value) {
   const family = String(value || "helvetica").toLowerCase()
@@ -75,6 +90,44 @@ function getCssFontFamily(value) {
     return "Consolas, Courier New, monospace"
   }
   return "Arial, Helvetica, Verdana, sans-serif"
+}
+
+function getColorInputValue(value, fallback = "#ffffff") {
+  const raw = String(value || "").trim()
+  if (/^#[0-9a-f]{6}$/i.test(raw)) {
+    return raw
+  }
+  return fallback
+}
+
+function resolveBackgroundColor(value) {
+  const raw = String(value || "").trim()
+  if (!raw || raw.toLowerCase() === "transparent") {
+    return "transparent"
+  }
+  if (/^#[0-9a-f]{6}$/i.test(raw)) {
+    return raw
+  }
+  return "transparent"
+}
+
+function isTransparentLineColor(value) {
+  return String(value || "").trim().toLowerCase() === "transparent"
+}
+
+function resolveLineColor(value, fallback = "#94a3b8") {
+  const raw = String(value || "").trim()
+  if (isTransparentLineColor(raw)) {
+    return "transparent"
+  }
+  if (/^#[0-9a-f]{6}$/i.test(raw)) {
+    return raw
+  }
+  return fallback
+}
+
+function createEqualRatios(count) {
+  return normalizeTableRatios(Array.from({ length: Math.max(1, Number(count || 1)) }, () => 1), count)
 }
 
 export default function AdminPdfFormsPage() {
@@ -95,6 +148,29 @@ export default function AdminPdfFormsPage() {
   const [fieldName, setFieldName] = useState("")
   const [fieldLabel, setFieldLabel] = useState("")
   const [selectedFieldId, setSelectedFieldId] = useState("")
+  const [selectedFieldIds, setSelectedFieldIds] = useState([])
+  const [clipboardFields, setClipboardFields] = useState([])
+  const [selectionBox, setSelectionBox] = useState(null)
+  const selectionStateRef = useRef({
+    active: false,
+    page: 1,
+    startX: 0,
+    startY: 0,
+    append: false,
+    rect: null,
+  })
+  const [contextMenu, setContextMenu] = useState(null)
+  const [suppressNextAddClick, setSuppressNextAddClick] = useState(false)
+  const tableLineDragRef = useRef({
+    active: false,
+    fieldId: "",
+    axis: "col",
+    index: 0,
+    startClientX: 0,
+    startClientY: 0,
+    parentRect: null,
+    ratios: [],
+  })
   const [showGrid, setShowGrid] = useState(true)
   const [snapToGrid, setSnapToGrid] = useState(true)
   const [gridStep, setGridStep] = useState(0.01)
@@ -117,10 +193,43 @@ export default function AdminPdfFormsPage() {
     return items.map((entry) => ({ ...entry }))
   }
 
-  function pushUndoSnapshot(currentFields, currentSelectedFieldId) {
+  function setSelection(nextIds = [], nextPrimaryId = "") {
+    const uniqueIds = Array.from(new Set(nextIds))
+    const primary = nextPrimaryId || uniqueIds[0] || ""
+    setSelectedFieldIds(uniqueIds)
+    setSelectedFieldId(primary)
+  }
+
+  function getRectFromPoints(startX, startY, endX, endY) {
+    const left = Math.min(startX, endX)
+    const right = Math.max(startX, endX)
+    const top = Math.min(startY, endY)
+    const bottom = Math.max(startY, endY)
+    return { left, right, top, bottom, width: right - left, height: bottom - top }
+  }
+
+  function doesFieldIntersectRect(field, rect) {
+    const fieldLeft = Number(field.x || 0)
+    const fieldTop = Number(field.y || 0)
+    const fieldRight = fieldLeft + Number(field.width || 0)
+    const fieldBottom = fieldTop + Number(field.height || 0)
+    return !(fieldRight < rect.left || fieldLeft > rect.right || fieldBottom < rect.top || fieldTop > rect.bottom)
+  }
+
+  function getTableRatios(field) {
+    const rowCount = Math.max(1, Number(field?.tableRows || 3))
+    const colCount = Math.max(1, Number(field?.tableCols || 3))
+    return {
+      rowRatios: normalizeTableRatios(field?.tableRowRatios, rowCount),
+      colRatios: normalizeTableRatios(field?.tableColRatios, colCount),
+    }
+  }
+
+  function pushUndoSnapshot(currentFields, currentSelectedFieldId, currentSelectedFieldIds) {
     const snapshot = {
       fields: cloneFields(currentFields),
       selectedFieldId: currentSelectedFieldId || "",
+      selectedFieldIds: Array.isArray(currentSelectedFieldIds) ? [...currentSelectedFieldIds] : [],
     }
 
     setUndoStack((previous) => {
@@ -131,14 +240,18 @@ export default function AdminPdfFormsPage() {
   }
 
   function applyFieldsChange(transform, options = {}) {
-    const { nextSelectedFieldId } = options
+    const { nextSelectedFieldId, nextSelectedFieldIds } = options
     setFields((previous) => {
-      pushUndoSnapshot(previous, selectedFieldId)
+      pushUndoSnapshot(previous, selectedFieldId, selectedFieldIds)
       return transform(previous)
     })
 
+    if (nextSelectedFieldIds !== undefined) {
+      setSelection(nextSelectedFieldIds, nextSelectedFieldId)
+      return
+    }
     if (nextSelectedFieldId !== undefined) {
-      setSelectedFieldId(nextSelectedFieldId || "")
+      setSelection(nextSelectedFieldId ? [nextSelectedFieldId] : [], nextSelectedFieldId || "")
     }
   }
 
@@ -206,7 +319,7 @@ export default function AdminPdfFormsPage() {
   useEffect(() => {
     const form = forms.find((entry) => entry.id === selectedFormId) || null
     setSelectedForm(form)
-    setSelectedFieldId("")
+    setSelection([], "")
   }, [forms, selectedFormId])
 
   useEffect(() => {
@@ -251,6 +364,7 @@ export default function AdminPdfFormsPage() {
         listeners: {
           move(event) {
             if (!isEditMode) return
+            if (tableLineDragRef.current.active) return
             if (event.target.dataset.locked === "true") return
             const target = event.target
             const dx = (Number(target.dataset.dx) || 0) + event.dx
@@ -261,6 +375,7 @@ export default function AdminPdfFormsPage() {
           },
           end(event) {
             if (!isEditMode) return
+            if (tableLineDragRef.current.active) return
             const target = event.target
             if (target.dataset.locked === "true") return
             const fieldId = target.dataset.fieldId
@@ -300,6 +415,7 @@ export default function AdminPdfFormsPage() {
         listeners: {
           move(event) {
             if (!isEditMode) return
+            if (tableLineDragRef.current.active) return
             if (event.target.dataset.locked === "true") return
             const target = event.target
             target.style.width = `${event.rect.width}px`
@@ -307,6 +423,7 @@ export default function AdminPdfFormsPage() {
           },
           end(event) {
             if (!isEditMode) return
+            if (tableLineDragRef.current.active) return
             const target = event.target
             if (target.dataset.locked === "true") return
             const fieldId = target.dataset.fieldId
@@ -348,6 +465,25 @@ export default function AdminPdfFormsPage() {
   }, [fields.length, selectedFormId, isEditMode, snapToGrid, gridStep, selectedFieldId])
 
   const selectedField = useMemo(() => fields.find((entry) => entry.fieldId === selectedFieldId) || null, [fields, selectedFieldId])
+  const selectedFields = useMemo(
+    () => fields.filter((entry) => selectedFieldIds.includes(entry.fieldId)),
+    [fields, selectedFieldIds],
+  )
+  const unnamedFields = useMemo(() => {
+    return fields.filter((entry) => !String(entry.name || "").trim())
+  }, [fields])
+  const duplicateFieldNameKeys = useMemo(() => {
+    const counts = new Map()
+    fields.forEach((entry) => {
+      const rawName = String(entry.name || "").trim()
+      if (!rawName) return
+      const normalized = normalizeFieldName(rawName)
+      counts.set(normalized, (counts.get(normalized) || 0) + 1)
+    })
+    return Array.from(counts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name)
+  }, [fields])
 
   function updateSelectedField(patch) {
     if (!selectedFieldId) return
@@ -366,16 +502,17 @@ export default function AdminPdfFormsPage() {
 
   useEffect(() => {
     function handleNudge(event) {
-      if (!isEditMode || !selectedFieldId) return
+      if (!isEditMode || selectedFieldIds.length === 0) return
       const arrowKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
       if (!arrowKeys.includes(event.key)) return
 
       event.preventDefault()
       const step = event.shiftKey ? 0.01 : 0.003
 
+      const selectedSet = new Set(selectedFieldIds)
       applyFieldsChange((previous) =>
         previous.map((entry) => {
-          if (entry.fieldId !== selectedFieldId) return entry
+          if (!selectedSet.has(entry.fieldId)) return entry
 
           if (event.key === "ArrowUp") return { ...entry, y: clamp01(entry.y - step) }
           if (event.key === "ArrowDown") return { ...entry, y: clamp01(entry.y + step) }
@@ -387,7 +524,7 @@ export default function AdminPdfFormsPage() {
 
     window.addEventListener("keydown", handleNudge)
     return () => window.removeEventListener("keydown", handleNudge)
-  }, [selectedFieldId, isEditMode])
+  }, [selectedFieldIds, isEditMode])
 
   function handleUndo() {
     setUndoStack((previous) => {
@@ -395,10 +532,14 @@ export default function AdminPdfFormsPage() {
       const last = previous[previous.length - 1]
       setRedoStack((redoPrevious) => [
         ...redoPrevious,
-        { fields: cloneFields(fields), selectedFieldId: selectedFieldId || "" },
+        {
+          fields: cloneFields(fields),
+          selectedFieldId: selectedFieldId || "",
+          selectedFieldIds: [...selectedFieldIds],
+        },
       ])
       setFields(cloneFields(last.fields))
-      setSelectedFieldId(last.selectedFieldId || "")
+      setSelection(last.selectedFieldIds || (last.selectedFieldId ? [last.selectedFieldId] : []), last.selectedFieldId || "")
       return previous.slice(0, -1)
     })
   }
@@ -409,10 +550,14 @@ export default function AdminPdfFormsPage() {
       const last = previous[previous.length - 1]
       setUndoStack((undoPrevious) => [
         ...undoPrevious,
-        { fields: cloneFields(fields), selectedFieldId: selectedFieldId || "" },
+        {
+          fields: cloneFields(fields),
+          selectedFieldId: selectedFieldId || "",
+          selectedFieldIds: [...selectedFieldIds],
+        },
       ])
       setFields(cloneFields(last.fields))
-      setSelectedFieldId(last.selectedFieldId || "")
+      setSelection(last.selectedFieldIds || (last.selectedFieldId ? [last.selectedFieldId] : []), last.selectedFieldId || "")
       return previous.slice(0, -1)
     })
   }
@@ -506,6 +651,10 @@ export default function AdminPdfFormsPage() {
   }
 
   function handleAddField(event) {
+    if (suppressNextAddClick) {
+      setSuppressNextAddClick(false)
+      return
+    }
     if (!isEditMode || !selectedFormId) {
       return
     }
@@ -536,18 +685,26 @@ export default function AdminPdfFormsPage() {
   }
 
   function duplicateSelectedField() {
-    if (!selectedField) return
+    if (!selectedFields.length) return
     const usedNames = fields.map((entry) => entry.name)
-    const duplicate = withFieldDefaults({
-      ...selectedField,
-      fieldId: createId("field"),
-      name: ensureUniqueFieldName(`${selectedField.name}_copy`, usedNames),
-      x: clamp01((selectedField.x || 0) + 0.01),
-      y: clamp01((selectedField.y || 0) + 0.01),
+    const takenNames = [...usedNames]
+    const duplicates = selectedFields.map((entry, index) => {
+      const nextName = ensureUniqueFieldName(`${entry.name || "field"}_copy`, takenNames)
+      takenNames.push(nextName)
+      return withFieldDefaults({
+        ...entry,
+        fieldId: createId("field"),
+        name: nextName,
+        x: clamp01((entry.x || 0) + 0.01 + index * 0.002),
+        y: clamp01((entry.y || 0) + 0.01 + index * 0.002),
+      })
     })
 
-    applyFieldsChange((previous) => [...previous, duplicate], { nextSelectedFieldId: duplicate.fieldId })
-    toast.success("Field duplicated.")
+    applyFieldsChange((previous) => [...previous, ...duplicates], {
+      nextSelectedFieldIds: duplicates.map((entry) => entry.fieldId),
+      nextSelectedFieldId: duplicates[0]?.fieldId || "",
+    })
+    toast.success(`${duplicates.length} field(s) duplicated.`)
   }
 
   function toggleFieldLock() {
@@ -671,6 +828,57 @@ export default function AdminPdfFormsPage() {
   }, [scanHintsByPage])
 
   useEffect(() => {
+    function closeContextMenu() {
+      setContextMenu(null)
+    }
+    window.addEventListener("click", closeContextMenu)
+    window.addEventListener("scroll", closeContextMenu, true)
+    return () => {
+      window.removeEventListener("click", closeContextMenu)
+      window.removeEventListener("scroll", closeContextMenu, true)
+    }
+  }, [])
+
+  useEffect(() => {
+    function onClipboardHotkeys(event) {
+      if (!isEditMode) return
+      const targetTag = event.target?.tagName?.toLowerCase()
+      const isTypingTarget =
+        targetTag === "input" || targetTag === "textarea" || event.target?.isContentEditable
+      if (isTypingTarget) return
+
+      const isMod = event.ctrlKey || event.metaKey
+      if (!isMod) {
+        if (event.key === "Delete" || event.key === "Backspace") {
+          if (!selectedFieldIds.length) return
+          event.preventDefault()
+          removeSelectedField()
+        }
+        return
+      }
+
+      const key = event.key.toLowerCase()
+      if (key === "c") {
+        event.preventDefault()
+        copySelectedFields()
+        return
+      }
+      if (key === "x") {
+        event.preventDefault()
+        cutSelectedFields()
+        return
+      }
+      if (key === "v") {
+        event.preventDefault()
+        pasteClipboardFields()
+      }
+    }
+
+    window.addEventListener("keydown", onClipboardHotkeys)
+    return () => window.removeEventListener("keydown", onClipboardHotkeys)
+  }, [isEditMode, selectedFieldIds, selectedFields, clipboardFields, fields])
+
+  useEffect(() => {
     function onMouseMove(event) {
       if (!panStateRef.current.active || !canvasScrollRef.current) return
       const dx = event.clientX - panStateRef.current.startX
@@ -711,14 +919,261 @@ export default function AdminPdfFormsPage() {
   }
 
   function removeSelectedField() {
-    if (!selectedFieldId) return
-    applyFieldsChange((previous) => previous.filter((entry) => entry.fieldId !== selectedFieldId), {
+    if (!selectedFieldIds.length) return
+    const selectedSet = new Set(selectedFieldIds)
+    applyFieldsChange((previous) => previous.filter((entry) => !selectedSet.has(entry.fieldId)), {
+      nextSelectedFieldIds: [],
       nextSelectedFieldId: "",
     })
   }
 
+  function copySelectedFields() {
+    if (!selectedFields.length) {
+      toast.error("Select component(s) to copy.")
+      return false
+    }
+    const cloned = selectedFields.map((entry) => ({ ...entry }))
+    setClipboardFields(cloned)
+    toast.success(`${cloned.length} field(s) copied.`)
+    return true
+  }
+
+  function cutSelectedFields() {
+    const copied = copySelectedFields()
+    if (!copied) return
+    removeSelectedField()
+  }
+
+  function pasteClipboardFields(anchor = null) {
+    if (!clipboardFields.length) {
+      toast.error("Clipboard is empty.")
+      return
+    }
+
+    const baseMinX = Math.min(...clipboardFields.map((entry) => Number(entry.x || 0)))
+    const baseMinY = Math.min(...clipboardFields.map((entry) => Number(entry.y || 0)))
+    const usedNames = fields.map((entry) => entry.name)
+    const takenNames = [...usedNames]
+    const offsetX = anchor ? clamp01(anchor.x) - baseMinX : 0.01
+    const offsetY = anchor ? clamp01(anchor.y) - baseMinY : 0.01
+    const targetPage = anchor?.page || clipboardFields[0]?.page || 1
+
+    const pasted = clipboardFields.map((entry, index) => {
+      const nextName = ensureUniqueFieldName(`${entry.name || "field"}_copy`, takenNames)
+      takenNames.push(nextName)
+      return withFieldDefaults({
+        ...entry,
+        fieldId: createId("field"),
+        name: nextName,
+        page: targetPage,
+        x: clamp01((entry.x || 0) + offsetX + index * 0.002),
+        y: clamp01((entry.y || 0) + offsetY + index * 0.002),
+      })
+    })
+
+    applyFieldsChange((previous) => [...previous, ...pasted], {
+      nextSelectedFieldIds: pasted.map((entry) => entry.fieldId),
+      nextSelectedFieldId: pasted[0]?.fieldId || "",
+    })
+    toast.success(`${pasted.length} field(s) pasted.`)
+  }
+
+  function handleFieldContextMenu(event, field) {
+    event.preventDefault()
+    event.stopPropagation()
+    const alreadySelected = selectedFieldIds.includes(field.fieldId)
+    if (!alreadySelected) {
+      setSelection([field.fieldId], field.fieldId)
+    }
+    setContextMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      page: field.page,
+      x: field.x,
+      y: field.y,
+    })
+  }
+
+  function handlePageMouseDown(event) {
+    if (!isEditMode) return
+    if (event.nativeEvent.button !== 0) return
+    const wrapper = event.nativeEvent.target?.closest?.("[data-page]")
+    const pageRect = wrapper?.getBoundingClientRect?.()
+    if (!pageRect?.width || !pageRect?.height) return
+
+    event.nativeEvent.preventDefault()
+
+    function toNormalized(clientX, clientY) {
+      const x = clamp01((clientX - pageRect.left) / pageRect.width)
+      const y = clamp01((clientY - pageRect.top) / pageRect.height)
+      return { x, y }
+    }
+
+    selectionStateRef.current = {
+      active: true,
+      page: event.page,
+      startX: event.x,
+      startY: event.y,
+      append: event.nativeEvent.ctrlKey || event.nativeEvent.metaKey,
+      rect: pageRect,
+    }
+    setSelectionBox({
+      page: event.page,
+      startX: event.x,
+      startY: event.y,
+      endX: event.x,
+      endY: event.y,
+    })
+    setContextMenu(null)
+
+    function onWindowMouseMove(moveEvent) {
+      if (!selectionStateRef.current.active) return
+      const point = toNormalized(moveEvent.clientX, moveEvent.clientY)
+      setSelectionBox((previous) => {
+        if (!previous) return previous
+        return { ...previous, endX: point.x, endY: point.y }
+      })
+    }
+
+    function onWindowMouseUp(upEvent) {
+      const state = selectionStateRef.current
+      selectionStateRef.current = {
+        active: false,
+        page: 1,
+        startX: 0,
+        startY: 0,
+        append: false,
+        rect: null,
+      }
+
+      const point = toNormalized(upEvent.clientX, upEvent.clientY)
+      const rect = getRectFromPoints(state.startX, state.startY, point.x, point.y)
+      setSelectionBox(null)
+
+      if (rect.width >= 0.003 || rect.height >= 0.003) {
+        const idsInBox = fields
+          .filter((entry) => entry.page === state.page && doesFieldIntersectRect(entry, rect))
+          .map((entry) => entry.fieldId)
+
+        const nextIds = state.append ? Array.from(new Set([...selectedFieldIds, ...idsInBox])) : idsInBox
+        setSelection(nextIds, nextIds[0] || "")
+        setSuppressNextAddClick(true)
+      }
+
+      window.removeEventListener("mousemove", onWindowMouseMove)
+      window.removeEventListener("mouseup", onWindowMouseUp)
+    }
+
+    window.addEventListener("mousemove", onWindowMouseMove)
+    window.addEventListener("mouseup", onWindowMouseUp)
+  }
+
+  function handlePageMouseMove() {}
+
+  function handlePageMouseUp() {}
+
+  function handlePageContextMenu(event) {
+    if (!isEditMode) return
+    event.nativeEvent.preventDefault()
+    setContextMenu({
+      clientX: event.nativeEvent.clientX,
+      clientY: event.nativeEvent.clientY,
+      page: event.page,
+      x: event.x,
+      y: event.y,
+    })
+  }
+
+  function startTableLineDrag(event, field, axis, index) {
+    if (!isEditMode) return
+    if (field.locked) return
+    event.preventDefault()
+    event.stopPropagation()
+    const parentField = event.currentTarget.closest?.("[data-field-id]")
+    const parentRect = parentField?.getBoundingClientRect?.()
+    if (!parentRect?.width || !parentRect?.height) return
+
+    const { rowRatios, colRatios } = getTableRatios(field)
+    tableLineDragRef.current = {
+      active: true,
+      fieldId: field.fieldId,
+      axis,
+      index,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      parentRect,
+      ratios: axis === "col" ? colRatios : rowRatios,
+    }
+    pushUndoSnapshot(fields, selectedFieldId, selectedFieldIds)
+    setRedoStack([])
+    setContextMenu(null)
+  }
+
+  useEffect(() => {
+    function onWindowMouseMove(event) {
+      const drag = tableLineDragRef.current
+      if (!drag.active) return
+
+      const movement =
+        drag.axis === "col"
+          ? (event.clientX - drag.startClientX) / Math.max(1, drag.parentRect.width)
+          : (event.clientY - drag.startClientY) / Math.max(1, drag.parentRect.height)
+
+      const base = [...drag.ratios]
+      const total = base[drag.index] + base[drag.index + 1]
+      if (!Number.isFinite(total) || total <= 0) return
+      const minShare = 0.02
+      const nextLead = Math.max(minShare, Math.min(total - minShare, base[drag.index] + movement))
+      const nextTrail = total - nextLead
+      const nextRatios = [...base]
+      nextRatios[drag.index] = nextLead
+      nextRatios[drag.index + 1] = nextTrail
+
+      setFields((previous) =>
+        previous.map((entry) => {
+          if (entry.fieldId !== drag.fieldId) return entry
+          if (drag.axis === "col") {
+            return { ...entry, tableColRatios: normalizeTableRatios(nextRatios, nextRatios.length) }
+          }
+          return { ...entry, tableRowRatios: normalizeTableRatios(nextRatios, nextRatios.length) }
+        }),
+      )
+    }
+
+    function onWindowMouseUp() {
+      if (!tableLineDragRef.current.active) return
+      tableLineDragRef.current = {
+        active: false,
+        fieldId: "",
+        axis: "col",
+        index: 0,
+        startClientX: 0,
+        startClientY: 0,
+        parentRect: null,
+        ratios: [],
+      }
+    }
+
+    window.addEventListener("mousemove", onWindowMouseMove)
+    window.addEventListener("mouseup", onWindowMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", onWindowMouseMove)
+      window.removeEventListener("mouseup", onWindowMouseUp)
+    }
+  }, [])
+
   async function handleSaveConfiguration() {
     if (!selectedFormId) return
+    const missingNameField = fields.find((entry) => !String(entry.name || "").trim())
+    if (missingNameField) {
+      setSelection([missingNameField.fieldId], missingNameField.fieldId)
+      toast.error("Some components have no field key. Add a field key before saving.")
+      return
+    }
+    if (duplicateFieldNameKeys.length > 0) {
+      toast.error(`Duplicate field keys found: ${duplicateFieldNameKeys.slice(0, 3).join(", ")}`)
+      return
+    }
     setSaving(true)
     try {
       const currentIds = new Set(fields.map((entry) => entry.fieldId))
@@ -728,6 +1183,7 @@ export default function AdminPdfFormsPage() {
         fields.map(async (entry) => {
           const payload = {
             ...entry,
+            name: String(entry.name || "").trim(),
             updatedAt: serverTimestamp(),
           }
           if (!persistedIds.includes(entry.fieldId)) {
@@ -863,7 +1319,7 @@ export default function AdminPdfFormsPage() {
                     </button>
                     <button
                       onClick={duplicateSelectedField}
-                      disabled={!selectedField}
+                      disabled={selectedFieldIds.length === 0}
                       className="rounded-md border border-slate-500 bg-slate-600 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                       title="Duplicate selected field"
                     >
@@ -871,7 +1327,7 @@ export default function AdminPdfFormsPage() {
                     </button>
                     <button
                       onClick={removeSelectedField}
-                      disabled={!selectedFieldId}
+                      disabled={selectedFieldIds.length === 0}
                       className="rounded-md border border-destructive bg-destructive px-2 py-1.5 text-xs font-medium text-destructive-foreground disabled:opacity-50"
                       title="Delete selected field"
                     >
@@ -974,6 +1430,18 @@ export default function AdminPdfFormsPage() {
               <span className="font-semibold">Field Key</span> = backend key in Firestore,{" "}
               <span className="font-semibold">Display Label</span> = text shown to users.
             </div>
+            {unnamedFields.length > 0 ? (
+              <div className="mt-1 inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {unnamedFields.length} component(s) missing Field Key
+              </div>
+            ) : null}
+            {duplicateFieldNameKeys.length > 0 ? (
+              <div className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Duplicate Field Key found: {duplicateFieldNameKeys.slice(0, 3).join(", ")}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex h-[calc(100%-84px)] overflow-hidden">
@@ -985,21 +1453,32 @@ export default function AdminPdfFormsPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Mode: <span className="font-medium">{isEditMode ? "Edit" : "View"}</span> | Arrows = nudge, Shift+Arrows = bigger move
                   </p>
+                  {selectedFieldIds.length > 1 ? (
+                    <p className="text-[11px] font-medium text-primary">{selectedFieldIds.length} components selected</p>
+                  ) : null}
                   {selectedField ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <input
                         type="text"
                         value={selectedField.name || ""}
                         onChange={(event) => {
+                          const rawValue = event.target.value
+                          if (!rawValue.trim()) {
+                            updateSelectedField({ name: "" })
+                            return
+                          }
                           const usedNames = fields
                             .filter((entry) => entry.fieldId !== selectedField.fieldId)
                             .map((entry) => entry.name)
-                          const unique = ensureUniqueFieldName(event.target.value || "field", usedNames)
+                          const unique = ensureUniqueFieldName(rawValue, usedNames)
                           updateSelectedField({ name: unique })
                         }}
                         className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
                         placeholder="Field Key (Firestore)"
                       />
+                      {!String(selectedField.name || "").trim() ? (
+                        <p className="text-[11px] font-medium text-red-600">Field Key is required.</p>
+                      ) : null}
                       <p className="text-[11px] text-muted-foreground">
                         <span className="font-semibold">Field Key</span> is your backend key/column name in Firestore.
                       </p>
@@ -1013,7 +1492,163 @@ export default function AdminPdfFormsPage() {
                       <p className="text-[11px] text-muted-foreground">
                         <span className="font-semibold">Display Label</span> is what students see on the form.
                       </p>
-                      {selectedField.type === "textbox" || selectedField.type === "date" ? (
+                      <label className="flex items-center gap-2 rounded-md border border-input px-2 py-1.5 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedField.borderless)}
+                          onChange={(event) => updateSelectedField({ borderless: event.target.checked })}
+                        />
+                        Borderless
+                      </label>
+                      <div className="rounded-md border border-input px-2 py-2 text-xs">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="font-medium text-muted-foreground">Background</span>
+                          <label className="inline-flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={!selectedField.backgroundColor || selectedField.backgroundColor === "transparent"}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  updateSelectedField({ backgroundColor: "transparent" })
+                                  return
+                                }
+                                updateSelectedField({
+                                  backgroundColor: getColorInputValue(selectedField.backgroundColor, "#ffffff"),
+                                })
+                              }}
+                            />
+                            Transparent
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {COLOR_SWATCHES.map((color) => {
+                            const isActive = resolveBackgroundColor(selectedField.backgroundColor) === color
+                            return (
+                              <button
+                                key={`bg-${color}`}
+                                type="button"
+                                onClick={() => updateSelectedField({ backgroundColor: color })}
+                                className={`h-5 w-5 rounded border ${isActive ? "ring-2 ring-primary" : "border-input"}`}
+                                style={{ backgroundColor: color }}
+                                title={`Background ${color}`}
+                              />
+                            )
+                          })}
+                          <input
+                            type="color"
+                            value={getColorInputValue(selectedField.backgroundColor, "#ffffff")}
+                            onChange={(event) => updateSelectedField({ backgroundColor: event.target.value })}
+                            className="h-5 w-5 cursor-pointer rounded border border-input bg-background p-0"
+                            title="Custom background color"
+                          />
+                        </div>
+                      </div>
+                      {selectedField.type === "table" ? (
+                        <div className="space-y-2 rounded-md border border-input p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              min={1}
+                              max={MAX_TABLE_DIMENSION}
+                              value={selectedField.tableRows || 3}
+                              onChange={(event) => {
+                                const nextRows = Math.max(1, Math.min(MAX_TABLE_DIMENSION, Number(event.target.value || 3)))
+                                updateSelectedField({
+                                  tableRows: nextRows,
+                                  tableRowRatios: createEqualRatios(nextRows),
+                                })
+                              }}
+                              className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                              placeholder="Rows"
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              max={MAX_TABLE_DIMENSION}
+                              value={selectedField.tableCols || 3}
+                              onChange={(event) => {
+                                const nextCols = Math.max(1, Math.min(MAX_TABLE_DIMENSION, Number(event.target.value || 3)))
+                                updateSelectedField({
+                                  tableCols: nextCols,
+                                  tableColRatios: createEqualRatios(nextCols),
+                                })
+                              }}
+                              className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                              placeholder="Cols"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSelectedField({
+                                tableRowRatios: createEqualRatios(selectedField.tableRows || 3),
+                                tableColRatios: createEqualRatios(selectedField.tableCols || 3),
+                              })
+                            }
+                            className="w-full rounded-md border border-input px-2 py-1.5 text-xs"
+                            title="Make all row and column sizes equal"
+                          >
+                            Equalize cell size
+                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={6}
+                              value={Number(selectedField.tableLineWidth ?? 1)}
+                              onChange={(event) =>
+                                updateSelectedField({
+                                  tableLineWidth: Math.max(0, Math.min(6, Number(event.target.value || 1))),
+                                })
+                              }
+                              className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                              placeholder="Line width"
+                            />
+                            <input
+                              type="color"
+                              value={getColorInputValue(selectedField.tableLineColor, "#94a3b8")}
+                              onChange={(event) => updateSelectedField({ tableLineColor: event.target.value })}
+                              className="h-8 rounded-md border border-input bg-background px-1 py-1"
+                              title="Table Line Color"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 rounded-md border border-input px-2 py-1.5 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={isTransparentLineColor(selectedField.tableLineColor)}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  updateSelectedField({ tableLineColor: "transparent" })
+                                  return
+                                }
+                                updateSelectedField({ tableLineColor: getColorInputValue(selectedField.tableLineColor, "#94a3b8") })
+                              }}
+                            />
+                            Transparent inner lines
+                          </label>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {COLOR_SWATCHES.map((color) => {
+                              const isActive =
+                                !isTransparentLineColor(selectedField.tableLineColor) &&
+                                getColorInputValue(selectedField.tableLineColor, "#94a3b8").toLowerCase() === color.toLowerCase()
+                              return (
+                                <button
+                                  key={`table-line-${color}`}
+                                  type="button"
+                                  onClick={() => updateSelectedField({ tableLineColor: color })}
+                                  className={`h-5 w-5 rounded border ${isActive ? "ring-2 ring-primary" : "border-input"}`}
+                                  style={{ backgroundColor: color }}
+                                  title={`Table line ${color}`}
+                                />
+                              )
+                            })}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Tip: select table, then drag inner lines on canvas to adjust row/column widths.
+                          </p>
+                        </div>
+                      ) : null}
+                      {selectedField.type === "textbox" || selectedField.type === "date" || selectedField.type === "table" ? (
                         <>
                           <select
                             value={selectedField.fontFamily || "helvetica"}
@@ -1059,7 +1694,34 @@ export default function AdminPdfFormsPage() {
                               </option>
                             ))}
                           </select>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1.5 rounded-md border border-input px-2 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-medium text-muted-foreground">Text Color</span>
+                              <input
+                                type="color"
+                                value={selectedField.textColor || "#111827"}
+                                onChange={(event) => updateSelectedField({ textColor: event.target.value })}
+                                className="h-5 w-5 cursor-pointer rounded border border-input bg-background p-0"
+                                title="Custom text color"
+                              />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {COLOR_SWATCHES.map((color) => {
+                                const isActive = (selectedField.textColor || "#111827").toLowerCase() === color.toLowerCase()
+                                return (
+                                  <button
+                                    key={`text-${color}`}
+                                    type="button"
+                                    onClick={() => updateSelectedField({ textColor: color })}
+                                    className={`h-5 w-5 rounded border ${isActive ? "ring-2 ring-primary" : "border-input"}`}
+                                    style={{ backgroundColor: color }}
+                                    title={`Text ${color}`}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2">
                             <select
                               value={selectedField.textAlign || "left"}
                               onChange={(event) => updateSelectedField({ textAlign: event.target.value })}
@@ -1071,13 +1733,6 @@ export default function AdminPdfFormsPage() {
                                 </option>
                               ))}
                             </select>
-                            <input
-                              type="color"
-                              value={selectedField.textColor || "#111827"}
-                              onChange={(event) => updateSelectedField({ textColor: event.target.value })}
-                              className="h-8 rounded-md border border-input bg-background px-1 py-1"
-                              title="Text Color"
-                            />
                           </div>
                           <label className="flex items-center gap-2 rounded-md border border-input px-2 py-1.5 text-xs">
                             <input
@@ -1136,17 +1791,38 @@ export default function AdminPdfFormsPage() {
                   {submissions.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No submissions yet.</p>
                   ) : (
-                    <div className="space-y-1.5">
-                      {submissions.map((entry) => (
-                        <Link
-                          key={entry.id}
-                          href={`/admin/pdf-forms/${selectedFormId}/submissions/${entry.id}`}
-                          className="block rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"
-                        >
-                          <FileText className="mr-1 inline h-3 w-3" />
-                          Submission {entry.id.slice(0, 8)}
-                        </Link>
-                      ))}
+                    <div className="space-y-2">
+                      <div className="max-h-72 overflow-auto rounded-md border border-border">
+                        <table className="w-full text-left text-[11px]">
+                          <thead className="sticky top-0 bg-muted/40">
+                            <tr>
+                              <th className="px-2 py-1.5 font-semibold">Submission</th>
+                              <th className="px-2 py-1.5 font-semibold">Student</th>
+                              <th className="px-2 py-1.5 font-semibold">Answers</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {submissions.map((entry) => {
+                              const answerCount = Object.keys(entry.valuesByFieldName || {}).length
+                              return (
+                                <tr key={entry.id} className="border-t border-border">
+                                  <td className="px-2 py-1.5">
+                                    <Link
+                                      href={`/admin/pdf-forms/${selectedFormId}/submissions/${entry.id}`}
+                                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                      {String(entry.id || "").slice(0, 8)}
+                                    </Link>
+                                  </td>
+                                  <td className="px-2 py-1.5 font-mono text-[10px]">{entry.studentId || "-"}</td>
+                                  <td className="px-2 py-1.5">{answerCount}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1178,46 +1854,180 @@ export default function AdminPdfFormsPage() {
                     pdfUrl={pdfUrl}
                     scale={zoom}
                     onPageClick={isEditMode ? handleAddField : undefined}
+                    onPageMouseDown={isEditMode ? handlePageMouseDown : undefined}
+                    onPageMouseMove={isEditMode ? handlePageMouseMove : undefined}
+                    onPageMouseUp={isEditMode ? handlePageMouseUp : undefined}
+                    onPageContextMenu={isEditMode ? handlePageContextMenu : undefined}
                     renderOverlay={(page) => (
                       <>
                         {fields
                           .filter((field) => field.page === page.page)
                           .map((field) => (
-                            <button
-                              key={field.fieldId}
-                              type="button"
-                              data-field-id={field.fieldId}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                setSelectedFieldId(field.fieldId)
-                              }}
-                              data-locked={field.locked ? "true" : "false"}
-                              className={`builder-field pointer-events-auto absolute rounded border ${
-                                selectedFieldId === field.fieldId ? "border-amber-500" : "border-blue-500"
-                              }`}
-                              style={{
-                                left: `${field.x * 100}%`,
-                                top: `${field.y * 100}%`,
-                                width: `${field.width * 100}%`,
-                                height: `${field.height * 100}%`,
-                                cursor: isEditMode ? "move" : "default",
-                                backgroundColor: "transparent",
-                                fontFamily: getCssFontFamily(field.fontFamily),
-                                fontSize: `${field.fontSize || 12}px`,
-                                fontWeight: field.fontWeight || "normal",
-                                fontStyle: field.fontStyle || "normal",
-                                color: field.textColor || "#111827",
-                                textAlign: field.textAlign || "left",
-                                opacity: field.locked ? 0.65 : 1,
-                              }}
-                            >
-                              <span className="pointer-events-none block truncate px-1 py-0.5">
-                                <Move className="mr-1 inline h-3 w-3" />
-                                {field.type} - {field.name}
-                              </span>
-                              <span className="absolute bottom-0 right-0 h-2 w-2 bg-blue-700" />
-                            </button>
+                            (() => {
+                              const isMissingName = !String(field.name || "").trim()
+                              const fieldBackgroundColor = resolveBackgroundColor(field.backgroundColor)
+                              const isPrimarySelected = selectedFieldId === field.fieldId
+                              const isMultiSelected = selectedFieldIds.includes(field.fieldId)
+                              const borderToneClass =
+                                isPrimarySelected
+                                  ? isMissingName
+                                    ? "border-red-500"
+                                    : "border-amber-500"
+                                  : isMultiSelected
+                                    ? "border-violet-500"
+                                  : isMissingName
+                                    ? "border-red-400"
+                                    : "border-blue-500"
+                              return (
+                                <button
+                                  key={field.fieldId}
+                                  type="button"
+                                  data-field-id={field.fieldId}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    if (event.ctrlKey || event.metaKey) {
+                                      const nextIds = selectedFieldIds.includes(field.fieldId)
+                                        ? selectedFieldIds.filter((id) => id !== field.fieldId)
+                                        : [...selectedFieldIds, field.fieldId]
+                                      setSelection(nextIds, nextIds[0] || "")
+                                      return
+                                    }
+                                    setSelection([field.fieldId], field.fieldId)
+                                  }}
+                                  onMouseDown={(event) => {
+                                    event.stopPropagation()
+                                  }}
+                                  onContextMenu={(event) => handleFieldContextMenu(event, field)}
+                                  data-locked={field.locked ? "true" : "false"}
+                                  className={`builder-field pointer-events-auto absolute rounded ${borderToneClass}`}
+                                  style={{
+                                    left: `${field.x * 100}%`,
+                                    top: `${field.y * 100}%`,
+                                    width: `${field.width * 100}%`,
+                                    height: `${field.height * 100}%`,
+                                    cursor: isEditMode ? "move" : "default",
+                                    backgroundColor: fieldBackgroundColor,
+                                    fontFamily: getCssFontFamily(field.fontFamily),
+                                    fontSize: `${field.fontSize || 12}px`,
+                                    fontWeight: field.fontWeight || "normal",
+                                    fontStyle: field.fontStyle || "normal",
+                                    color: field.textColor || "#111827",
+                                    textAlign: field.textAlign || "left",
+                                    opacity: field.locked ? 0.65 : 1,
+                                    borderStyle: field.borderless ? "dashed" : "solid",
+                                    borderWidth: field.borderless && !isEditMode ? 0 : 1,
+                                  }}
+                                >
+                                  <span className="pointer-events-none block truncate px-1 py-0.5">
+                                    <Move className="mr-1 inline h-3 w-3" />
+                                    {field.type} - {field.name || "MISSING_NAME"}
+                                  </span>
+                                  {field.type === "table" ? (
+                                    (() => {
+                                      const { rowRatios, colRatios } = getTableRatios(field)
+                                      const lineWidth = Math.max(0, Math.min(6, Number(field.tableLineWidth ?? 1)))
+                                      const lineColor = resolveLineColor(field.tableLineColor, "#94a3b8")
+                                      const showInnerLines = lineWidth > 0 && lineColor !== "transparent"
+                                      const colBoundaries = []
+                                      let colAccum = 0
+                                      for (let idx = 0; idx < colRatios.length - 1; idx += 1) {
+                                        colAccum += colRatios[idx]
+                                        colBoundaries.push({ index: idx, at: colAccum })
+                                      }
+                                      const rowBoundaries = []
+                                      let rowAccum = 0
+                                      for (let idx = 0; idx < rowRatios.length - 1; idx += 1) {
+                                        rowAccum += rowRatios[idx]
+                                        rowBoundaries.push({ index: idx, at: rowAccum })
+                                      }
+                                      return (
+                                        <>
+                                          {showInnerLines
+                                            ? colBoundaries.map((boundary) => (
+                                                <div
+                                                  key={`table-col-line-${field.fieldId}-${boundary.index}`}
+                                                  className="pointer-events-none absolute inset-y-0"
+                                                  style={{
+                                                    left: `${boundary.at * 100}%`,
+                                                    width: `${lineWidth}px`,
+                                                    transform: "translateX(-50%)",
+                                                    backgroundColor: lineColor,
+                                                    opacity: 0.85,
+                                                  }}
+                                                />
+                                              ))
+                                            : null}
+                                          {showInnerLines
+                                            ? rowBoundaries.map((boundary) => (
+                                                <div
+                                                  key={`table-row-line-${field.fieldId}-${boundary.index}`}
+                                                  className="pointer-events-none absolute inset-x-0"
+                                                  style={{
+                                                    top: `${boundary.at * 100}%`,
+                                                    height: `${lineWidth}px`,
+                                                    transform: "translateY(-50%)",
+                                                    backgroundColor: lineColor,
+                                                    opacity: 0.85,
+                                                  }}
+                                                />
+                                              ))
+                                            : null}
+                                          {isEditMode && isPrimarySelected
+                                            ? colBoundaries.map((boundary) => (
+                                                <span
+                                                  key={`table-col-handle-${field.fieldId}-${boundary.index}`}
+                                                  data-line-handle="true"
+                                                  onMouseDown={(event) => startTableLineDrag(event, field, "col", boundary.index)}
+                                                  onClick={(event) => event.stopPropagation()}
+                                                  className="absolute inset-y-0 z-10 w-3 -translate-x-1/2 cursor-ew-resize bg-transparent"
+                                                  style={{ left: `${boundary.at * 100}%` }}
+                                                  title="Drag to move column line"
+                                                />
+                                              ))
+                                            : null}
+                                          {isEditMode && isPrimarySelected
+                                            ? rowBoundaries.map((boundary) => (
+                                                <span
+                                                  key={`table-row-handle-${field.fieldId}-${boundary.index}`}
+                                                  data-line-handle="true"
+                                                  onMouseDown={(event) => startTableLineDrag(event, field, "row", boundary.index)}
+                                                  onClick={(event) => event.stopPropagation()}
+                                                  className="absolute inset-x-0 z-10 h-3 -translate-y-1/2 cursor-ns-resize bg-transparent"
+                                                  style={{ top: `${boundary.at * 100}%` }}
+                                                  title="Drag to move row line"
+                                                />
+                                              ))
+                                            : null}
+                                        </>
+                                      )
+                                    })()
+                                  ) : null}
+                                  {isMultiSelected && !isPrimarySelected ? (
+                                    <span className="absolute left-0 top-0 rounded-br bg-violet-600 px-1 text-[9px] font-semibold text-white">
+                                      +
+                                    </span>
+                                  ) : null}
+                                  {isMissingName ? (
+                                    <span className="absolute right-0 top-0 rounded-bl bg-red-600 px-1 text-[9px] font-semibold text-white">
+                                      !
+                                    </span>
+                                  ) : null}
+                                  <span className={`absolute bottom-0 right-0 h-2 w-2 ${isMissingName ? "bg-red-600" : "bg-blue-700"}`} />
+                                </button>
+                              )
+                            })()
                           ))}
+                        {selectionBox && selectionBox.page === page.page ? (
+                          <div
+                            className="pointer-events-none absolute border border-dashed border-primary bg-primary/10"
+                            style={{
+                              left: `${Math.min(selectionBox.startX, selectionBox.endX) * 100}%`,
+                              top: `${Math.min(selectionBox.startY, selectionBox.endY) * 100}%`,
+                              width: `${Math.abs(selectionBox.endX - selectionBox.startX) * 100}%`,
+                              height: `${Math.abs(selectionBox.endY - selectionBox.startY) * 100}%`,
+                            }}
+                          />
+                        ) : null}
                         {(scanHintsByPage[page.page] || []).slice(0, 120).map((hint, index) => (
                           <div
                             key={`hint-${page.page}-${index}`}
@@ -1236,6 +2046,64 @@ export default function AdminPdfFormsPage() {
                       </>
                     )}
                   />
+                  {contextMenu ? (
+                    <div
+                      className="fixed z-[80] min-w-[180px] rounded-md border border-border bg-card p-1 shadow-xl"
+                      style={{ left: contextMenu.clientX + 4, top: contextMenu.clientY + 4 }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          copySelectedFields()
+                          setContextMenu(null)
+                        }}
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                      >
+                        Copy (Ctrl+C)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          cutSelectedFields()
+                          setContextMenu(null)
+                        }}
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                      >
+                        Cut (Ctrl+X)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          pasteClipboardFields({ page: contextMenu.page, x: contextMenu.x, y: contextMenu.y })
+                          setContextMenu(null)
+                        }}
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                      >
+                        Paste (Ctrl+V)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          duplicateSelectedField()
+                          setContextMenu(null)
+                        }}
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                      >
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeSelectedField()
+                          setContextMenu(null)
+                        }}
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs text-destructive hover:bg-accent"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </section>
