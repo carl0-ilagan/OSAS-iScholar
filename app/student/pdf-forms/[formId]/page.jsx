@@ -82,7 +82,7 @@ export default function StudentPdfFormFillPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [printValueOnly, setPrintValueOnly] = useState(false)
-  const [pdfScale, setPdfScale] = useState(1.3)
+  const PDF_MAX_SCALE = 1.3
   const [maxPageWidth, setMaxPageWidth] = useState(null)
   const pdfViewportRef = useRef(null)
   const hiddenDateInputsRef = useRef({})
@@ -129,33 +129,6 @@ export default function StudentPdfFormFillPage() {
       window.removeEventListener("beforeprint", onBeforePrint)
       window.removeEventListener("afterprint", onAfterPrint)
     }
-  }, [])
-
-  useEffect(() => {
-    function updateResponsiveScale() {
-      const width = window.innerWidth || 1280
-      if (width < 430) {
-        setPdfScale(0.62)
-        return
-      }
-      if (width < 560) {
-        setPdfScale(0.72)
-        return
-      }
-      if (width < 768) {
-        setPdfScale(0.84)
-        return
-      }
-      if (width < 1024) {
-        setPdfScale(1)
-        return
-      }
-      setPdfScale(1.3)
-    }
-
-    updateResponsiveScale()
-    window.addEventListener("resize", updateResponsiveScale)
-    return () => window.removeEventListener("resize", updateResponsiveScale)
   }, [])
 
   useEffect(() => {
@@ -364,12 +337,12 @@ export default function StudentPdfFormFillPage() {
             {pdfUrl ? (
               <PdfOverlayStage
                 pdfUrl={pdfUrl}
-                scale={pdfScale}
+                scale={PDF_MAX_SCALE}
                 maxPageWidth={maxPageWidth}
                 renderOverlay={(page) => (
                   <>
                     {(fieldsByPage[page.page] || []).map((field) => {
-                      const pageScale = Number(page.renderScale || pdfScale || 1)
+                      const pageScale = Number(page.renderScale || PDF_MAX_SCALE || 1)
                       const getPageFontSize = (baseSize) => {
                         const base = Number(baseSize || 12)
                         const factor = Math.min(1, Math.max(0.4, pageScale / 1.3))
@@ -441,11 +414,14 @@ export default function StudentPdfFormFillPage() {
                             className={`absolute flex items-center justify-center rounded text-[11px] ${
                               printValueOnly
                                 ? "pointer-events-none border-0"
-                                : `pointer-events-auto cursor-pointer ${field.borderless ? "border-0" : "border border-dashed border-primary/70"}`
+                                : "pointer-events-auto cursor-pointer border-0"
                             }`}
                             style={{
                               ...commonStyle,
                               backgroundColor: printValueOnly ? "transparent" : fieldBackgroundColor,
+                              outline:
+                                !printValueOnly && !field.borderless ? "1px dashed rgba(37, 99, 235, 0.7)" : "none",
+                              outlineOffset: !printValueOnly && !field.borderless ? "-1px" : "0px",
                             }}
                           >
                             <input
@@ -467,7 +443,7 @@ export default function StudentPdfFormFillPage() {
                               }}
                             />
                             {hasPreview ? (
-                              <img src={values[field.fieldId]} alt={field.label} className="h-full w-full rounded object-contain" />
+                              <img src={values[field.fieldId]} alt={field.label} className="h-full w-full rounded object-fill" />
                             ) : (
                               <span className="flex flex-col items-center justify-center gap-1 px-1 text-center text-[10px]">
                                 <UploadCloud className="h-4 w-4" />
@@ -614,7 +590,7 @@ export default function StudentPdfFormFillPage() {
                                 ? "pointer-events-none border-0 bg-transparent"
                                 : field.borderless
                                   ? "pointer-events-auto border-0"
-                                  : "pointer-events-auto border border-primary/60"
+                                  : "pointer-events-auto border-0"
                             }`}
                             style={{
                               ...commonStyle,
@@ -623,6 +599,9 @@ export default function StudentPdfFormFillPage() {
                               gridTemplateColumns: colRatios.map((ratio) => `${ratio}fr`).join(" "),
                               gridTemplateRows: rowRatios.map((ratio) => `${ratio}fr`).join(" "),
                               gap: 0,
+                              outline:
+                                !printValueOnly && !field.borderless ? "1px solid rgba(37, 99, 235, 0.6)" : "none",
+                              outlineOffset: !printValueOnly && !field.borderless ? "-1px" : "0px",
                             }}
                           >
                             {tableValue.map((rowValue, rowIndex) =>

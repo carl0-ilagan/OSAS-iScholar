@@ -7,6 +7,19 @@ import { collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, order
 import { Star, Send, Loader2, User, GraduationCap } from "lucide-react"
 import { toast } from "sonner"
 
+const FALLBACK_SCHOLARSHIPS = [
+  { id: "fallback-1", name: "Merit Scholarship" },
+  { id: "fallback-2", name: "Needs-Based Grant" },
+  { id: "fallback-3", name: "Tertiary Education Subsidy (TES)" },
+  { id: "fallback-4", name: "Teacher Development Program (TDP)" },
+]
+
+function isPermissionDenied(error) {
+  const code = String(error?.code || "").toLowerCase()
+  const message = String(error?.message || "").toLowerCase()
+  return code.includes("permission-denied") || message.includes("insufficient permissions")
+}
+
 export default function TestimonialModal({ isOpen, onClose, userId, userName, onTestimonialSubmitted }) {
   const [testimonial, setTestimonial] = useState("")
   const [rating, setRating] = useState(0)
@@ -50,11 +63,16 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
         
         setScholarships(scholarshipsData)
       } catch (error) {
+        if (isPermissionDenied(error)) {
+          // Keep testimonial flow available even before Firestore rules are redeployed.
+          setScholarships(FALLBACK_SCHOLARSHIPS)
+          return
+        }
         console.error("Error fetching scholarships:", error)
         toast.error("Failed to load scholarships", {
           duration: 3000,
         })
-        setScholarships([])
+        setScholarships(FALLBACK_SCHOLARSHIPS)
       } finally {
         setLoadingScholarships(false)
       }
@@ -86,7 +104,9 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
           setUserCampus(data.campus || "")
         }
       } catch (error) {
-        console.error("Error fetching user data:", error)
+        if (!isPermissionDenied(error)) {
+          console.error("Error fetching user data:", error)
+        }
         setUserPhotoURL(null)
         setUserFullName("")
         setUserCourse("")
@@ -172,7 +192,7 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 to: secondaryEmail,
-                subject: 'Testimonial Submitted - iScholar',
+                subject: 'Testimonial Submitted - MOCAS',
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -194,8 +214,8 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
                         <p>Dear ${studentName},</p>
                         <p>Thank you for sharing your testimonial with us!</p>
                         <p>Your testimonial has been submitted successfully and is now under review. Once approved, it will be displayed on the platform.</p>
-                        <p>We appreciate your feedback and contribution to the iScholar community.</p>
-                        <p>Best regards,<br>iScholar Team</p>
+                        <p>We appreciate your feedback and contribution to the MOCAS community.</p>
+                        <p>Best regards,<br>MOCAS Team</p>
                       </div>
                     </div>
                   </body>
@@ -276,12 +296,7 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
                         className="w-full px-4 py-3 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md font-light"
                         required
                         disabled={scholarships.length === 0}
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 1rem center',
-                          paddingRight: '2.5rem',
-                        }}
+                        style={{ paddingRight: '2.5rem' }}
                       >
                         <option value="">
                           {scholarships.length === 0 ? "No scholarships available" : "Select a scholarship"}
@@ -338,7 +353,7 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
                         className={`w-8 h-8 transition-all duration-200 ${
                           star <= (hoverRating || rating)
                             ? "fill-yellow-400 text-yellow-400 scale-110"
-                            : "text-gray-300"
+                            : "text-muted-foreground/40"
                         }`}
                       />
                     </button>

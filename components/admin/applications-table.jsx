@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CheckCircle, Clock, XCircle, Eye, User } from "lucide-react"
 import ApplicationDetailModal from "./application-detail-modal"
 
-export default function ApplicationsTable({ applications, onUpdate }) {
+export default function ApplicationsTable({ applications, onUpdate, reviewedBy = "admin", readOnly = false }) {
   const [selectedApplication, setSelectedApplication] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -55,18 +55,18 @@ export default function ApplicationsTable({ applications, onUpdate }) {
     <>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full">
             <thead>
-              <tr className="bg-gradient-to-r from-primary to-secondary">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Student</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Scholarship</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Course</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Campus</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Submitted</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-white">Action</th>
+              <tr className="bg-muted/60 border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Student</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Scholarship</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Course</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Year</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Campus</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Submitted</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -77,49 +77,51 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                     index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                   }`}
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {app.photoURL ? (
                         <img
                           src={app.photoURL}
                           alt={app.name}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
-                          <User className="w-5 h-5 text-primary" />
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
+                          <User className="w-4 h-4 text-primary" />
                         </div>
                       )}
                       <div>
-                        <p className="font-medium text-foreground">{app.name}</p>
-                        <p className="text-xs text-muted-foreground">{app.studentNumber}</p>
+                        <p className="text-sm font-medium text-foreground">{app.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{app.studentNumber}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-foreground">{app.scholarshipName}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-xs font-medium text-foreground">{app.scholarshipName}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-foreground">{app.course}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-foreground">{app.course}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-foreground">{app.yearLevel}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-foreground">{app.yearLevel}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-foreground">{app.campus}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-foreground">{app.campus}</p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     {getStatusBadge(app.status)}
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-muted-foreground">{app.submittedDate}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-muted-foreground">{app.submittedDate}</p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <button
                       onClick={() => handleView(app)}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                      title="View details"
+                      aria-label="View details"
                     >
-                      View
+                      <Eye className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
@@ -134,7 +136,7 @@ export default function ApplicationsTable({ applications, onUpdate }) {
         {applications.map((app) => (
           <div
             key={app.id}
-            className="bg-card border border-border rounded-xl p-4 space-y-3"
+            className="bg-card border border-border rounded-xl p-3.5 space-y-3 shadow-sm"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3 flex-1">
@@ -142,22 +144,32 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                   <img
                     src={app.photoURL}
                     alt={app.name}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20"
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
-                    <User className="w-6 h-6 text-primary" />
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
+                    <User className="w-5 h-5 text-primary" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">{app.name}</p>
-                  <p className="text-xs text-muted-foreground">{app.studentNumber}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{app.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{app.studentNumber}</p>
                 </div>
               </div>
-              {getStatusBadge(app.status)}
+              <div className="ml-2 flex items-center gap-2">
+                {getStatusBadge(app.status)}
+                <button
+                  onClick={() => handleView(app)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                  title="View details"
+                  aria-label="View details"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-1.5 text-sm">
+            <div className="space-y-1.5 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground w-20">Scholarship:</span>
                 <span className="text-foreground font-medium">{app.scholarshipName}</span>
@@ -179,13 +191,6 @@ export default function ApplicationsTable({ applications, onUpdate }) {
                 <span className="text-foreground">{app.submittedDate}</span>
               </div>
             </div>
-
-            <button
-              onClick={() => handleView(app)}
-              className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-            >
-              View Details
-            </button>
           </div>
         ))}
       </div>
@@ -200,6 +205,8 @@ export default function ApplicationsTable({ applications, onUpdate }) {
             setSelectedApplication(null)
           }}
           onUpdate={onUpdate}
+          reviewedBy={reviewedBy}
+          readOnly={readOnly}
         />
       )}
     </>

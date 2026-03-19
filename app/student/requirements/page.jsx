@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, query, orderBy, where } from "firebase/firestore"
-import StudentPageBanner from "@/components/student/page-banner"
 import { ClipboardCheck, Upload, FileText, CheckCircle, X, Download, Eye, AlertCircle, ChevronLeft, ChevronRight, Calendar, Sparkles, FolderOpen, Trash2, Edit, Save, FileEdit } from "lucide-react"
 import { toast } from "sonner"
 
@@ -152,7 +151,6 @@ export default function StudentRequirementsPage() {
   const [requirements, setRequirements] = useState([])
   const [studentDocuments, setStudentDocuments] = useState({})
   const [files, setFiles] = useState({}) // Can store single file or array of files (max 2)
-  const [userName, setUserName] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedCard, setExpandedCard] = useState(null)
   const [activeTab, setActiveTab] = useState("required")
@@ -179,8 +177,7 @@ export default function StudentRequirementsPage() {
         const userDoc = await getDoc(doc(db, "users", user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data()
-          setUserName(data.fullName || data.displayName || "Student")
-          
+
           // Check form completion status (same as scholarship apply modal)
           setApplicationFormFilled(data.applicationFormCompleted || false)
           setProfileFormFilled(data.profileFormCompleted || false)
@@ -1101,7 +1098,7 @@ export default function StudentRequirementsPage() {
 
   if (loading) {
     return (
-      <div className="p-6 lg:p-8">
+      <div className="p-4 lg:p-5">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-64"></div>
           <div className="h-4 bg-muted rounded w-96"></div>
@@ -1112,23 +1109,16 @@ export default function StudentRequirementsPage() {
 
   return (
     <>
-      <StudentPageBanner
-        icon={ClipboardCheck}
-        title="Document Requirements"
-        description="Upload required documents and view your submissions"
-        userName={userName}
-      />
-      
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="space-y-4 p-3 md:p-4 lg:p-5">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Document Requirements</h1>
-          <p className="text-muted-foreground">Upload the required documents as specified by the administration</p>
+          <h1 className="mb-1 text-xl font-bold text-foreground md:text-2xl">Document Requirements</h1>
+          <p className="text-sm text-muted-foreground">Upload the required documents as specified by the administration</p>
         </div>
 
         {/* Tab Controls - Enhanced for Desktop */}
-        <div className="relative mb-6">
-          <div className="flex gap-1 md:gap-2 border-b-2 border-border relative bg-card/50 backdrop-blur-sm rounded-t-lg p-1 md:p-0">
+        <div className="relative mb-4">
+          <div className="relative flex gap-1 rounded-lg border border-border bg-card p-1">
             <button
               onClick={() => {
                 if (activeTab !== "required") {
@@ -1140,19 +1130,17 @@ export default function StudentRequirementsPage() {
                   }, 50)
                 }
               }}
-              className={`px-4 md:px-8 py-2.5 md:py-3.5 font-semibold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl ${
+              className={`relative z-10 rounded-md px-3 md:px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "required"
-                  ? "text-primary bg-primary/10 shadow-md"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
-              <div className="flex items-center gap-2 md:gap-3">
-                <ClipboardCheck className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "required" ? "scale-110 rotate-3 text-primary" : ""}`} />
-                <span className="text-sm md:text-base">Required Documents</span>
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className={`h-4 w-4 ${activeTab === "required" ? "text-primary" : ""}`} />
+                <span>Required Documents</span>
                 {requirements.filter(r => r.required && !studentDocuments[r.id]).length > 0 && (
-                  <span className={`px-2 py-0.5 md:px-2.5 md:py-1 bg-red-500/20 text-red-600 rounded-full text-xs font-semibold transition-all duration-300 ${
-                    activeTab === "required" ? "scale-110 animate-pulse" : ""
-                  }`}>
+                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-600">
                     {requirements.filter(r => r.required && !studentDocuments[r.id]).length}
                   </span>
                 )}
@@ -1169,32 +1157,22 @@ export default function StudentRequirementsPage() {
                   }, 50)
                 }
               }}
-              className={`px-4 md:px-8 py-2.5 md:py-3.5 font-semibold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl ${
+              className={`relative z-10 rounded-md px-3 md:px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "records"
-                  ? "text-primary bg-primary/10 shadow-md"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
-              <div className="flex items-center gap-2 md:gap-3">
-                <FolderOpen className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "records" ? "scale-110 rotate-3 text-primary" : ""}`} />
-                <span className="text-sm md:text-base">My Records</span>
+              <div className="flex items-center gap-2">
+                <FolderOpen className={`h-4 w-4 ${activeTab === "records" ? "text-primary" : ""}`} />
+                <span>My Records</span>
                 {myRecords.length > 0 && (
-                  <span className={`px-2 py-0.5 md:px-2.5 md:py-1 bg-primary/20 text-primary rounded-full text-xs font-semibold transition-all duration-300 ${
-                    activeTab === "records" ? "scale-110 animate-pulse" : ""
-                  }`}>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
                     {myRecords.length}
                   </span>
                 )}
               </div>
             </button>
-            {/* Animated underline indicator */}
-            <div 
-              className="absolute bottom-0 h-1 md:h-1.5 bg-gradient-to-r from-primary via-secondary to-primary transition-all duration-500 ease-in-out rounded-t-full animate-pulse"
-              style={{
-                width: activeTab === "required" ? "calc(50% - 8px)" : "calc(50% - 8px)",
-                left: activeTab === "required" ? "4px" : "calc(50% + 4px)",
-              }}
-            />
           </div>
         </div>
 
@@ -1203,16 +1181,16 @@ export default function StudentRequirementsPage() {
         {activeTab === "required" && (
           <>
             {/* Forms Status Section */}
-            <div className="bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-xl p-5 sm:p-6 mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg">
-                  <FileEdit className="w-5 h-5 text-white" />
+            <div className="mb-4 rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center gap-2.5">
+                <div className="rounded-md bg-primary/15 p-1.5">
+                  <FileEdit className="h-4 w-4 text-primary" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground">Required Forms</h3>
+                <h3 className="text-base font-semibold text-foreground">Required Forms</h3>
               </div>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-3 md:grid-cols-2">
                 {/* Application Form */}
-                <div className={`p-4 rounded-lg border-2 transition-all ${
+                <div className={`rounded-lg border p-3 transition-all ${
                   applicationFormFilled
                     ? 'border-green-500/30 bg-green-500/5'
                     : 'border-yellow-500/30 bg-yellow-500/5'
@@ -1227,7 +1205,7 @@ export default function StudentRequirementsPage() {
                         <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">Application Form</p>
+                        <p className="text-sm font-semibold text-foreground">Application Form</p>
                         <p className="text-xs text-muted-foreground">
                           {applicationFormFilled ? 'Already filled up' : 'Not yet filled'}
                         </p>
@@ -1241,7 +1219,7 @@ export default function StudentRequirementsPage() {
                     ) : (
                       <button
                         onClick={() => router.push('/student/application-form')}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         <FileEdit className="w-4 h-4" />
                         Fill Up
@@ -1251,7 +1229,7 @@ export default function StudentRequirementsPage() {
                 </div>
 
                 {/* Profile Form */}
-                <div className={`p-4 rounded-lg border-2 transition-all ${
+                <div className={`rounded-lg border p-3 transition-all ${
                   profileFormFilled
                     ? 'border-green-500/30 bg-green-500/5'
                     : 'border-yellow-500/30 bg-yellow-500/5'
@@ -1266,7 +1244,7 @@ export default function StudentRequirementsPage() {
                         <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">Student Profile Form</p>
+                        <p className="text-sm font-semibold text-foreground">Student Profile Form</p>
                         <p className="text-xs text-muted-foreground">
                           {profileFormFilled ? 'Already filled up' : 'Not yet filled'}
                         </p>
@@ -1280,7 +1258,7 @@ export default function StudentRequirementsPage() {
                     ) : (
                       <button
                         onClick={() => router.push('/student/profile-form')}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         <FileEdit className="w-4 h-4" />
                         Fill Up
@@ -1306,7 +1284,7 @@ export default function StudentRequirementsPage() {
             </div>
 
             {/* Requirements Grid */}
-            <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid gap-3 md:grid-cols-2 md:gap-4">
               {requirements.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((requirement) => {
               const uploadedDoc = studentDocuments[requirement.id]
               const hasFile = files[requirement.id]
@@ -1316,7 +1294,7 @@ export default function StudentRequirementsPage() {
               return (
                 <div 
                   key={requirement.id} 
-                  className={`bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-xl p-5 sm:p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] ${
+                  className={`rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-sm ${
                     uploadedDoc 
                       ? 'border-green-500/30 bg-green-500/5' 
                       : requirement.required 
@@ -1328,10 +1306,10 @@ export default function StudentRequirementsPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg">
-                          <ClipboardCheck className="w-4 h-4 text-white" />
+                        <div className="rounded-md bg-primary/15 p-1.5">
+                          <ClipboardCheck className="h-4 w-4 text-primary" />
                         </div>
-                        <h2 className="text-lg sm:text-xl font-bold text-foreground flex-1 min-w-0">{requirement.name}</h2>
+                        <h2 className="flex-1 min-w-0 text-base font-semibold text-foreground">{requirement.name}</h2>
                         {requirement.required && (
                           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-600 border border-red-500/30 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" />
@@ -1345,7 +1323,7 @@ export default function StudentRequirementsPage() {
                         )}
                       </div>
                       {requirement.description && (
-                        <p className={`text-sm text-muted-foreground transition-all ${isExpanded ? '' : 'line-clamp-2'}`}>
+                        <p className={`text-xs text-muted-foreground transition-all ${isExpanded ? '' : 'line-clamp-2'}`}>
                           {requirement.description}
                         </p>
                       )}
@@ -1362,14 +1340,14 @@ export default function StudentRequirementsPage() {
 
                   {uploadedDoc ? (
                     <div className="space-y-4">
-                      <div className="bg-gradient-to-r from-green-500/10 to-primary/10 border-2 border-green-500/30 rounded-xl p-4">
+                      <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="p-1.5 bg-green-500/20 rounded-lg">
                             <CheckCircle className="w-5 h-5 text-green-600" />
                           </div>
                           <span className="font-semibold text-foreground">Document Uploaded</span>
                         </div>
-                        <div className="flex items-center gap-2 mb-4 p-3 bg-background rounded-lg border border-border">
+                        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-background p-2.5">
                           <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate flex-1">{uploadedDoc.fileName}</span>
                         </div>
@@ -1378,7 +1356,7 @@ export default function StudentRequirementsPage() {
                             onClick={() => {
                               handleDownloadDocument(uploadedDoc.fileUrl, uploadedDoc.fileName)
                             }}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all shadow-md hover:shadow-lg font-medium"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
                           >
                             <Download className="w-4 h-4" />
                             <span>Download</span>
@@ -1393,7 +1371,7 @@ export default function StudentRequirementsPage() {
                               const input = document.getElementById(`file-replace-${requirement.id}`)
                               if (input) input.value = ''
                             }}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all font-medium"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
                           >
                             <Upload className="w-4 h-4 flex-shrink-0" />
                             <span>Replace</span>
@@ -1460,11 +1438,11 @@ export default function StudentRequirementsPage() {
                           <button
                             onClick={() => handleUpload(requirement.id)}
                             disabled={!hasFile || isUploading}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium relative overflow-hidden"
+                            className="relative w-full overflow-hidden rounded-md border border-primary/30 bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary/90 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {isUploading ? (
                               <>
-                                <div className="flex items-center gap-2">
+                                <div className="flex w-full items-center justify-center gap-2">
                                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                   <span>Uploading... {uploadProgress[requirement.id] || 0}%</span>
                                 </div>
@@ -1477,15 +1455,17 @@ export default function StudentRequirementsPage() {
                                 </div>
                               </>
                             ) : (
-                              <>
-                                <Upload className="w-4 h-4 flex-shrink-0" />
+                              <span className="inline-flex w-full items-center justify-center gap-2">
+                                <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white/15">
+                                  <Upload className="h-3.5 w-3.5" />
+                                </span>
                                 <span>Upload Document</span>
-                              </>
+                              </span>
                             )}
                           </button>
                         </>
                       ) : (
-                        <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/10 border-2 border-green-500/30 rounded-lg font-medium text-green-600">
+                        <div className="flex w-full items-center justify-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-600">
                           <CheckCircle className="w-4 h-4" />
                           <span>Already Uploaded</span>
                         </div>
@@ -1502,7 +1482,7 @@ export default function StudentRequirementsPage() {
 
                   {/* Replace file section when document is already uploaded */}
                   {uploadedDoc && replacingRequirement === requirement.id && (
-                    <div className="mt-4 pt-4 border-t-2 border-border">
+                    <div className="mt-4 border-t border-border pt-4">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-sm font-semibold text-foreground">Replace Document</p>
                         <button
@@ -1540,11 +1520,11 @@ export default function StudentRequirementsPage() {
                           })
                         }}
                         disabled={!files[requirement.id] || isUploading}
-                        className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium relative overflow-hidden"
+                        className="relative mt-2 w-full overflow-hidden rounded-md border border-primary/30 bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary/90 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isUploading ? (
                           <>
-                            <div className="flex items-center gap-2">
+                            <div className="flex w-full items-center justify-center gap-2">
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                               <span>Uploading... {uploadProgress[requirement.id] || 0}%</span>
                             </div>
@@ -1557,10 +1537,12 @@ export default function StudentRequirementsPage() {
                             </div>
                           </>
                         ) : (
-                          <>
-                            <Upload className="w-4 h-4 flex-shrink-0" />
+                          <span className="inline-flex w-full items-center justify-center gap-2">
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white/15">
+                              <Upload className="h-3.5 w-3.5" />
+                            </span>
                             <span>Replace Document</span>
-                          </>
+                          </span>
                         )}
                       </button>
                     </div>
@@ -1572,11 +1554,11 @@ export default function StudentRequirementsPage() {
 
             {/* Pagination */}
             {requirements.length > ITEMS_PER_PAGE && (
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-border">
+              <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Previous</span>
@@ -1593,10 +1575,10 @@ export default function StudentRequirementsPage() {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-2 rounded-lg transition-all font-medium ${
+                          className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                             currentPage === page
-                              ? 'bg-primary text-white shadow-lg'
-                              : 'border-2 border-border hover:bg-muted hover:border-primary/50'
+                              ? 'bg-primary text-white'
+                              : 'border border-border hover:bg-muted'
                           }`}
                         >
                           {page}
@@ -1612,7 +1594,7 @@ export default function StudentRequirementsPage() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(Math.ceil(requirements.length / ITEMS_PER_PAGE), prev + 1))}
                   disabled={currentPage === Math.ceil(requirements.length / ITEMS_PER_PAGE)}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span>Next</span>
                   <ChevronRight className="w-4 h-4" />
@@ -1630,7 +1612,7 @@ export default function StudentRequirementsPage() {
         {activeTab === "records" && (
           <>
             {myRecords.length === 0 ? (
-              <div className="bg-card border-2 border-border rounded-xl p-12 text-center">
+              <div className="rounded-xl border border-border bg-card p-10 text-center">
                 <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground font-medium">No records found</p>
                 <p className="text-sm text-muted-foreground mt-1">You haven't uploaded any documents yet</p>
@@ -1645,14 +1627,14 @@ export default function StudentRequirementsPage() {
                 </div>
 
                 {/* Records Grid */}
-                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid gap-3 md:grid-cols-2 md:gap-4">
                   {myRecords.slice((recordsPage - 1) * ITEMS_PER_PAGE, recordsPage * ITEMS_PER_PAGE).map((record) => {
                     const requirement = requirements.find(r => r.id === record.requirementId)
                     
                     return (
                       <div
                         key={record.id}
-                        className={`bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-xl p-5 sm:p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] ${
+                        className={`rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-sm ${
                           record.requirementExists
                             ? 'border-green-500/30 bg-green-500/5'
                             : 'border-orange-500/30 bg-orange-500/5'
@@ -1662,10 +1644,10 @@ export default function StudentRequirementsPage() {
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg">
-                                <FolderOpen className="w-4 h-4 text-white" />
+                              <div className="rounded-md bg-primary/15 p-1.5">
+                                <FolderOpen className="h-4 w-4 text-primary" />
                               </div>
-                              <h2 className="text-lg sm:text-xl font-bold text-foreground flex-1 min-w-0">{record.requirementName}</h2>
+                              <h2 className="flex-1 min-w-0 text-base font-semibold text-foreground">{record.requirementName}</h2>
                               {!record.requirementExists && (
                                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-600 border border-orange-500/30">
                                   Deleted
@@ -1673,13 +1655,13 @@ export default function StudentRequirementsPage() {
                               )}
                             </div>
                             {record.requirementDescription && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{record.requirementDescription}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{record.requirementDescription}</p>
                             )}
                           </div>
                         </div>
 
                         {/* File Info */}
-                        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-xl p-4 mb-4">
+                        <div className="mb-4 rounded-lg border border-primary/25 bg-primary/5 p-3">
                           <div className="flex items-center gap-2 mb-3">
                             <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                             <span className="font-semibold text-foreground truncate flex-1">{record.fileName}</span>
@@ -1702,14 +1684,14 @@ export default function StudentRequirementsPage() {
                                 onClick={() => {
                                   handleDownloadDocument(record.fileUrl, record.fileName)
                                 }}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all shadow-md hover:shadow-lg font-medium"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
                               >
                                 <Download className="w-4 h-4" />
                                 <span>Download</span>
                               </button>
                               <button
                                 onClick={() => setEditingRecords(prev => ({ ...prev, [record.id]: true }))}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all font-medium"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
                               >
                                 <Edit className="w-4 h-4" />
                                 <span>Update</span>
@@ -1736,7 +1718,7 @@ export default function StudentRequirementsPage() {
                                     toast.error("Failed to delete record. Please try again.")
                                   }
                                 }}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-destructive/30 rounded-lg hover:bg-destructive/10 hover:border-destructive/50 transition-all font-medium text-destructive"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-destructive/30 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 <span>Delete</span>
@@ -1826,7 +1808,7 @@ export default function StudentRequirementsPage() {
                                       toast.error("Failed to update record. Please try again.")
                                     }
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all font-medium"
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
                                 >
                                   <Save className="w-4 h-4" />
                                   <span>Save</span>
@@ -1846,7 +1828,7 @@ export default function StudentRequirementsPage() {
                                     const input = document.getElementById(`edit-${record.id}`)
                                     if (input) input.value = ''
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-border rounded-lg hover:bg-muted transition-all font-medium"
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
                                 >
                                   <X className="w-4 h-4" />
                                   <span>Cancel</span>
@@ -1862,11 +1844,11 @@ export default function StudentRequirementsPage() {
 
                 {/* Pagination for Records */}
                 {myRecords.length > ITEMS_PER_PAGE && (
-                  <div className="flex items-center justify-between mt-6 pt-6 border-t-2 border-border">
+                  <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
                     <button
                       onClick={() => setRecordsPage(prev => Math.max(1, prev - 1))}
                       disabled={recordsPage === 1}
-                      className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <ChevronLeft className="w-4 h-4" />
                       <span>Previous</span>
@@ -1883,10 +1865,10 @@ export default function StudentRequirementsPage() {
                             <button
                               key={page}
                               onClick={() => setRecordsPage(page)}
-                              className={`px-3 py-2 rounded-lg transition-all font-medium ${
+                              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                                 recordsPage === page
-                                  ? 'bg-primary text-white shadow-lg'
-                                  : 'border-2 border-border hover:bg-muted hover:border-primary/50'
+                                  ? 'bg-primary text-white'
+                                  : 'border border-border hover:bg-muted'
                               }`}
                             >
                               {page}
@@ -1902,7 +1884,7 @@ export default function StudentRequirementsPage() {
                     <button
                       onClick={() => setRecordsPage(prev => Math.min(Math.ceil(myRecords.length / ITEMS_PER_PAGE), prev + 1))}
                       disabled={recordsPage === Math.ceil(myRecords.length / ITEMS_PER_PAGE)}
-                      className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span>Next</span>
                       <ChevronRight className="w-4 h-4" />

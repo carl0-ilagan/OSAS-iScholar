@@ -6,39 +6,39 @@ export default function EnhancedDashboardCard({ icon: Icon, label, value, color,
   const bgGradient = bgColor || "from-primary/20 to-primary/5"
 
   return (
-    <div className={`bg-gradient-to-br ${bgGradient} border-2 border-border/50 rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg md:shadow-xl hover:shadow-2xl transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] md:hover:scale-[1.02]`}>
+    <div className={`bg-gradient-to-br ${bgGradient} border border-border/50 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group`}>
       {/* Background Icon */}
-      <div className={`absolute -right-4 md:-right-6 -bottom-4 md:-bottom-6 w-20 h-20 md:w-28 md:h-28 opacity-5 group-hover:opacity-15 transition-opacity duration-300`}>
+      <div className={`absolute -right-3 -bottom-3 w-16 h-16 md:w-20 md:h-20 opacity-5 group-hover:opacity-10 transition-opacity duration-300`}>
         <Icon className="w-full h-full" style={{ color: `var(--${color.replace('text-', '')})` }} />
       </div>
 
       {/* Shine Effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl md:rounded-2xl"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl"></div>
 
       <div className="relative z-10">
-        <div className="flex items-start justify-between mb-3 md:mb-4">
-          <div className={`p-2 md:p-2.5 lg:p-3 rounded-lg md:rounded-xl bg-background/60 backdrop-blur-sm shadow-md border border-border/30`}>
-            <Icon className={`w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 ${color}`} />
+        <div className="flex items-start justify-between mb-2.5 md:mb-3">
+          <div className={`p-1.5 md:p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/30`}>
+            <Icon className={`w-4 h-4 md:w-4.5 md:h-4.5 ${color}`} />
           </div>
           {change && (
-            <div className={`flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-md md:rounded-lg bg-background/70 backdrop-blur-sm border border-border/30 shadow-sm ${changeColor}`}>
+            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-background/70 backdrop-blur-sm border border-border/30 ${changeColor}`}>
               {isPositive ? (
-                <svg className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
               ) : (
-                <svg className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                 </svg>
               )}
-              <span className="text-[9px] md:text-[10px] lg:text-xs font-bold">{change}</span>
+              <span className="text-[9px] md:text-[10px] font-bold">{change}</span>
             </div>
           )}
         </div>
 
-        <div className="space-y-1 md:space-y-1.5">
-          <p className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-foreground tracking-tight">{value}</p>
-          <p className="text-[10px] md:text-xs lg:text-sm font-semibold text-muted-foreground uppercase tracking-wider leading-tight">{label}</p>
+        <div className="space-y-0.5 md:space-y-1">
+          <p className="text-lg md:text-xl lg:text-2xl font-bold text-foreground tracking-tight">{value}</p>
+          <p className="text-[10px] md:text-[11px] font-medium text-muted-foreground uppercase tracking-wide leading-tight">{label}</p>
         </div>
       </div>
     </div>

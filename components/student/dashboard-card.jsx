@@ -4,30 +4,30 @@ export default function DashboardCard({ title, icon: Icon, status, count, descri
   return (
     <Component
       onClick={onClick}
-      className={`bg-card border-2 border-border rounded-xl p-5 sm:p-6 hover:shadow-lg transition-all text-left w-full ${
-        onClick ? 'cursor-pointer hover:border-primary/50 active:scale-[0.98]' : ''
+      className={`w-full rounded-xl border border-border bg-card p-4 text-left transition-all ${
+        onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-muted/20' : ''
       }`}
     >
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="font-semibold text-foreground text-sm sm:text-base">{title}</h3>
+      <div className="mb-3 flex items-start justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         <div className={`p-2 rounded-lg ${
           color.includes('blue') ? 'bg-blue-500/20' :
           color.includes('yellow') ? 'bg-yellow-500/20' :
           color.includes('orange') ? 'bg-orange-500/20' :
           'bg-primary/20'
         }`}>
-          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${color}`} />
+          <Icon className={`h-4 w-4 ${color}`} />
         </div>
       </div>
       {status && (
-        <p className="text-2xl sm:text-3xl font-bold text-foreground capitalize mb-2">
+        <p className="mb-1 text-xl font-bold capitalize text-foreground">
           {status.replace("-", " ")}
         </p>
       )}
       {count !== undefined && (
-        <p className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{count}</p>
+        <p className="mb-1 text-xl font-bold text-foreground">{count}</p>
       )}
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-xs text-muted-foreground">{description}</p>
     </Component>
   )
 }

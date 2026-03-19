@@ -26,13 +26,13 @@ export default function ApplicationsChart({ applications }) {
     const updateHeight = () => {
       if (typeof window !== 'undefined') {
         if (window.innerWidth < 640) {
-          setChartHeight(250)
+          setChartHeight(220)
         } else if (window.innerWidth < 768) {
-          setChartHeight(300)
+          setChartHeight(260)
         } else if (window.innerWidth < 1024) {
-          setChartHeight(400)
+          setChartHeight(320)
         } else {
-          setChartHeight(500)
+          setChartHeight(360)
         }
       }
     }
@@ -95,13 +95,13 @@ export default function ApplicationsChart({ applications }) {
       const data = payload[0]
       const percentage = ((data.value / totalCount) * 100).toFixed(1)
       return (
-        <div className="bg-background border border-border rounded-lg p-4 shadow-xl">
-          <p className="font-semibold text-foreground mb-2">{data.name}</p>
+        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold text-sm text-foreground mb-1.5">{data.name}</p>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Count: <span className="font-semibold text-foreground">{data.value}</span>
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Percentage: <span className="font-semibold text-foreground">{percentage}%</span>
             </p>
           </div>
@@ -126,10 +126,10 @@ export default function ApplicationsChart({ applications }) {
         fill="white"
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
-        className="text-sm font-bold"
+        className="text-xs font-bold"
         style={{ 
           filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
-          fontSize: "13px"
+          fontSize: "11px"
         }}
       >
         {`${(percent * 100).toFixed(0)}%`}
@@ -138,44 +138,44 @@ export default function ApplicationsChart({ applications }) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-card via-card/80 to-card/50 border-2 border-border/50 rounded-xl md:rounded-2xl p-3 md:p-4 lg:p-6 xl:p-8 shadow-xl md:shadow-2xl w-full h-full backdrop-blur-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 lg:gap-4 mb-3 md:mb-4 lg:mb-6">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="p-2 md:p-2.5 lg:p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg md:rounded-xl shadow-lg border border-primary/20">
-            <TrendingUp className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-primary" />
+    <div className="bg-gradient-to-br from-card via-card/80 to-card/50 border border-border/50 rounded-xl p-3 md:p-4 lg:p-5 shadow-sm w-full h-full backdrop-blur-sm transition-all duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mb-3 md:mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 md:p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg border border-primary/20">
+            <TrendingUp className="w-4 h-4 md:w-4.5 md:h-4.5 text-primary" />
           </div>
           <div>
-            <h3 className="text-base md:text-lg lg:text-xl xl:text-2xl font-bold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
+            <h3 className="text-sm md:text-base lg:text-lg font-semibold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
               Applications Overview
             </h3>
-            <p className="text-[10px] md:text-xs lg:text-sm text-muted-foreground mt-0.5 font-medium">
+            <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
               Distribution by scholarship type
             </p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 md:gap-1.5 lg:gap-2 bg-gradient-to-r from-muted/60 to-muted/40 backdrop-blur-sm p-0.5 md:p-1 rounded-lg md:rounded-xl border border-border/50 shadow-inner">
+        <div className="flex items-center gap-1 bg-gradient-to-r from-muted/60 to-muted/40 backdrop-blur-sm p-0.5 rounded-lg border border-border/50">
           <button
             onClick={() => setActiveTab("pending")}
-            className={`px-2 md:px-3 lg:px-4 py-1 md:py-1.5 lg:py-2 rounded-md md:rounded-lg text-[10px] md:text-xs lg:text-sm font-semibold transition-all duration-300 flex items-center gap-1 md:gap-1.5 lg:gap-2 ${
+            className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-medium transition-all duration-300 flex items-center gap-1 md:gap-1.5 ${
               activeTab === "pending"
-                ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg scale-105"
+                ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
           >
-            <Clock className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" />
+            <Clock className="w-3 h-3 md:w-3.5 md:h-3.5" />
             <span>Pending</span>
           </button>
           <button
             onClick={() => setActiveTab("approved")}
-            className={`px-2 md:px-3 lg:px-4 py-1 md:py-1.5 lg:py-2 rounded-md md:rounded-lg text-[10px] md:text-xs lg:text-sm font-semibold transition-all duration-300 flex items-center gap-1 md:gap-1.5 lg:gap-2 ${
+            className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md text-[10px] md:text-xs font-medium transition-all duration-300 flex items-center gap-1 md:gap-1.5 ${
               activeTab === "approved"
-                ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg scale-105"
+                ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
           >
-            <CheckCircle className="w-3 h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" />
+            <CheckCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
             <span>Approved</span>
           </button>
         </div>
@@ -196,7 +196,7 @@ export default function ApplicationsChart({ applications }) {
           )}
         </div>
       ) : (
-        <div className="w-full flex items-center justify-center bg-gradient-to-br from-muted/20 to-transparent rounded-lg md:rounded-xl p-2 md:p-3 lg:p-4">
+        <div className="w-full flex items-center justify-center bg-gradient-to-br from-muted/20 to-transparent rounded-lg p-2 md:p-3">
           <ResponsiveContainer width="100%" height={chartHeight}>
             <PieChart>
               <Pie
@@ -205,8 +205,8 @@ export default function ApplicationsChart({ applications }) {
                 cy="50%"
                 labelLine={false}
                 label={CustomLabel}
-                outerRadius={170}
-                innerRadius={80}
+                outerRadius={138}
+                innerRadius={58}
                 fill="#8884d8"
                 dataKey="value"
                 animationBegin={0}
@@ -230,7 +230,7 @@ export default function ApplicationsChart({ applications }) {
                 verticalAlign="bottom"
                 height={36}
                 formatter={(value, entry) => (
-                  <span style={{ color: entry.color, fontSize: '14px', fontWeight: '500' }}>
+                  <span style={{ color: entry.color, fontSize: '12px', fontWeight: '500' }}>
                     {value}
                   </span>
                 )}

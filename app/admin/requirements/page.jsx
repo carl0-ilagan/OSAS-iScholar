@@ -1,15 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
+import CampusAdminLayoutWrapper from "@/app/campus-admin/campus-admin-layout"
 import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { sendNewDocumentRequirementEmail } from "@/lib/email-service"
 import DocumentPreviewModal from "@/components/admin/document-preview-modal"
 
 export default function DocumentRequirementsPage() {
+  const pathname = usePathname()
+  const isCampusAdminRoute = pathname?.startsWith("/campus-admin")
+  const isAdminMonitoringOnly = pathname?.startsWith("/admin")
+  const canManageRequirements = isCampusAdminRoute
+  const LayoutWrapper = isCampusAdminRoute ? CampusAdminLayoutWrapper : AdminLayoutWrapper
   const [activeTab, setActiveTab] = useState("requirements") // "requirements" or "records"
   const [requirements, setRequirements] = useState([])
   const [loading, setLoading] = useState(true)
@@ -303,6 +310,10 @@ export default function DocumentRequirementsPage() {
   }
 
   const handleOpenModal = (requirement = null) => {
+    if (!canManageRequirements) {
+      toast.error("Monitoring-only view on admin side.")
+      return
+    }
     if (requirement) {
       setEditingRequirement(requirement)
       setFormData({
@@ -345,6 +356,10 @@ export default function DocumentRequirementsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!canManageRequirements) {
+      toast.error("Only campus admins can manage requirements.")
+      return
+    }
 
     if (!formData.name.trim()) {
       toast.error("Please enter a requirement name")
@@ -648,12 +663,20 @@ export default function DocumentRequirementsPage() {
   }
 
   const handleDeleteClick = (requirementId) => {
+    if (!canManageRequirements) {
+      toast.error("Only campus admins can delete requirements.")
+      return
+    }
     const requirement = requirements.find(r => r.id === requirementId)
     setRequirementToDelete(requirement)
     setDeleteModalOpen(true)
   }
 
   const handleDeleteConfirm = async () => {
+    if (!canManageRequirements) {
+      toast.error("Only campus admins can delete requirements.")
+      return
+    }
     if (!requirementToDelete) return
 
     setIsDeleting(true)
@@ -942,33 +965,33 @@ export default function DocumentRequirementsPage() {
   }
 
   return (
-    <AdminLayoutWrapper>
+    <LayoutWrapper>
       <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="p-3 md:p-4 lg:p-5">
           {/* Tab Controls */}
           <div className="relative mb-6">
-            <div className="flex gap-1 md:gap-2 border-b-2 border-border relative bg-card/50 backdrop-blur-sm rounded-t-lg p-1 md:p-0 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1 border-b border-border relative bg-card/60 rounded-lg p-1 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab("requirements")}
-                className={`px-4 md:px-8 py-2.5 md:py-3.5 font-bold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl whitespace-nowrap flex-shrink-0 group ${
+                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
                   activeTab === "requirements"
-                    ? "text-primary bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-br hover:from-muted/30 hover:via-muted/20 hover:to-muted/10"
+                    ? "text-primary bg-primary/10 border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md transition-all duration-200 ${
                     activeTab === "requirements" 
-                      ? "bg-primary/20 scale-110 rotate-3" 
-                      : "bg-muted/30 group-hover:bg-muted/50"
+                      ? "bg-primary/15" 
+                      : "bg-muted/30"
                   }`}>
-                    <FolderCheck className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "requirements" ? "text-primary scale-110" : "text-muted-foreground"}`} />
+                    <FolderCheck className={`w-4 h-4 transition-all duration-200 ${activeTab === "requirements" ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <span className="text-sm md:text-base font-semibold">Requirements</span>
+                  <span className="text-xs md:text-sm font-medium">Requirements</span>
                   {requirements.length > 0 && (
-                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                       activeTab === "requirements" 
-                        ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-md" 
+                        ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {requirements.length}
@@ -978,25 +1001,25 @@ export default function DocumentRequirementsPage() {
               </button>
               <button
                 onClick={() => setActiveTab("records")}
-                className={`px-4 md:px-8 py-2.5 md:py-3.5 font-bold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl whitespace-nowrap flex-shrink-0 group ${
+                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
                   activeTab === "records"
-                    ? "text-primary bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-br hover:from-muted/30 hover:via-muted/20 hover:to-muted/10"
+                    ? "text-primary bg-primary/10 border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md transition-all duration-200 ${
                     activeTab === "records" 
-                      ? "bg-primary/20 scale-110 rotate-3" 
-                      : "bg-muted/30 group-hover:bg-muted/50"
+                      ? "bg-primary/15" 
+                      : "bg-muted/30"
                   }`}>
-                    <Users className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "records" ? "text-primary scale-110" : "text-muted-foreground"}`} />
+                    <Users className={`w-4 h-4 transition-all duration-200 ${activeTab === "records" ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <span className="text-sm md:text-base font-semibold">Student Records</span>
+                  <span className="text-xs md:text-sm font-medium">Student Records</span>
                   {studentRecords.length > 0 && (
-                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                       activeTab === "records" 
-                        ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-md" 
+                        ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {studentRecords.length}
@@ -1013,15 +1036,21 @@ export default function DocumentRequirementsPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-foreground">Document Requirements</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">Add and manage document requirements for students</p>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                {isAdminMonitoringOnly
+                  ? "Monitoring view only for admin."
+                  : "Add and manage document requirements for students"}
+              </p>
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors w-full sm:w-auto justify-center"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Requirement</span>
-            </button>
+            {canManageRequirements && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors w-full sm:w-auto justify-center"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Requirement</span>
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -1037,23 +1066,18 @@ export default function DocumentRequirementsPage() {
             <div className="bg-card border border-border rounded-lg p-12 text-center">
               <FolderCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No requirements added yet</p>
-              <button
-                onClick={() => handleOpenModal()}
-                className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors mx-auto"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add First Requirement</span>
-              </button>
+              {canManageRequirements && (
+                <button
+                  onClick={() => handleOpenModal()}
+                  className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors mx-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add First Requirement</span>
+                </button>
+              )}
             </div>
           ) : (
             <>
-              {/* Pagination Info */}
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, requirements.length)} of {requirements.length} requirements
-                </p>
-              </div>
-
               {/* Requirements Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {requirements.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((requirement) => {
@@ -1094,22 +1118,24 @@ export default function DocumentRequirementsPage() {
                             </>
                           )}
                         </div>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => handleOpenModal(requirement)}
-                            className="p-2 hover:bg-primary/10 rounded-lg transition-all hover:scale-110 active:scale-95"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4 text-primary" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(requirement.id)}
-                            className="p-2 hover:bg-destructive/10 rounded-lg transition-all hover:scale-110 active:scale-95"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </button>
-                        </div>
+                        {canManageRequirements && (
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => handleOpenModal(requirement)}
+                              className="p-2 hover:bg-primary/10 rounded-lg transition-all hover:scale-110 active:scale-95"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4 text-primary" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(requirement.id)}
+                              className="p-2 hover:bg-destructive/10 rounded-lg transition-all hover:scale-110 active:scale-95"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Status Badge */}
@@ -1200,55 +1226,33 @@ export default function DocumentRequirementsPage() {
                 })}
               </div>
 
-              {/* Pagination */}
-              {requirements.length > ITEMS_PER_PAGE && (
-                <div className="flex items-center justify-between mt-6 pt-6 border-t-2 border-border">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous</span>
-                  </button>
-                  
-                  <div className="flex items-center gap-2">
-                    {Array.from({ length: Math.ceil(requirements.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map((page) => {
-                      if (
-                        page === 1 ||
-                        page === Math.ceil(requirements.length / ITEMS_PER_PAGE) ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 rounded-lg transition-all font-medium ${
-                              currentPage === page
-                                ? 'bg-primary text-white shadow-lg'
-                                : 'border-2 border-border hover:bg-muted hover:border-primary/50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      } else if (page === currentPage - 2 || page === currentPage + 2) {
-                        return <span key={page} className="px-2 text-muted-foreground">...</span>
-                      }
-                      return null
-                    })}
+              <div className="mt-6 space-y-4 animate-in fade-in duration-300">
+                <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-muted-foreground text-center md:text-left">
+                    Showing {requirements.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} to {Math.min(currentPage * ITEMS_PER_PAGE, requirements.length)} of {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}
                   </div>
 
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(requirements.length / ITEMS_PER_PAGE), prev + 1))}
-                    disabled={currentPage === Math.ceil(requirements.length / ITEMS_PER_PAGE)}
-                    className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                  >
-                    <span>Next</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-foreground font-medium px-3">
+                      Page {Math.min(Math.max(currentPage, 1), Math.max(Math.ceil(requirements.length / ITEMS_PER_PAGE), 1))} of {Math.max(Math.ceil(requirements.length / ITEMS_PER_PAGE), 1)}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.max(Math.ceil(requirements.length / ITEMS_PER_PAGE), 1), prev + 1))}
+                      disabled={currentPage >= Math.max(Math.ceil(requirements.length / ITEMS_PER_PAGE), 1)}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
             </>
           )}
           </>)}
@@ -1335,16 +1339,16 @@ export default function DocumentRequirementsPage() {
                       <>
                         {/* Desktop Table View */}
                         <div className="hidden md:block overflow-x-auto mb-6">
-                          <div className="bg-card border border-border rounded-xl overflow-hidden">
+                          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                             <table className="w-full">
                               <thead>
-                                <tr className="bg-gradient-to-r from-primary to-secondary">
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Student</th>
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Record Name</th>
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">File Name</th>
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Type</th>
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Upload Date</th>
-                                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
+                                <tr className="bg-muted/60 border-b border-border">
+                                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Student</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Record Name</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">File Name</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Type</th>
+                                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Upload Date</th>
+                                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1355,13 +1359,13 @@ export default function DocumentRequirementsPage() {
                                       index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                                     }`}
                                   >
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3">
                                       <div className="flex items-center gap-3">
                                         {record.userPhotoURL ? (
                                           <img
                                             src={record.userPhotoURL}
                                             alt={record.userName}
-                                            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20 flex-shrink-0"
+                                            className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20 flex-shrink-0"
                                             onError={(e) => {
                                               e.target.style.display = 'none'
                                               const fallback = e.target.nextElementSibling
@@ -1370,28 +1374,28 @@ export default function DocumentRequirementsPage() {
                                           />
                                         ) : null}
                                         <div 
-                                          className={`w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
+                                          className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
                                         >
                                           {record.userName?.[0]?.toUpperCase() || "U"}
                                         </div>
                                         <div className="min-w-0">
-                                          <p className="font-medium text-foreground truncate">{record.userName}</p>
+                                          <p className="text-sm font-medium text-foreground truncate">{record.userName}</p>
                                           <p className="text-xs text-muted-foreground truncate">{record.userEmail}</p>
                                         </div>
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                      <p className="text-sm text-foreground">{record.requirementName}</p>
+                                    <td className="px-4 py-3">
+                                      <p className="text-xs text-foreground">{record.requirementName}</p>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3">
                                       <div className="flex items-center gap-2">
                                         <FileText className="w-4 h-4 text-muted-foreground" />
-                                        <p className="text-sm text-foreground truncate max-w-[200px]" title={record.fileName}>
+                                        <p className="text-xs text-foreground truncate max-w-[200px]" title={record.fileName}>
                                           {record.fileName}
                                         </p>
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3">
                                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                                         record.fileType === 'image' 
                                           ? 'bg-blue-500/20 text-blue-600 border border-blue-500/30'
@@ -1402,10 +1406,10 @@ export default function DocumentRequirementsPage() {
                                         {record.fileType.toUpperCase()}
                                       </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3">
                                       <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                                        <p className="text-sm text-foreground">
+                                        <p className="text-xs text-foreground">
                                           {record.uploadedAtDate.toLocaleDateString('en-US', { 
                                             month: 'short', 
                                             day: 'numeric', 
@@ -1414,7 +1418,7 @@ export default function DocumentRequirementsPage() {
                                         </p>
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3">
                                       <div className="flex items-center gap-2">
                                         <button
                                           onClick={() => {
@@ -1423,10 +1427,11 @@ export default function DocumentRequirementsPage() {
                                             setPreviewFileType(record.fileType)
                                             setPreviewModalOpen(true)
                                           }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                          title="Preview file"
+                                          aria-label="Preview file"
                                         >
                                           <Eye className="w-4 h-4" />
-                                          <span>Preview</span>
                                         </button>
                                         <button
                                           onClick={() => {
@@ -1473,10 +1478,11 @@ export default function DocumentRequirementsPage() {
                                               toast.error("Failed to download file")
                                             }
                                           }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm font-medium"
+                                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                          title="Download file"
+                                          aria-label="Download file"
                                         >
                                           <Download className="w-4 h-4" />
-                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </td>
@@ -1492,7 +1498,7 @@ export default function DocumentRequirementsPage() {
                           {paginatedRecords.map((record) => (
                             <div
                               key={record.id}
-                              className="bg-gradient-to-br from-card via-card to-primary/5 border-2 border-primary/20 rounded-xl p-4 sm:p-5 shadow-lg hover:shadow-xl transition-all duration-300"
+                              className="bg-card border border-border rounded-xl p-4 sm:p-5 shadow-sm transition-all duration-300"
                             >
                               {/* Header with Profile Image */}
                               <div className="flex items-start gap-3 mb-4">
@@ -1574,7 +1580,7 @@ export default function DocumentRequirementsPage() {
                               </div>
 
                               {/* Action Buttons */}
-                              <div className="flex gap-2 pt-3 border-t-2 border-border/50">
+                              <div className="flex gap-2 pt-3 border-t border-border/50 justify-end">
                                 <button
                                   onClick={() => {
                                     setPreviewFile(record.fileUrl)
@@ -1582,10 +1588,11 @@ export default function DocumentRequirementsPage() {
                                     setPreviewFileType(record.fileType)
                                     setPreviewModalOpen(true)
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 active:scale-95 transition-all text-sm font-semibold shadow-sm"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                  title="Preview file"
+                                  aria-label="Preview file"
                                 >
                                   <Eye className="w-4 h-4" />
-                                  <span>Preview</span>
                                 </button>
                                 <button
                                   onClick={() => {
@@ -1626,48 +1633,43 @@ export default function DocumentRequirementsPage() {
                                       toast.error("Failed to download file")
                                     }
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500/20 active:scale-95 transition-all text-sm font-semibold shadow-sm"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                  title="Download file"
+                                  aria-label="Download file"
                                 >
                                   <Download className="w-4 h-4" />
-                                  <span>Download</span>
                                 </button>
                               </div>
                             </div>
                           ))}
                         </div>
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                          <div className="flex items-center justify-between mt-6 pt-6 border-t-2 border-border">
-                            <button
-                              onClick={() => setRecordsPage(prev => Math.max(1, prev - 1))}
-                              disabled={recordsPage === 1}
-                              className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                              <span>Previous</span>
-                            </button>
-                            
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">
-                                Page {recordsPage} of {totalPages}
-                              </span>
+                        <div className="mt-6 space-y-4 animate-in fade-in duration-300">
+                          <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="text-sm text-muted-foreground text-center md:text-left">
+                              Showing {filteredRecords.length > 0 ? ((recordsPage - 1) * RECORDS_PER_PAGE) + 1 : 0} to {Math.min(recordsPage * RECORDS_PER_PAGE, filteredRecords.length)} of {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''}
                             </div>
 
-                            <button
-                              onClick={() => setRecordsPage(prev => Math.min(totalPages, prev + 1))}
-                              disabled={recordsPage === totalPages}
-                              className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                            >
-                              <span>Next</span>
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                              <button
+                                onClick={() => setRecordsPage(prev => Math.max(1, prev - 1))}
+                                disabled={recordsPage === 1}
+                                className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                              >
+                                Previous
+                              </button>
+                              <span className="text-sm text-foreground font-medium px-3">
+                                Page {Math.min(Math.max(recordsPage, 1), Math.max(totalPages, 1))} of {Math.max(totalPages, 1)}
+                              </span>
+                              <button
+                                onClick={() => setRecordsPage(prev => Math.min(Math.max(totalPages, 1), prev + 1))}
+                                disabled={recordsPage >= Math.max(totalPages, 1)}
+                                className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                              >
+                                Next
+                              </button>
+                            </div>
                           </div>
-                        )}
-
-                        {/* Records Count */}
-                        <div className="mt-4 text-sm text-muted-foreground text-center">
-                          Showing {((recordsPage - 1) * RECORDS_PER_PAGE) + 1} to {Math.min(recordsPage * RECORDS_PER_PAGE, filteredRecords.length)} of {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''}
                         </div>
                       </>
                     )}
@@ -1680,7 +1682,7 @@ export default function DocumentRequirementsPage() {
       </div>
 
       {/* Add/Edit Modal - Enhanced */}
-      {isModalOpen && (
+      {canManageRequirements && isModalOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
           onClick={(e) => {
@@ -1925,7 +1927,7 @@ export default function DocumentRequirementsPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteModalOpen && requirementToDelete && (
+      {canManageRequirements && deleteModalOpen && requirementToDelete && (
         <>
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-in fade-in duration-200"
@@ -2006,7 +2008,7 @@ export default function DocumentRequirementsPage() {
         fileName={previewFileName}
         fileType={previewFileType}
       />
-    </AdminLayoutWrapper>
+    </LayoutWrapper>
   )
 }
 

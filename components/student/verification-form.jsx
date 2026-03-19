@@ -165,7 +165,7 @@ export default function VerificationForm({ step, setStep, userData, verification
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   to: secondaryEmail,
-                  subject: 'Verification Request Submitted - iScholar',
+                  subject: 'Verification Request Submitted - MOCAS',
                   html: `
                     <!DOCTYPE html>
                     <html>
@@ -188,7 +188,7 @@ export default function VerificationForm({ step, setStep, userData, verification
                           <p>Your account verification request has been submitted successfully!</p>
                           <p>Your verification is now under review. We will notify you via email once a decision has been made.</p>
                           <p>Thank you for your patience.</p>
-                          <p>Best regards,<br>iScholar Team</p>
+                          <p>Best regards,<br>MOCAS Team</p>
                         </div>
                       </div>
                     </body>
@@ -204,7 +204,7 @@ export default function VerificationForm({ step, setStep, userData, verification
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 to: ADMIN_EMAIL,
-                subject: 'New Verification Request - iScholar',
+                subject: 'New Verification Request - MOCAS',
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -235,7 +235,7 @@ export default function VerificationForm({ step, setStep, userData, verification
                           <p style="margin: 5px 0;"><strong>Address:</strong> ${formData.address}</p>
                         </div>
                         <p>Please log in to the admin dashboard to review this verification request.</p>
-                        <p>Best regards,<br>iScholar System</p>
+                        <p>Best regards,<br>MOCAS System</p>
                       </div>
                     </div>
                   </body>

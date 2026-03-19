@@ -55,11 +55,11 @@ export async function POST(request) {
     })
 
     await transporter.sendMail({
-      from: `iScholar <${emailConfig.user}>`,
+      from: `MOCAS <${emailConfig.user}>`,
       to: normalizedEmail,
-      subject: "iScholar 6-digit confirmation code",
-      html: `<p>Your iScholar confirmation code is: <strong style="font-size:18px; letter-spacing:2px;">${code}</strong></p><p>This code expires in 10 minutes.</p>`,
-      text: `Your iScholar confirmation code is: ${code}. This code expires in 10 minutes.`,
+      subject: "MOCAS 6-digit confirmation code",
+      html: `<p>Your MOCAS confirmation code is: <strong style="font-size:18px; letter-spacing:2px;">${code}</strong></p><p>This code expires in 10 minutes.</p>`,
+      text: `Your MOCAS confirmation code is: ${code}. This code expires in 10 minutes.`,
     })
 
     return NextResponse.json({ success: true, message: "Verification code sent." })

@@ -5,9 +5,8 @@ import { db } from "@/lib/firebase"
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import ApplicationsTable from "@/components/student/applications-table"
-import StudentPageBanner from "@/components/student/page-banner"
 import ApplicationsTableSkeleton from "@/components/student/applications-table-skeleton"
-import { History, Search, Activity } from "lucide-react"
+import { Search, Activity } from "lucide-react"
 
 // Static scholarship data fallback (from apply page)
 const STATIC_SCHOLARSHIP_DATA = {
@@ -34,7 +33,6 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState([])
   const [filteredApplications, setFilteredApplications] = useState([])
   const [loading, setLoading] = useState(true)
-  const [userName, setUserName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [scholarshipsMap, setScholarshipsMap] = useState({})
   const [currentPage, setCurrentPage] = useState(1)
@@ -55,7 +53,6 @@ export default function ApplicationsPage() {
           const userDoc = await getDoc(doc(db, "users", user.uid))
           if (userDoc.exists()) {
             const userData = userDoc.data()
-            setUserName(userData.fullName || userData.displayName || "Student")
           }
         } catch (error) {
           console.error("Error fetching user data:", error)
@@ -279,16 +276,7 @@ export default function ApplicationsPage() {
 
   return (
     <div className="relative">
-      {/* Floating Banner */}
-      <StudentPageBanner
-        icon={History}
-        title="Application History"
-        description="Track all your scholarship applications"
-        userName={userName}
-      />
-
-      {/* Content */}
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         {/* Search Bar - Right Side */}
         {!loading && applications.length > 0 && (
           <div className="mb-6 flex flex-col md:flex-row md:justify-end gap-3">

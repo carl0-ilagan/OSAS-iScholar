@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { toast } from "sonner"
 import GenericForm from "@/components/student/generic-form"
-import { CheckCircle, GraduationCap, Download, Loader2 } from "lucide-react"
+import { CheckCircle, Download, Loader2 } from "lucide-react"
 
 // Courses data by campus - matching signup
 const coursesByCampus = {
@@ -65,39 +65,9 @@ export default function ApplicationFormPage() {
   const { user } = useAuth()
   const [userData, setUserData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [sidebarWidth, setSidebarWidth] = useState(256)
-  const [isClient, setIsClient] = useState(false)
   const [formData, setFormData] = useState({})
   const [selectedCourse, setSelectedCourse] = useState('')
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Detect sidebar width for banner positioning
-  useEffect(() => {
-    if (!isClient) return
-
-    const detectSidebarWidth = () => {
-      if (typeof window === 'undefined' || window.innerWidth < 768) return
-      const sidebar = document.querySelector('aside')
-      if (sidebar) {
-        setSidebarWidth(sidebar.offsetWidth)
-      }
-    }
-
-    detectSidebarWidth()
-    const observer = new ResizeObserver(detectSidebarWidth)
-    const sidebar = document.querySelector('aside')
-    if (sidebar) observer.observe(sidebar)
-    window.addEventListener('resize', detectSidebarWidth)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', detectSidebarWidth)
-    }
-  }, [isClient])
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -762,44 +732,19 @@ export default function ApplicationFormPage() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-background to-muted/20">
-      {/* Floating Banner - Matching Student Profile Form */}
-      <div 
-        className="fixed top-20 md:top-4 z-40 transition-all duration-300"
-        style={isClient ? { 
-          left: window.innerWidth >= 768 
-            ? `${sidebarWidth + 16}px` 
-            : '1rem',
-          right: window.innerWidth >= 768 ? '1.5rem' : '1rem'
-        } : {
-          left: '1rem',
-          right: '1rem'
-        }}
-      >
-        <div className="bg-gradient-to-r from-primary to-secondary text-white p-4 md:p-5 rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="w-5 h-5 md:w-6 md:h-6" />
-              <div>
-                <h2 className="text-base md:text-lg font-semibold">APPLICATION FORM</h2>
-                <p className="text-xs text-white/80">For Student Affairs and Services (Scholarship Unit)</p>
-              </div>
-            </div>
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="w-full max-w-5xl mx-auto">
+          <div className="mb-4 flex justify-end">
             <button
               type="button"
               onClick={handleDownloadFilledPdf}
               disabled={isGeneratingPdf}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs md:text-sm rounded-lg bg-white/15 hover:bg-white/25 transition-colors border border-white/30 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs md:text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span>{isGeneratingPdf ? "Generating..." : "Download PDF"}</span>
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Content - Horizontal Form Matching Banner Width */}
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
-        <div className="w-full max-w-5xl mx-auto">
           {/* Form Container - Horizontal Layout - Enhanced */}
           <div className="bg-card border border-border/50 rounded-2xl shadow-xl p-6 sm:p-8 md:p-10 w-full relative overflow-hidden">
             {/* Decorative background elements */}

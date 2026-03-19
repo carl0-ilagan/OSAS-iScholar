@@ -5,12 +5,19 @@ import { createPortal } from "react-dom"
 import { X, CheckCircle, XCircle, Clock, FileText, User, GraduationCap, MapPin, Calendar, Loader2, FolderOpen, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, getDoc, collection, getDocs, query, where, orderBy, runTransaction } from "firebase/firestore"
+import { doc, updateDoc, getDoc, collection, getDocs, query, where, orderBy, runTransaction, limit } from "firebase/firestore"
 import ImageZoomModal from "./image-zoom-modal"
 import DocumentPreviewModal from "./document-preview-modal"
 import FormViewModal from "./form-view-modal"
 
-export default function ApplicationDetailModal({ application, isOpen, onClose, onUpdate }) {
+export default function ApplicationDetailModal({
+  application,
+  isOpen,
+  onClose,
+  onUpdate,
+  readOnly = false,
+  reviewedBy = "admin",
+}) {
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [adminRemarks, setAdminRemarks] = useState("")
@@ -75,7 +82,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
   // Auto-update status to "under-review" when modal opens (only if status is "pending")
   useEffect(() => {
     const autoUpdateStatus = async () => {
-      if (!isOpen || !application?.id) {
+      if (!isOpen || !application?.id || readOnly) {
         // Reset flag when modal closes
         hasAutoUpdatedStatus.current = false
         return
@@ -108,7 +115,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
     }
 
     autoUpdateStatus()
-  }, [isOpen, application?.id, application?.status, onUpdate])
+  }, [isOpen, application?.id, application?.status, onUpdate, readOnly])
 
   // Fetch student documents, required documents, and forms
   useEffect(() => {
@@ -325,38 +332,62 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
   const handleApprove = async () => {
     try {
       setIsApproving(true)
-      
-      const applicationRef = doc(db, "applications", application.id)
-      await updateDoc(applicationRef, {
-        status: "approved",
-        adminRemarks: adminRemarks || null,
-        reviewedAt: new Date().toISOString(),
-        reviewedBy: "admin",
-      })
 
-      // Decrement scholarship slots when approved
+      const applicationRef = doc(db, "applications", application.id)
+
+      // Resolve scholarship reference for slot decrement (by id first, then by campus+name fallback).
+      let scholarshipRef = null
       if (application.scholarshipId) {
-        try {
-          const scholarshipRef = doc(db, "scholarships", application.scholarshipId)
-          await runTransaction(db, async (transaction) => {
-            const scholarshipDoc = await transaction.get(scholarshipRef)
-            if (scholarshipDoc.exists()) {
-              const scholarshipData = scholarshipDoc.data()
-              const currentSlots = scholarshipData.slots
-              
-              // Only decrement if slots is not null/undefined and greater than 0
-              if (currentSlots !== null && currentSlots !== undefined && currentSlots > 0) {
-                const newSlots = Math.max(0, (typeof currentSlots === 'number' ? currentSlots : parseInt(currentSlots)) - 1)
-                transaction.update(scholarshipRef, { slots: newSlots })
-                console.log(`✅ Decremented slots for scholarship ${application.scholarshipId}: ${currentSlots} -> ${newSlots}`)
-              }
-            }
-          })
-        } catch (slotError) {
-          console.error("Error decrementing scholarship slots:", slotError)
-          // Don't block approval if slot decrement fails
+        scholarshipRef = doc(db, "scholarships", application.scholarshipId)
+      } else if (application.scholarshipName && application.campus) {
+        const fallbackScholarshipQuery = query(
+          collection(db, "scholarships"),
+          where("campus", "==", application.campus),
+          where("name", "==", application.scholarshipName),
+          limit(1),
+        )
+        const fallbackScholarshipSnapshot = await getDocs(fallbackScholarshipQuery)
+        if (!fallbackScholarshipSnapshot.empty) {
+          scholarshipRef = fallbackScholarshipSnapshot.docs[0].ref
         }
       }
+
+      await runTransaction(db, async (transaction) => {
+        const latestApplicationSnap = await transaction.get(applicationRef)
+        if (!latestApplicationSnap.exists()) {
+          throw new Error("Application not found.")
+        }
+
+        const latestApplication = latestApplicationSnap.data() || {}
+        const latestStatus = String(latestApplication.status || "pending").toLowerCase()
+        const wasAlreadyApproved = latestStatus === "approved"
+
+        if (!wasAlreadyApproved && scholarshipRef) {
+          const scholarshipSnap = await transaction.get(scholarshipRef)
+          if (scholarshipSnap.exists()) {
+            const scholarshipData = scholarshipSnap.data() || {}
+            const currentSlotsRaw = scholarshipData.slots
+            const currentSlots =
+              typeof currentSlotsRaw === "number"
+                ? currentSlotsRaw
+                : Number.parseInt(String(currentSlotsRaw || "0"), 10)
+
+            if (!Number.isNaN(currentSlots)) {
+              if (currentSlots <= 0) {
+                throw new Error("No available slots remaining for this scholarship.")
+              }
+              transaction.update(scholarshipRef, { slots: Math.max(0, currentSlots - 1) })
+            }
+          }
+        }
+
+        transaction.update(applicationRef, {
+          status: "approved",
+          adminRemarks: adminRemarks || null,
+          reviewedAt: new Date().toISOString(),
+          reviewedBy: reviewedBy || "admin",
+        })
+      })
 
       // Send email notification
       try {
@@ -375,7 +406,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   to: userEmail,
-                  subject: '🎉 Application Approved - iScholar',
+                  subject: '🎉 Application Approved - MOCAS',
                   html: `
                     <!DOCTYPE html>
                     <html>
@@ -403,7 +434,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
                           <p>We are pleased to inform you that your scholarship application has been reviewed and approved.</p>
                           <p>You will receive further instructions regarding the next steps soon.</p>
                           <p>Congratulations on this achievement!</p>
-                          <p>Best regards,<br>iScholar Team</p>
+                          <p>Best regards,<br>MOCAS Team</p>
                         </div>
                       </div>
                     </body>
@@ -446,7 +477,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
       onClose()
     } catch (error) {
       console.error("Error approving application:", error)
-      toast.error("Failed to approve application", {
+      toast.error(error?.message || "Failed to approve application", {
         icon: <XCircle className="w-5 h-5" />,
         duration: 3000,
         position: "top-right",
@@ -474,7 +505,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
         status: "rejected",
         adminRemarks: adminRemarks,
         reviewedAt: new Date().toISOString(),
-        reviewedBy: "admin",
+        reviewedBy: reviewedBy || "admin",
       })
 
       // Send email notification
@@ -494,7 +525,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   to: userEmail,
-                  subject: 'Application Status Update - iScholar',
+                  subject: 'Application Status Update - MOCAS',
                   html: `
                     <!DOCTYPE html>
                     <html>
@@ -522,7 +553,7 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
                           </div>
                           <p>We encourage you to apply for other available scholarships that may be a better fit for your profile.</p>
                           <p>If you have any questions, please contact our support team.</p>
-                          <p>Best regards,<br>iScholar Team</p>
+                          <p>Best regards,<br>MOCAS Team</p>
                         </div>
                       </div>
                     </body>
@@ -1135,62 +1166,75 @@ export default function ApplicationDetailModal({ application, isOpen, onClose, o
             </div>
 
             {/* Footer - Actions - Enhanced */}
-            <div className="p-3 sm:p-4 md:p-4 border-t border-border/30 flex-shrink-0 bg-gradient-to-t from-card to-muted/5 space-y-3">
-              {/* Admin Remarks */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5 text-primary" />
-                  Admin Remarks
-                  <span className="text-muted-foreground font-normal text-xs hidden sm:inline">(Optional for approve, Required for reject)</span>
-                  <span className="text-muted-foreground font-normal text-xs sm:hidden">(Optional/Required)</span>
-                </label>
-                <textarea
-                  value={adminRemarks}
-                  onChange={(e) => setAdminRemarks(e.target.value)}
-                  className="w-full p-3 border border-border/50 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none text-sm shadow-sm transition-all"
-                  rows={3}
-                  placeholder="Enter remarks or reason for rejection..."
-                />
+            {readOnly ? (
+              <div className="p-3 sm:p-4 md:p-4 border-t border-border/30 flex-shrink-0 bg-gradient-to-t from-card to-muted/5">
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleClose}
+                    className="px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors font-medium text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
+            ) : (
+              <div className="p-3 sm:p-4 md:p-4 border-t border-border/30 flex-shrink-0 bg-gradient-to-t from-card to-muted/5 space-y-3">
+                {/* Admin Remarks */}
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-primary" />
+                    Admin Remarks
+                    <span className="text-muted-foreground font-normal text-xs hidden sm:inline">(Optional for approve, Required for reject)</span>
+                    <span className="text-muted-foreground font-normal text-xs sm:hidden">(Optional/Required)</span>
+                  </label>
+                  <textarea
+                    value={adminRemarks}
+                    onChange={(e) => setAdminRemarks(e.target.value)}
+                    className="w-full p-3 border border-border/50 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none text-sm shadow-sm transition-all"
+                    rows={3}
+                    placeholder="Enter remarks or reason for rejection..."
+                  />
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col-reverse md:flex-row gap-2 md:justify-end">
-                <button
-                  onClick={handleReject}
-                  disabled={isApproving || isRejecting}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm w-full md:w-auto"
-                >
-                  {isRejecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Rejecting...
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4" />
-                      Reject
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={isApproving || isRejecting}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm w-full md:w-auto"
-                >
-                  {isApproving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Approving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      Approve
-                    </>
-                  )}
-                </button>
+                {/* Action Buttons */}
+                <div className="flex flex-col-reverse md:flex-row gap-2 md:justify-end">
+                  <button
+                    onClick={handleReject}
+                    disabled={isApproving || isRejecting}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm w-full md:w-auto"
+                  >
+                    {isRejecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Rejecting...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4" />
+                        Reject
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isApproving || isRejecting}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm w-full md:w-auto"
+                  >
+                    {isApproving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Approving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Approve
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

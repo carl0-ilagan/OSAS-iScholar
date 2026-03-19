@@ -12,8 +12,8 @@ export default function BrandingSettingsPage() {
   const [logoPreview, setLogoPreview] = useState(branding.logo)
   const [faviconPreview, setFaviconPreview] = useState(branding.favicon)
   const [formData, setFormData] = useState({
-    name: branding.name || "iScholar",
-    tabTitle: branding.tabTitle || "iScholar Portal",
+    name: branding.name || "MOCAS",
+    tabTitle: branding.tabTitle || "MOCAS Portal",
     footer: {
       description: branding.footer?.description || "Making scholarship management simple and accessible for all MinSU students.",
       address: branding.footer?.address || "Mariano Jhocson Street, Diliman, Quezon City",
@@ -33,8 +33,8 @@ export default function BrandingSettingsPage() {
   useEffect(() => {
     if (!brandingLoading && branding) {
       setFormData({
-        name: branding.name || "iScholar",
-        tabTitle: branding.tabTitle || "iScholar Portal",
+        name: branding.name || "MOCAS",
+        tabTitle: branding.tabTitle || "MOCAS Portal",
         footer: {
           description: branding.footer?.description || "Making scholarship management simple and accessible for all MinSU students.",
           address: branding.footer?.address || "Mariano Jhocson Street, Diliman, Quezon City",
@@ -370,7 +370,7 @@ export default function BrandingSettingsPage() {
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="iScholar"
+                        placeholder="MOCAS"
                         className="w-full px-4 py-3 border-2 border-border rounded-xl bg-input focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         required
                       />
@@ -399,7 +399,7 @@ export default function BrandingSettingsPage() {
                         type="text"
                         value={formData.tabTitle}
                         onChange={(e) => setFormData({ ...formData, tabTitle: e.target.value })}
-                        placeholder="iScholar Portal"
+                        placeholder="MOCAS Portal"
                         className="w-full px-4 py-3 border-2 border-border rounded-xl bg-input focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         required
                       />
@@ -596,7 +596,7 @@ export default function BrandingSettingsPage() {
                             <img src={faviconPreview} alt="Favicon" className="w-4 h-4" />
                           )}
                           <span className="text-xs text-foreground truncate font-medium">
-                            {formData.tabTitle || "iScholar Portal"}
+                            {formData.tabTitle || "MOCAS Portal"}
                           </span>
                         </div>
                       </div>
@@ -619,7 +619,7 @@ export default function BrandingSettingsPage() {
                             </div>
                           )}
                           <span className="font-bold text-primary text-sm">
-                            {formData.name || "iScholar"}
+                            {formData.name || "MOCAS"}
                           </span>
                         </div>
                       </div>
@@ -642,7 +642,7 @@ export default function BrandingSettingsPage() {
                             </div>
                           )}
                           <span className="font-bold text-sidebar-foreground text-sm">
-                            {formData.name || "iScholar"} Admin
+                            {formData.name || "MOCAS"} Admin
                           </span>
                         </div>
                       </div>
@@ -665,7 +665,7 @@ export default function BrandingSettingsPage() {
                             </div>
                           )}
                           <span className="font-bold text-white text-base">
-                            {formData.name || "iScholar"}
+                            {formData.name || "MOCAS"}
                           </span>
                         </div>
                       </div>
@@ -688,7 +688,7 @@ export default function BrandingSettingsPage() {
                             )}
                           </div>
                           <p className="text-white font-semibold text-sm">
-                            {formData.name || "iScholar"} Portal Administration
+                            {formData.name || "MOCAS"} Portal Administration
                           </p>
                         </div>
                       </div>

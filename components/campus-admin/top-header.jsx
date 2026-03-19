@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, LogOut, MapPin, Moon, Sun, User } from "lucide-react"
+import { ChevronDown, FileCheck, FileText, GraduationCap, LogOut, MapPin, Moon, Sun, User, Users } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { normalizeCampus } from "@/lib/campus-admin-config"
@@ -16,6 +16,8 @@ export default function CampusAdminTopHeader({
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { branding } = useBranding()
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [isVisible, setIsVisible] = useState(true)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const lastScrollYRef = useRef(0)
@@ -86,10 +88,10 @@ export default function CampusAdminTopHeader({
     >
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/campus-admin" className="flex items-center gap-2.5">
-          {branding?.logo ? (
+          {brandLogo ? (
             <img
-              src={branding.logo}
-              alt={branding?.name || "Logo"}
+              src={brandLogo}
+              alt={brandName || "Logo"}
               className="h-8 w-8 rounded-lg bg-muted/40 p-1 object-contain"
             />
           ) : (
@@ -100,7 +102,7 @@ export default function CampusAdminTopHeader({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">Campus Admin Control Panel</p>
             <p className="truncate text-xs text-muted-foreground">
-              {(branding?.name || "iScholar")} - {campus || "assigned campus"}
+              {brandName} - {campus || "assigned campus"}
             </p>
           </div>
         </Link>
@@ -137,6 +139,41 @@ export default function CampusAdminTopHeader({
                 <span className="truncate">{campus || "Campus not set"}</span>
               </div>
             </div>
+            <div className="border-t border-border/70 px-2.5 pt-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Management</p>
+            </div>
+            <Link
+              href="/campus-admin/users"
+              onClick={() => setIsProfileOpen(false)}
+              className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              <Users className="h-4 w-4" />
+              <span>User Management</span>
+            </Link>
+            <Link
+              href="/campus-admin/applications"
+              onClick={() => setIsProfileOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Applications</span>
+            </Link>
+            <Link
+              href="/campus-admin/scholars"
+              onClick={() => setIsProfileOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              <GraduationCap className="h-4 w-4" />
+              <span>Scholars</span>
+            </Link>
+            <Link
+              href="/campus-admin/requirements"
+              onClick={() => setIsProfileOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
+            >
+              <FileCheck className="h-4 w-4" />
+              <span>Requirements</span>
+            </Link>
             <button
               onClick={() => setIsProfileOpen(false)}
               className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"

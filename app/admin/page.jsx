@@ -472,12 +472,12 @@ export default function AdminDashboard() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
-          <div className="w-full p-4 md:p-5">
+        <div className="p-3 md:p-4 lg:p-5">
+          <div className="w-full p-2 md:p-3">
           {loading ? (
             <DashboardSkeleton />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-5">
               {metrics.map((metric, index) => (
                 <EnhancedDashboardCard key={index} {...metric} />
               ))}
@@ -485,27 +485,27 @@ export default function AdminDashboard() {
           )}
 
           {/* Charts and Calendar Row - Same Size */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6 mb-4 md:mb-6 lg:mb-8 -mx-4 md:-mx-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-5">
             {/* Applications Pie Chart */}
-            <div className="px-4 md:px-5">
+            <div>
               <ApplicationsChart applications={applications} />
             </div>
 
             {/* Announcements Calendar */}
-            <div className="px-4 md:px-5">
+            <div>
               <AnnouncementsCalendar announcements={announcements} />
             </div>
           </div>
 
           {/* Notifications Section - Full Width Below */}
-          <div className="bg-gradient-to-br from-card via-card/80 to-card/50 border-2 border-border/50 rounded-xl md:rounded-2xl p-3 md:p-4 lg:p-6 xl:p-8 shadow-xl md:shadow-2xl backdrop-blur-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-300 -mx-4 md:-mx-5">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-3 md:mb-4 lg:mb-6">
+          <div className="bg-gradient-to-br from-card via-card/80 to-card/50 border border-border/50 rounded-xl p-3 md:p-4 lg:p-5 shadow-sm backdrop-blur-sm transition-all duration-300">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-primary" />
+                  <h2 className="text-base md:text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary" />
                     Recent Actions & Notifications
                   </h2>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-xs md:text-sm text-muted-foreground mt-1">
                     Showing {startIndex + 1} to {Math.min(endIndex, filteredNotifications.length)} of {filteredNotifications.length} notifications
                   </p>
                 </div>
@@ -520,7 +520,7 @@ export default function AdminDashboard() {
                       placeholder="Search notifications..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-primary text-xs md:text-sm"
                     />
                   </div>
 
@@ -528,7 +528,7 @@ export default function AdminDashboard() {
                   <div className="relative" ref={filterRef}>
                     <button
                       onClick={() => setIsFilterOpen(!isFilterOpen)}
-                      className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg bg-input hover:bg-input/80 transition-colors text-sm font-medium"
+                      className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-input hover:bg-input/80 transition-colors text-xs md:text-sm font-medium"
                     >
                       <Filter className="w-4 h-4" />
                       Filters
@@ -536,7 +536,7 @@ export default function AdminDashboard() {
                     </button>
 
                     {isFilterOpen && (
-                      <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-50 p-3 space-y-3 animate-in fade-in slide-in-from-top-2">
                         {/* Type Filter */}
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
@@ -604,15 +604,15 @@ export default function AdminDashboard() {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-border">
+                      <p className="text-xs md:text-sm text-muted-foreground">
                         Page {currentPage} of {totalPages}
                       </p>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
-                          className="px-4 py-2 border border-border rounded-lg bg-input hover:bg-input/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
+                          className="px-3 py-2 border border-border rounded-lg bg-input hover:bg-input/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs md:text-sm font-medium flex items-center gap-2"
                         >
                           <ChevronLeft className="w-4 h-4" />
                           Previous
@@ -629,7 +629,7 @@ export default function AdminDashboard() {
                                 <button
                                   key={page}
                                   onClick={() => setCurrentPage(page)}
-                                  className={`w-10 h-10 rounded-lg border transition-colors text-sm font-medium ${
+                                  className={`w-8 h-8 rounded-lg border transition-colors text-xs md:text-sm font-medium ${
                                     currentPage === page
                                       ? "bg-primary text-primary-foreground border-primary"
                                       : "bg-input border-border hover:bg-input/80"
@@ -647,7 +647,7 @@ export default function AdminDashboard() {
                         <button
                           onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
-                          className="px-4 py-2 border border-border rounded-lg bg-input hover:bg-input/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
+                          className="px-3 py-2 border border-border rounded-lg bg-input hover:bg-input/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs md:text-sm font-medium flex items-center gap-2"
                         >
                           Next
                           <ChevronRight className="w-4 h-4" />

@@ -31,7 +31,7 @@ export async function POST(request) {
     })
 
     const mailOptions = {
-      from: `iScholar <${emailConfig.user}>`,
+      from: `MOCAS <${emailConfig.user}>`,
       to: to,
       subject: subject,
       html: html,

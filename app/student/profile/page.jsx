@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
-import StudentPageBanner from "@/components/student/page-banner"
 import { User, Upload, Save, Mail, Loader2, CheckCircle, XCircle, GraduationCap, MapPin, Calendar, Hash, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -24,7 +23,6 @@ export default function ProfilePage() {
   })
   const [profilePicture, setProfilePicture] = useState(null)
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
-  const [userName, setUserName] = useState("")
   const [userStatus, setUserStatus] = useState("offline")
 
   // Fetch user data
@@ -49,11 +47,8 @@ export default function ProfilePage() {
             email: user.email || "",
             secondaryEmail: data.secondaryEmail || "",
           })
-          setUserName(data.fullName || data.displayName || "Student")
           setProfilePicturePreview(data.photoURL || user.photoURL || null)
           setUserStatus(data.status || "offline")
-        } else {
-          setUserName("Student")
         }
       } catch (error) {
         console.error("Error fetching user data:", error)
@@ -198,13 +193,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="relative">
-        <StudentPageBanner
-          icon={User}
-          title="Profile"
-          description="Manage your profile information"
-          userName=""
-        />
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8">
           <div className="animate-pulse space-y-6">
             <div className="h-64 bg-muted rounded-xl"></div>
             <div className="h-96 bg-muted rounded-xl"></div>
@@ -216,16 +205,7 @@ export default function ProfilePage() {
 
   return (
     <div className="relative">
-      {/* Floating Banner */}
-      <StudentPageBanner
-        icon={User}
-        title="Profile"
-        description="Manage your profile information"
-        userName={userName}
-      />
-
-      {/* Content */}
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
           {/* Profile Picture & Verification Status - Enhanced */}
           <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-2xl p-6 md:p-8 lg:p-10 shadow-xl">

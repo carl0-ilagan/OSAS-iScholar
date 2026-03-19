@@ -76,15 +76,15 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
   return (
     <>
       {/* Desktop Table */}
-      <div className="hidden md:block bg-gradient-to-br from-card/50 to-card border-2 border-border/50 rounded-xl overflow-hidden shadow-lg">
+      <div className="hidden md:block bg-gradient-to-br from-card/50 to-card border border-border/50 rounded-xl overflow-hidden shadow-sm">
         <table className="w-full">
           <thead>
             <tr className="bg-gradient-to-r from-primary via-primary/95 to-secondary">
-              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Type</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Message</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Time</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">Action</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Message</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Time</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -101,41 +101,41 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
                     index % 2 === 0 ? 'bg-card/50' : 'bg-muted/20'
                   } ${!notification.read ? 'bg-primary/10 border-l-4 border-l-primary' : ''}`}
                 >
-                  <td className="px-6 py-4">
-                    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border-2 shadow-sm ${colorClass}`}>
+                  <td className="px-4 py-3">
+                    <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${colorClass}`}>
                       <Icon className="w-4 h-4" />
-                      <span className="text-xs md:text-sm font-bold capitalize tracking-wide">{notification.type}</span>
+                      <span className="text-xs font-semibold capitalize tracking-wide">{notification.type}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{notification.message}</p>
+                  <td className="px-4 py-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs md:text-sm font-medium text-foreground">{notification.message}</p>
                       {notification.userName && (
-                        <p className="text-xs text-muted-foreground font-medium">From: <span className="font-semibold text-foreground/80">{notification.userName}</span></p>
+                        <p className="text-[11px] text-muted-foreground">From: <span className="font-medium text-foreground/80">{notification.userName}</span></p>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <StatusIcon className={`w-4 h-4 ${statusColor}`} />
-                      <span className={`text-sm font-medium capitalize ${statusColor}`}>
+                      <StatusIcon className={`w-3.5 h-3.5 ${statusColor}`} />
+                      <span className={`text-xs font-medium capitalize ${statusColor}`}>
                         {notification.status || "N/A"}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-muted-foreground">
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-muted-foreground">
                       {notification.timestamp
                         ? formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })
                         : "Just now"}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {onView && (
                         <button
                           onClick={() => onView(notification)}
-                          className="px-3 py-1.5 text-xs md:text-sm text-primary hover:text-primary-foreground hover:bg-primary font-semibold rounded-lg border border-primary/30 hover:border-primary transition-all duration-200 hover:shadow-md"
+                          className="px-2.5 py-1.5 text-xs text-primary hover:text-primary-foreground hover:bg-primary font-medium rounded-lg border border-primary/30 hover:border-primary transition-all duration-200"
                         >
                           View
                         </button>
@@ -169,7 +169,7 @@ export default function NotificationsTable({ notifications, onView, onMarkRead }
           return (
             <div
               key={notification.id || index}
-              className={`bg-gradient-to-br from-card to-card/80 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-md hover:shadow-lg transition-all duration-300 ${
+              className={`bg-gradient-to-br from-card to-card/80 border border-border/50 rounded-xl p-3 space-y-2.5 shadow-sm transition-all duration-300 ${
                 !notification.read ? 'bg-primary/10 border-primary/40 border-l-4' : ''
               }`}
             >

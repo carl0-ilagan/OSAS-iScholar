@@ -24,6 +24,8 @@ const quickLinks = [
 export default function AdminMobileHeader({ isDarkMode = false, onToggleTheme = () => {} }) {
   const { user } = useAuth()
   const { branding } = useBranding()
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -59,14 +61,14 @@ export default function AdminMobileHeader({ isDarkMode = false, onToggleTheme = 
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo and Name */}
           <div className="flex items-center gap-2.5">
-            {branding?.logo ? (
+            {brandLogo ? (
               <img 
-                key={branding.logo} 
-                src={branding.logo} 
-                alt={branding.name || "Logo"} 
+                key={brandLogo} 
+                src={brandLogo} 
+                alt={brandName || "Logo"} 
                 className="w-8 h-8 object-contain rounded-lg bg-white/10 p-1"
                 onError={(e) => {
-                  console.error("Error loading logo:", branding.logo)
+                  console.error("Error loading logo:", brandLogo)
                   e.target.style.display = 'none'
                 }}
               />
@@ -76,7 +78,7 @@ export default function AdminMobileHeader({ isDarkMode = false, onToggleTheme = 
               </div>
             )}
             <span className="font-bold text-base">
-              {branding?.name || "iScholar"} Admin
+              {brandName} Admin
             </span>
           </div>
 

@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
 import { toast } from "sonner"
 import GenericForm from "@/components/student/generic-form"
-import { FileText, CheckCircle, User } from "lucide-react"
+import { FileText, CheckCircle } from "lucide-react"
 
 const formConfig = {
     steps: [
@@ -516,37 +516,6 @@ export default function StudentProfileFormPage() {
   const { user } = useAuth()
   const [userData, setUserData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [isClient, setIsClient] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(256)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isClient) return
-
-    const detectSidebarWidth = () => {
-      const sidebar = document.querySelector('[data-sidebar]')
-      if (sidebar) {
-        setSidebarWidth(sidebar.offsetWidth || 256)
-      }
-    }
-
-    detectSidebarWidth()
-    const observer = new MutationObserver(detectSidebarWidth)
-    const sidebar = document.querySelector('[data-sidebar]')
-    if (sidebar) {
-      observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] })
-    }
-
-    window.addEventListener('resize', detectSidebarWidth)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', detectSidebarWidth)
-    }
-  }, [isClient])
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -689,34 +658,7 @@ export default function StudentProfileFormPage() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-background to-muted/20">
-      {/* Floating Banner - Matching Application Form Exactly */}
-      <div 
-        className="fixed top-20 md:top-4 z-40 transition-all duration-300"
-        style={isClient ? { 
-          left: window.innerWidth >= 768 
-            ? `${sidebarWidth + 16}px` 
-            : '1rem',
-          right: window.innerWidth >= 768 ? '1.5rem' : '1rem'
-        } : {
-          left: '1rem',
-          right: '1rem'
-        }}
-      >
-        <div className="bg-gradient-to-r from-primary to-secondary text-white p-4 md:p-5 rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <User className="w-5 h-5 md:w-6 md:h-6" />
-              <div>
-                <h2 className="text-base md:text-lg font-semibold">STUDENT&apos;S PROFILE FORM</h2>
-                <p className="text-xs text-white/80">Fill out your student profile information</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content - Horizontal Form Matching Banner Width */}
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
         <div className="w-full max-w-5xl mx-auto">
           {/* Form Container - Horizontal Layout - Enhanced with Scrollable Content */}
           <div className="bg-card border border-border/50 rounded-2xl shadow-xl p-6 sm:p-8 md:p-10 w-full relative overflow-hidden max-h-[calc(100vh-12rem)] md:max-h-[calc(100vh-10rem)] flex flex-col">

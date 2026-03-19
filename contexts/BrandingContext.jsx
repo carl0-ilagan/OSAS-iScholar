@@ -9,9 +9,9 @@ const BrandingContext = createContext({})
 export const useBranding = () => useContext(BrandingContext)
 
 const DEFAULT_BRANDING = {
-  logo: null,
-  name: "iScholar",
-  tabTitle: "iScholar Portal",
+  logo: "/MOCAS-removebg-preview.png",
+  name: "MOCAS",
+  tabTitle: "MOCAS Portal",
   favicon: null,
   footer: {
     description: "Making scholarship management simple and accessible for all MinSU students.",
@@ -24,6 +24,21 @@ const DEFAULT_BRANDING = {
       twitter: "",
     },
   },
+}
+
+function normalizeBrandingPayload(data = {}) {
+  const rawName = String(data?.name || "").trim()
+  const rawTabTitle = String(data?.tabTitle || "").trim()
+  const isLegacyName = !rawName || rawName.toLowerCase() === "ischolar"
+  const isLegacyTitle = !rawTabTitle || rawTabTitle.toLowerCase().includes("ischolar")
+
+  return {
+    logo: data?.logo || DEFAULT_BRANDING.logo,
+    name: isLegacyName ? DEFAULT_BRANDING.name : rawName,
+    tabTitle: isLegacyTitle ? DEFAULT_BRANDING.tabTitle : rawTabTitle,
+    favicon: data?.favicon || null,
+    footer: data?.footer || DEFAULT_BRANDING.footer,
+  }
 }
 
 export const BrandingProvider = ({ children }) => {
@@ -39,13 +54,7 @@ export const BrandingProvider = ({ children }) => {
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data()
-          const newBranding = {
-            logo: data.logo || null,
-            name: data.name || DEFAULT_BRANDING.name,
-            tabTitle: data.tabTitle || DEFAULT_BRANDING.tabTitle,
-            favicon: data.favicon || null,
-            footer: data.footer || DEFAULT_BRANDING.footer,
-          }
+          const newBranding = normalizeBrandingPayload(data)
           setBranding(newBranding)
           console.log("Branding updated from Firebase:", newBranding.name)
         } else {
@@ -82,13 +91,7 @@ export const BrandingProvider = ({ children }) => {
       const brandingDoc = await getDoc(doc(db, "settings", "branding"))
       if (brandingDoc.exists()) {
         const data = brandingDoc.data()
-        setBranding({
-          logo: data.logo || null,
-          name: data.name || DEFAULT_BRANDING.name,
-          tabTitle: data.tabTitle || DEFAULT_BRANDING.tabTitle,
-          favicon: data.favicon || null,
-          footer: data.footer || DEFAULT_BRANDING.footer,
-        })
+        setBranding(normalizeBrandingPayload(data))
       } else {
         // Document doesn't exist - create it with default values
         // This will only work if user has write permissions (admin)

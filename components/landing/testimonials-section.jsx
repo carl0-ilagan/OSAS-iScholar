@@ -109,15 +109,28 @@ export default function TestimonialsSection() {
 
   if (loading) {
     return (
-      <section id="testimonials" className="py-20 bg-muted">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="testimonials"
+        className="relative overflow-hidden py-20"
+        style={{
+          backgroundImage: "url('/BG.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        <div className="absolute inset-0 bg-emerald-900/65" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Student Stories</h2>
-            <p className="text-muted-foreground text-lg">Hear from our scholarship recipients</p>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <span className="text-sm font-semibold text-emerald-100">Student Feedback</span>
+            </div>
+            <h2 className="text-4xl font-bold text-white mb-4">Student Stories</h2>
+            <p className="text-emerald-50/90 text-lg">Hear from our scholarship recipients</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8 justify-center">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-card border border-border/50 rounded-xl p-8 animate-pulse">
+              <div key={i} className="rounded-2xl border border-white/20 bg-white/10 p-8 shadow-lg backdrop-blur-sm animate-pulse">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-muted rounded-full"></div>
                   <div className="flex-1 space-y-2">
@@ -141,13 +154,26 @@ export default function TestimonialsSection() {
   }
 
   return (
-    <section id="testimonials" className="py-20 bg-muted">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section
+      id="testimonials"
+      className="relative overflow-hidden py-20"
+      style={{
+        backgroundImage: "url('/BG.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-emerald-900/65" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <span className="text-sm font-semibold text-emerald-100">Student Feedback</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Student Stories
           </h2>
-          <p className="text-muted-foreground text-lg">Hear from our scholarship recipients</p>
+          <p className="text-emerald-50/90 text-lg">Hear from our scholarship recipients</p>
         </div>
 
         <div className="relative">
@@ -156,7 +182,7 @@ export default function TestimonialsSection() {
             {visibleTestimonials.map((testimonial, index) => (
             <div
                 key={testimonial.id}
-                className="w-full max-w-sm md:max-w-none bg-card border border-border/50 rounded-xl p-8 hover:border-border transition-all duration-300 animate-in fade-in slide-in-from-right"
+              className="w-full max-w-sm animate-in slide-in-from-right fade-in rounded-2xl border border-white/20 bg-white/10 p-8 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-white/35 hover:bg-white/15 md:max-w-none"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 {/* Profile Section - Top */}
@@ -174,15 +200,15 @@ export default function TestimonialsSection() {
                     />
                   ) : null}
                   <div 
-                    className={`w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
+                    className={`w-12 h-12 rounded-full bg-white/25 flex items-center justify-center text-emerald-100 font-semibold text-sm flex-shrink-0 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
                   >
                     {testimonial.name?.[0]?.toUpperCase() || "A"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground text-base mb-0.5 truncate">
+                    <p className="font-semibold text-white text-base mb-0.5 truncate">
                       {testimonial.name}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{testimonial.course}</p>
+                    <p className="text-xs text-emerald-50/80 truncate">{testimonial.course}</p>
                   </div>
                 </div>
 
@@ -201,12 +227,12 @@ export default function TestimonialsSection() {
               </div>
 
                 {/* Testimonial Text */}
-                <p className="text-foreground mb-6 leading-relaxed text-sm min-h-[80px]">
+                <p className="text-emerald-50/95 mb-6 leading-relaxed text-sm min-h-[80px]">
                   "{testimonial.testimonial}"
                 </p>
 
                 {/* Scholarship Badge - Minimalist */}
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-4 border-t border-border/30">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-50/80 pt-4 border-t border-white/20">
                   <Award className="w-3.5 h-3.5" />
                   <span className="truncate">{testimonial.scholarship}</span>
                 </div>
@@ -219,14 +245,14 @@ export default function TestimonialsSection() {
             <>
               <button
                 onClick={prevSlide}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-6 bg-background border border-border/50 text-foreground p-3 rounded-full shadow-sm hover:shadow-md hover:bg-muted transition-all duration-200 z-10"
+                className="absolute left-0 top-1/2 z-10 -translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:-translate-x-6"
                 aria-label="Previous testimonials"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={nextSlide}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-6 bg-background border border-border/50 text-foreground p-3 rounded-full shadow-sm hover:shadow-md hover:bg-muted transition-all duration-200 z-10"
+                className="absolute right-0 top-1/2 z-10 translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:translate-x-6"
                 aria-label="Next testimonials"
               >
                 <ChevronRight className="w-5 h-5" />

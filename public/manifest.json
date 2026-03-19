@@ -1,7 +1,7 @@
 {
-  "name": "iScholar Portal - OSAS MinSU",
-  "short_name": "iScholar",
-  "description": "Scholarship Management System for MinSU Students",
+  "name": "MOCAS Portal",
+  "short_name": "MOCAS",
+  "description": "MinSU Online Consultation for Admission and Scholarship",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

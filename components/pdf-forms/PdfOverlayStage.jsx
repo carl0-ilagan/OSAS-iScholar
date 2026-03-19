@@ -54,29 +54,39 @@ export default function PdfOverlayStage({
               ? Math.min(scale, maxPageWidth / Math.max(1, baseViewport.width))
               : scale
           const viewport = page.getViewport({ scale: fitScale })
+          const cssWidth = Math.max(1, Math.round(viewport.width))
+          const cssHeight = Math.max(1, Math.round(viewport.height))
+          const pixelRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
+          const renderViewport = page.getViewport({ scale: fitScale * pixelRatio })
 
           const pageWrapper = document.createElement("div")
-          pageWrapper.className = "relative mx-auto mb-4 w-fit overflow-hidden rounded-lg border border-border bg-white shadow"
+          pageWrapper.className = "relative mx-auto mb-4 w-fit overflow-hidden rounded-lg bg-white shadow"
           pageWrapper.dataset.page = `${pageIndex}`
-          pageWrapper.style.width = `${viewport.width}px`
-          pageWrapper.style.height = `${viewport.height}px`
+          pageWrapper.style.width = `${cssWidth}px`
+          pageWrapper.style.height = `${cssHeight}px`
+          pageWrapper.style.boxSizing = "content-box"
 
           const canvas = document.createElement("canvas")
           canvas.className = "block"
-          canvas.width = viewport.width
-          canvas.height = viewport.height
+          canvas.width = Math.max(1, Math.round(renderViewport.width))
+          canvas.height = Math.max(1, Math.round(renderViewport.height))
+          canvas.style.width = `${cssWidth}px`
+          canvas.style.height = `${cssHeight}px`
 
           pageWrapper.appendChild(canvas)
           parent.appendChild(pageWrapper)
           createdCanvases.push(canvas)
 
           const context = canvas.getContext("2d", { alpha: false })
+          if (context) {
+            context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+          }
           await page.render({ canvasContext: context, viewport }).promise
 
           nextPages.push({
             page: pageIndex,
-            width: viewport.width,
-            height: viewport.height,
+            width: cssWidth,
+            height: cssHeight,
             renderScale: fitScale,
           })
         }

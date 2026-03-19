@@ -297,7 +297,7 @@ export default function AnnouncementsPage() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     to: secondaryEmail,
-                    subject: '📢 New Announcement - iScholar',
+                    subject: '📢 New Announcement - MOCAS',
                     html: `
                       <!DOCTYPE html>
                       <html>
@@ -324,8 +324,8 @@ export default function AnnouncementsPage() {
                               <p>${announcementData.description}</p>
                               ${announcementData.venue ? `<p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;"><strong>📍 Venue:</strong> ${announcementData.venue}</p>` : ''}
                             </div>
-                            <p>Please log in to your iScholar account to view the full announcement and take any necessary action.</p>
-                            <p>Best regards,<br>iScholar Team</p>
+                            <p>Please log in to your MOCAS account to view the full announcement and take any necessary action.</p>
+                            <p>Best regards,<br>MOCAS Team</p>
                           </div>
                         </div>
                       </body>

@@ -2,19 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore"
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
-import StudentPageBanner from "@/components/student/page-banner"
 import { MessageSquare, Star, ChevronLeft, ChevronRight, Calendar, Quote, Award, Filter, ChevronDown, ArrowUpDown } from "lucide-react"
 import TestimonialModal from "@/components/student/testimonial-modal"
 import TestimonialsSkeleton from "@/components/student/testimonials-skeleton"
 
+function isPermissionDenied(error) {
+  const code = String(error?.code || "").toLowerCase()
+  const message = String(error?.message || "").toLowerCase()
+  return code.includes("permission-denied") || message.includes("insufficient permissions")
+}
+
 export default function TestimonialsPage() {
   const { user } = useAuth()
   const [userName, setUserName] = useState("")
+  const [userCampus, setUserCampus] = useState("")
   const [loading, setLoading] = useState(true)
-  const [contentStyle, setContentStyle] = useState({ marginLeft: '1rem', marginRight: '1rem' })
-  const [isClient, setIsClient] = useState(false)
   
   // Testimonials state
   const [testimonials, setTestimonials] = useState([])
@@ -28,40 +32,6 @@ export default function TestimonialsPage() {
   const [expandedCards, setExpandedCards] = useState(new Set())
   
   const ITEMS_PER_PAGE = 9
-
-  // Match content width with banner
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isClient) return
-
-    const detectSidebarWidth = () => {
-      if (typeof window === 'undefined' || window.innerWidth < 768) {
-        setContentStyle({ marginLeft: '1rem', marginRight: '1rem' })
-        return
-      }
-      // On desktop, main content area starts after sidebar
-      // Banner uses: left = sidebarWidth + 16px, right = 1.5rem
-      // Content should use: marginLeft = 16px (gap from sidebar), marginRight = 1.5rem
-      setContentStyle({ 
-        marginLeft: '16px', 
-        marginRight: '1.5rem' 
-      })
-    }
-
-    detectSidebarWidth()
-    const observer = new ResizeObserver(detectSidebarWidth)
-    const sidebar = document.querySelector('aside')
-    if (sidebar) observer.observe(sidebar)
-    window.addEventListener('resize', detectSidebarWidth)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', detectSidebarWidth)
-    }
-  }, [isClient])
 
   // Format date like Facebook (e.g., "2 hours ago", "3 days ago")
   const formatTimeAgo = (date) => {
@@ -109,9 +79,12 @@ export default function TestimonialsPage() {
         if (userDoc.exists()) {
           const userData = userDoc.data()
           setUserName(userData.fullName || userData.displayName || "Student")
+          setUserCampus(userData.campus || "")
         }
       } catch (error) {
-        console.error("Error fetching user data:", error)
+        if (!isPermissionDenied(error)) {
+          console.error("Error fetching user data:", error)
+        }
       } finally {
         setLoading(false)
       }
@@ -126,49 +99,59 @@ export default function TestimonialsPage() {
         let snapshot
         try {
           snapshot = await getDocs(query(collection(db, "testimonials"), orderBy("createdAt", "desc")))
-        } catch (error) {
-          snapshot = await getDocs(collection(db, "testimonials"))
+        } catch (primaryError) {
+          if (isPermissionDenied(primaryError) && userCampus) {
+            // Campus-scoped fallback for accounts constrained by campus rules.
+            try {
+              snapshot = await getDocs(
+                query(collection(db, "testimonials"), where("campus", "==", userCampus), orderBy("createdAt", "desc")),
+              )
+            } catch {
+              snapshot = await getDocs(query(collection(db, "testimonials"), where("campus", "==", userCampus)))
+            }
+          } else {
+            snapshot = await getDocs(collection(db, "testimonials"))
+          }
         }
 
-        const testimonialsData = []
-        
-        // Fetch all testimonials first
-        for (const docSnap of snapshot.docs) {
+        const testimonialsData = snapshot.docs.map((docSnap) => {
           const data = docSnap.data()
-          
-          // Use data directly from testimonial document (name and photoURL are stored there)
-          testimonialsData.push({
+          return {
             id: docSnap.id,
             userId: data.userId,
             name: data.name || "Anonymous",
             photoURL: data.photoURL || null,
             testimonial: data.testimonial || "",
-            rating: data.rating || 0,
+            rating: Number(data.rating || 0),
             scholarship: data.scholarship || "N/A",
             course: data.course || "N/A",
             campus: data.campus || "N/A",
             createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date(),
-          })
-        }
+          }
+        })
 
-        // Sort manually if needed
         testimonialsData.sort((a, b) => {
-          const dateA = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
-          const dateB = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
-          return dateB - dateA
+          const aTime = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
+          const bTime = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
+          return bTime - aTime
         })
 
         setTestimonials(testimonialsData)
         setFilteredTestimonials(testimonialsData)
       } catch (error) {
-        console.error("Error fetching testimonials:", error)
+        setTestimonials([])
+        setFilteredTestimonials([])
+        if (!isPermissionDenied(error)) {
+          console.error("Error fetching testimonials:", error)
+        }
       }
     }
 
   // Fetch testimonials on mount
   useEffect(() => {
+    if (!user?.uid) return
     fetchTestimonials()
-  }, [])
+  }, [user?.uid, userCampus])
 
   // Filter and sort testimonials
   useEffect(() => {
@@ -240,16 +223,9 @@ export default function TestimonialsPage() {
   if (loading) {
     return (
       <div className="relative">
-        <StudentPageBanner
-          icon={MessageSquare}
-          title="Testimonials"
-          description="Read and share experiences from fellow students"
-          userName={userName}
-        />
-        <div className="mt-36 md:mt-28">
+        <div className="p-4 md:p-6 lg:p-8">
           <div 
-            className="space-y-8 p-4 md:p-6 lg:p-8 transition-all duration-300"
-            style={contentStyle}
+            className="space-y-8 transition-all duration-300"
           >
             <div className="bg-gradient-to-br from-card via-card to-secondary/5 border border-border rounded-xl p-6 md:p-8 shadow-lg">
               <TestimonialsSkeleton />
@@ -262,20 +238,10 @@ export default function TestimonialsPage() {
 
   return (
     <div className="relative">
-      {/* Banner */}
-      <StudentPageBanner
-        icon={MessageSquare}
-        title="Testimonials"
-        description="Read and share experiences from fellow students"
-        userName={userName}
-      />
-
-      {/* Content - Same width as banner with proper spacing */}
-      <div className="mt-40 md:mt-36" style={{ width: '100%' }}>
+      <div className="p-4 md:p-6 lg:p-8">
         {/* Testimonials Section - Exact same width as banner */}
         <div 
           className="bg-gradient-to-br from-card via-card to-secondary/5 border border-border rounded-2xl p-6 md:p-8 lg:p-10 xl:p-12 shadow-xl transition-all duration-300"
-          style={contentStyle}
         >
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
               <div>

@@ -42,7 +42,7 @@ export default function RegisterPage() {
       <div className="max-w-md mx-auto px-4 py-20">
         <div className="bg-card border border-border rounded-lg p-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">Create Your Account</h1>
-          <p className="text-muted-foreground mb-8">Join iScholar in {step === 1 ? "Step 1" : "Step 2"} of 2</p>
+          <p className="text-muted-foreground mb-8">Join MOCAS in {step === 1 ? "Step 1" : "Step 2"} of 2</p>
 
           {/* Progress Bar */}
           <div className="flex gap-2 mb-8">

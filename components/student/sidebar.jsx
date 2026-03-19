@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, LogOut, ChevronLeft, ChevronRight, ClipboardCheck, FilePenLine, Video } from "lucide-react"
+import { usePathname } from "next/navigation"
+import {
+  LayoutDashboard,
+  FileText,
+  History,
+  MessageSquare,
+  LogOut,
+  ClipboardCheck,
+  FilePenLine,
+  Video,
+  UserRound,
+} from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
@@ -20,31 +30,21 @@ const navItems = [
   { icon: MessageSquare, label: "Testimonials", href: "/student/feedback" },
 ]
 
+const navGroups = [
+  { label: "Overview", items: navItems.filter((item) => item.href === "/student") },
+  { label: "Student Services", items: navItems.filter((item) => item.href !== "/student") },
+]
+
 export default function StudentSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
   const { user } = useAuth()
   const { branding } = useBranding()
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const [userPhotoURL, setUserPhotoURL] = useState(null)
   const [userDisplayName, setUserDisplayName] = useState(null)
 
-  useEffect(() => {
-    setMounted(true)
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
-
-  // Fetch user data from Firestore to get updated photoURL
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user?.uid) {
@@ -57,17 +57,14 @@ export default function StudentSidebar() {
         const userDoc = await getDoc(doc(db, "users", user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data()
-          // Use Firestore photoURL if available, otherwise use Firebase Auth photoURL
           setUserPhotoURL(data.photoURL || user.photoURL || null)
           setUserDisplayName(data.fullName || data.displayName || null)
         } else {
-          // Fallback to Firebase Auth data
           setUserPhotoURL(user.photoURL || null)
           setUserDisplayName(user.displayName || null)
         }
       } catch (error) {
         console.error("Error fetching user data:", error)
-        // Fallback to Firebase Auth data
         setUserPhotoURL(user.photoURL || null)
         setUserDisplayName(user.displayName || null)
       }
@@ -76,179 +73,120 @@ export default function StudentSidebar() {
     fetchUserData()
   }, [user])
 
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed)
-  }
+  const nameInitial = userDisplayName?.[0] || user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "U"
+  const profileLabel = userDisplayName || user?.displayName || user?.email || "Student"
+  const roleLabel = "Student"
+  const profileHref = "/student/profile"
 
   return (
     <>
-      {/* Sidebar - Desktop Only */}
       <aside
-        className={`
-          hidden md:flex md:relative h-screen bg-gradient-to-b from-primary via-primary to-secondary text-white border-r border-primary/20 flex flex-col z-40 shadow-2xl
-          transition-all duration-300 ease-in-out
-          ${isCollapsed ? "w-20" : "w-64"}
-        `}
+        className="hidden h-screen w-72 min-w-72 max-w-72 border-r border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-xl backdrop-blur md:flex md:flex-col"
       >
-      {/* Logo */}
-        <div className="relative p-4 md:p-5 border-b border-white/10 bg-gradient-to-r from-primary/90 to-primary">
-          <Link 
-            href="/student" 
-            className={`flex items-center gap-3 group transition-all duration-300 ${isCollapsed && !isMobile ? "justify-center w-full" : ""}`}
-            onClick={() => setIsMobileOpen(false)}
-          >
-            {branding?.logo ? (
-              <img 
-                key={branding.logo} 
-                src={branding.logo} 
-                alt={branding.name || "Logo"} 
-                className="w-11 h-11 object-contain rounded-xl flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg shadow-md bg-white/10 p-1"
+        <div className="border-b border-sidebar-border/70 px-4 py-4">
+          <Link href="/student" className="group flex items-center gap-3">
+            {brandLogo ? (
+              <img
+                key={brandLogo}
+                src={brandLogo}
+                alt={brandName || "Logo"}
+                className="h-11 w-11 rounded-xl bg-sidebar-accent/30 p-1 object-contain shadow-sm transition-transform duration-200 group-hover:scale-105"
                 onError={(e) => {
-                  console.error("Error loading logo:", branding.logo)
-                  e.target.style.display = 'none'
+                  console.error("Error loading logo:", brandLogo)
+                  e.target.style.display = "none"
                 }}
               />
             ) : (
-              <div className="w-11 h-11 bg-gradient-to-br from-accent to-accent/90 rounded-xl flex items-center justify-center font-bold text-primary text-lg flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg shadow-md">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground shadow-sm">
                 iS
               </div>
             )}
-            <span className={`font-bold text-xl whitespace-nowrap tracking-tight transition-all duration-300 ${isCollapsed && !isMobile ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}>
-              {branding?.name || "iScholar"}
-            </span>
-        </Link>
-          
-          {/* Desktop Toggle Button - Half Outside/Half Inside with Green Outside */}
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-white transition-all duration-200 hover:scale-110 absolute -right-4 top-1/2 -translate-y-1/2 z-50 shadow-lg overflow-hidden group"
-            aria-label="Toggle sidebar"
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold tracking-tight text-sidebar-foreground">{brandName}</p>
+              <p className="text-xs text-sidebar-foreground/65">Student Portal</p>
+            </div>
+          </Link>
+        </div>
+
+        <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+          {navGroups.map((group) => (
+            <div key={group.label} className="space-y-1.5 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/25 p-2 shadow-sm">
+              <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/60">{group.label}</p>
+              <div className="space-y-1">
+                {group.items.map(({ icon: Icon, label, href }) => {
+                  const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                        isActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 ${isActive ? "" : "opacity-80 group-hover:opacity-100"}`} />
+                      <span className="truncate font-medium">{label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-sidebar-border/70 p-3">
+          <Link
+            href={profileHref}
+            className="mb-2 flex items-center gap-3 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 px-3 py-2.5 transition-colors hover:bg-sidebar-accent"
           >
-            {/* Green outside half (left), white/transparent inside half (right) */}
-            <div className="absolute inset-0">
-              <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-primary"></div>
-              <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-white/10"></div>
-            </div>
-            <div className="relative z-10">
-              {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
-              )}
-            </div>
-          </button>
-      </div>
-
-        {/* Navigation - Desktop */}
-        <nav className="hidden md:flex flex-col flex-1 p-3 md:p-4 space-y-2 overflow-y-auto scrollbar-hide">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = mounted && pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-                className={`
-                  flex items-center gap-3 px-3 py-3 rounded-xl
-                  transition-all duration-200 ease-in-out
-                  group relative overflow-hidden
-                  ${isCollapsed ? "justify-center" : ""}
-                  ${isActive
-                    ? "bg-accent text-primary shadow-lg shadow-accent/30 scale-[1.02]"
-                    : "text-white/90 hover:text-white hover:bg-white/10 hover:shadow-md hover:scale-[1.01]"
-                  }
-                `}
-                title={isCollapsed ? item.label : ""}
-            >
-                {/* Active indicator bar - Yellow/Gold only for active */}
-                {isActive && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />
-                )}
-                
-                {/* Hover effect background - No yellow/gold on hover */}
-                {!isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                )}
-                
-                <Icon 
-                  className={`
-                    w-5 h-5 flex-shrink-0 transition-all duration-200
-                    ${isActive ? "scale-110" : "group-hover:scale-110"}
-                  `} 
+            <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar-primary/20 ring-1 ring-sidebar-primary/30">
+              {userPhotoURL && userPhotoURL.trim() !== "" ? (
+                <img
+                  src={userPhotoURL}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = "none"
+                    const fallback = e.target.nextElementSibling
+                    if (fallback) fallback.style.display = "flex"
+                  }}
                 />
-                <span className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}>
-                  {item.label}
-                </span>
-            </Link>
-          )
-        })}
-      </nav>
-
-        {/* Mobile navigation removed - now in profile dropdown */}
-
-        {/* User Profile Section */}
-        <div className="p-4 md:p-5 border-t border-white/10 bg-primary/50 backdrop-blur-sm">
-          {/* Desktop: Profile Link */}
-          <div className="hidden md:block">
-            <Link
-              href="/student/profile"
-              className={`flex items-center gap-3 mb-3 p-2 rounded-xl bg-white/10 transition-all duration-300 hover:bg-white/20 cursor-pointer ${isCollapsed ? "justify-center" : ""}`}
-            >
-              <div className="flex-shrink-0 w-11 h-11 rounded-full bg-gradient-to-br from-accent to-accent/90 overflow-hidden ring-2 ring-accent/30 shadow-md relative">
-                {userPhotoURL && userPhotoURL.trim() !== '' ? (
-                  <img 
-                    src={userPhotoURL} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Hide image and show fallback if it fails to load
-                      e.target.style.display = 'none'
-                      const fallback = e.target.nextElementSibling
-                      if (fallback) fallback.style.display = 'flex'
-                    }}
-                  />
-                ) : null}
-                <div 
-                  className={`w-full h-full flex items-center justify-center font-bold text-primary text-base bg-gradient-to-br from-accent to-accent/90 ${userPhotoURL && userPhotoURL.trim() !== '' ? 'hidden' : ''}`}
-                >
-                  {userDisplayName?.[0] || user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
-                </div>
+              ) : null}
+              <div
+                className={`h-full w-full items-center justify-center text-sm font-bold text-sidebar-primary ${
+                  userPhotoURL && userPhotoURL.trim() !== "" ? "hidden" : "flex"
+                }`}
+              >
+                {nameInitial}
               </div>
-              <div className={`flex-1 min-w-0 transition-all duration-300 ${isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}>
-                <p className="text-sm font-semibold text-white truncate">
-                  {user?.email || "user@example.com"}
-                </p>
-                <p className="text-xs text-white/70 font-medium">Student</p>
-              </div>
-            </Link>
-          </div>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{profileLabel}</p>
+              <p className="flex items-center gap-1 text-xs text-sidebar-foreground/65">
+                <UserRound className="h-3 w-3" />
+                {roleLabel}
+              </p>
+            </div>
+          </Link>
 
-
-      {/* Logout */}
-          <button 
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/90 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 ease-in-out group relative overflow-hidden hover:shadow-md hover:scale-[1.01] ${isCollapsed ? "justify-center" : ""}`}
+          <button
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground transition-all hover:bg-red-500/10 hover:text-red-600"
             onClick={() => {
               setIsLogoutModalOpen(true)
             }}
-            title={isCollapsed ? "Logout" : ""}
           >
-            {/* Hover effect background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/10 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
-            <LogOut className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-            <span className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${isCollapsed && !isMobile ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}>
-              Logout
-            </span>
-        </button>
-      </div>
-    </aside>
+            <LogOut className="h-4 w-4 transition-transform group-hover:scale-105" />
+            <span className="font-medium">Logout</span>
+          </button>
+        </div>
+      </aside>
 
-      {/* Logout Modal */}
-      <LogoutModal 
-        isOpen={isLogoutModalOpen} 
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         onConfirm={() => {
-          // Handled inside LogoutModal
+          // handled inside modal
         }}
       />
     </>

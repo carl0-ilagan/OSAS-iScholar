@@ -5,7 +5,6 @@ import ScholarshipApplicationCards from "@/components/student/scholarship-cards"
 import ScholarshipCardsSkeleton from "@/components/student/scholarship-cards-skeleton"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy } from "firebase/firestore"
-import { GraduationCap, Clock } from "lucide-react"
 
 // Static scholarship data fallback
 const STATIC_SCHOLARSHIP_DATA = {
@@ -30,46 +29,6 @@ const STATIC_SCHOLARSHIP_DATA = {
 export default function ApplyPage() {
   const [scholarships, setScholarships] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [sidebarWidth, setSidebarWidth] = useState(256)
-  const [isClient, setIsClient] = useState(false)
-
-  // Set client-side flag to prevent hydration mismatch
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Detect sidebar width for desktop banner positioning
-  useEffect(() => {
-    if (!isClient) return
-
-    const detectSidebarWidth = () => {
-      if (typeof window === 'undefined' || window.innerWidth < 768) return
-      const sidebar = document.querySelector('aside')
-      if (sidebar) {
-        setSidebarWidth(sidebar.offsetWidth)
-      }
-    }
-
-    detectSidebarWidth()
-    const observer = new ResizeObserver(detectSidebarWidth)
-    const sidebar = document.querySelector('aside')
-    if (sidebar) observer.observe(sidebar)
-    window.addEventListener('resize', detectSidebarWidth)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', detectSidebarWidth)
-    }
-  }, [isClient])
-
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
 
   // Fetch scholarships from Firestore
   useEffect(() => {
@@ -259,66 +218,14 @@ export default function ApplyPage() {
     fetchScholarships()
   }, [])
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit',
-      hour12: true 
-    })
-  }
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  }
-
   if (loading) {
     return (
       <div className="relative">
-        {/* Floating Banner - Skeleton */}
-        <div 
-          className="fixed top-20 md:top-4 z-40 transition-all duration-300"
-          style={isClient ? { 
-            left: window.innerWidth >= 768 
-              ? `${sidebarWidth + 16}px` 
-              : '1rem',
-            right: window.innerWidth >= 768 ? '1.5rem' : '1rem'
-          } : {
-            left: '1rem',
-            right: '1rem'
-          }}
-        >
-          <div className="bg-gradient-to-r from-primary to-secondary text-white p-4 md:p-5 rounded-2xl shadow-lg animate-pulse">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 md:w-6 md:h-6 bg-white/20 rounded animate-pulse" />
-                <div className="space-y-1">
-                  <div className="h-4 bg-white/20 rounded w-32 animate-pulse" />
-                  <div className="h-3 bg-white/20 rounded w-48 animate-pulse" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg">
-                <div className="w-4 h-4 bg-white/20 rounded animate-pulse" />
-                <div className="space-y-1">
-                  <div className="h-3 bg-white/20 rounded w-16 animate-pulse" />
-                  <div className="h-2 bg-white/20 rounded w-24 hidden sm:block animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content - Skeleton */}
-        <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
+        <div className="p-3 md:p-4 lg:p-5">
           {/* Header Skeleton */}
-          <div className="text-center mb-6 md:mb-8">
-            <div className="h-8 bg-muted rounded w-64 mx-auto mb-2 animate-pulse" />
-            <div className="h-4 bg-muted rounded w-96 mx-auto animate-pulse" />
+          <div className="mb-4 space-y-2">
+            <div className="h-7 w-56 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-80 animate-pulse rounded bg-muted" />
           </div>
 
           {/* Scholarship Cards Skeleton */}
@@ -330,57 +237,26 @@ export default function ApplyPage() {
 
   return (
     <div className="relative">
-      {/* Floating Banner - Both Mobile and Desktop */}
-      <div 
-        className="fixed top-20 md:top-4 z-40 transition-all duration-300"
-        style={isClient ? { 
-          left: window.innerWidth >= 768 
-            ? `${sidebarWidth + 16}px` 
-            : '1rem',
-          right: window.innerWidth >= 768 ? '1.5rem' : '1rem'
-        } : {
-          left: '1rem',
-          right: '1rem'
-        }}
-      >
-        <div className="bg-gradient-to-r from-primary to-secondary text-white p-4 md:p-5 rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="w-5 h-5 md:w-6 md:h-6" />
-              <div>
-                <h2 className="text-base md:text-lg font-semibold">Select a scholarship program to apply</h2>
-                <p className="text-xs text-white/80">Browse available scholarships and submit your application</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg">
-              <Clock className="w-4 h-4" />
-              <div className="text-right">
-                <div className="font-semibold text-sm">{formatTime(currentTime)}</div>
-                <div className="text-xs text-white/70 hidden sm:block">{formatDate(currentTime)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content - Centered with margin-top from banner */}
-      <div className="mt-36 md:mt-28 p-4 md:p-6 lg:p-8">
-        {/* Header - Centered */}
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+      <div className="p-3 md:p-4 lg:p-5">
+        {/* Plain Header (No Banner) */}
+        <div className="mb-4">
+          <h1 className="mb-1 text-xl font-bold text-foreground md:text-2xl">
             Available Scholarships
           </h1>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground">
             Choose a scholarship program that fits your profile
           </p>
+          <div className="mt-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+            {scholarships.length} program{scholarships.length !== 1 ? "s" : ""} available
+          </div>
         </div>
 
         {/* Scholarship Cards Grid */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid gap-3 md:grid-cols-2 md:gap-4">
             {scholarships.map((scholarship) => (
               <ScholarshipApplicationCards key={scholarship.id} {...scholarship} />
             ))}
-          </div>
+        </div>
         </div>
     </div>
   )

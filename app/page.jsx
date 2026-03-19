@@ -3,28 +3,28 @@ import Hero from "@/components/landing/hero"
 import ApplicationTrackerSection from "@/components/landing/application-tracker-section"
 import AnnouncementsSection from "@/components/landing/announcements-section"
 import FeaturesSection from "@/components/landing/features-section"
-import ScholarshipsSection from "@/components/landing/scholarships-section"
 import BenefitsSection from "@/components/landing/benefits-section"
 import TestimonialsSection from "@/components/landing/testimonials-section"
 import Footer from "@/components/common/footer"
 
 export const metadata = {
-  title: "iScholar Portal - OSAS MinSU Scholarship Management",
+  title: "MOCAS Portal",
   description:
-    "Apply for scholarships, track applications, and manage your student journey at MinSU with iScholar Portal.",
+    "MinSU Online Consultation for Admission and Scholarship",
 }
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#eef6f0] text-foreground">
       <Header />
       <Hero />
-      <ApplicationTrackerSection />
-      <AnnouncementsSection />
-      <FeaturesSection />
-      <ScholarshipsSection />
-      <BenefitsSection />
-      <TestimonialsSection />
+      <div className="relative">
+        <ApplicationTrackerSection />
+        <AnnouncementsSection />
+        <FeaturesSection />
+        <BenefitsSection />
+        <TestimonialsSection />
+      </div>
       <Footer />
     </div>
   )

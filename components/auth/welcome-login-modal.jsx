@@ -90,7 +90,7 @@ export default function WelcomeLoginModal({ isOpen, onClose, userId }) {
                 {/* Welcome Message */}
                 <div className="text-center space-y-2">
                   <p className="text-base md:text-lg text-foreground font-light">
-                    You've successfully logged in to your iScholar account
+                    You've successfully logged in to your MOCAS account
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Ready to explore scholarships and manage your applications

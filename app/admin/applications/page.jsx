@@ -8,6 +8,117 @@ import { FileText, Search, Filter, ChevronDown } from "lucide-react"
 import ApplicationsTable from "@/components/admin/applications-table"
 import ApplicationsTableSkeleton from "@/components/admin/applications-table-skeleton"
 
+const DUMMY_APPLICATIONS = [
+  {
+    id: "preview-app-1",
+    userId: "preview-user-1",
+    name: "Juan Dela Cruz",
+    studentName: "Juan Dela Cruz",
+    studentNumber: "MBC2022-0001",
+    scholarshipId: "preview-scholarship-1",
+    scholarshipName: "Academic Excellence Grant",
+    course: "BS Information Technology",
+    yearLevel: "3rd",
+    campus: "Calapan City Campus",
+    status: "pending",
+    submittedDate: "03/12/2026",
+    submittedAt: "2026-03-12T10:15:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+  {
+    id: "preview-app-2",
+    userId: "preview-user-2",
+    name: "Maria Santos",
+    studentName: "Maria Santos",
+    studentNumber: "MBC2021-0142",
+    scholarshipId: "preview-scholarship-2",
+    scholarshipName: "Campus Merit Scholarship",
+    course: "BS Accountancy",
+    yearLevel: "4th",
+    campus: "Bongabong Campus",
+    status: "under-review",
+    submittedDate: "03/10/2026",
+    submittedAt: "2026-03-10T08:40:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+  {
+    id: "preview-app-3",
+    userId: "preview-user-3",
+    name: "Carlo Reyes",
+    studentName: "Carlo Reyes",
+    studentNumber: "MBC2023-0310",
+    scholarshipId: "preview-scholarship-1",
+    scholarshipName: "Academic Excellence Grant",
+    course: "BS Criminology",
+    yearLevel: "2nd",
+    campus: "Main Campus",
+    status: "approved",
+    submittedDate: "03/08/2026",
+    submittedAt: "2026-03-08T15:20:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+  {
+    id: "preview-app-4",
+    userId: "preview-user-4",
+    name: "Angela Cruz",
+    studentName: "Angela Cruz",
+    studentNumber: "MBC2020-0988",
+    scholarshipId: "preview-scholarship-3",
+    scholarshipName: "Needs-Based Support Program",
+    course: "BS Education",
+    yearLevel: "4th",
+    campus: "Calapan City Campus",
+    status: "rejected",
+    submittedDate: "03/06/2026",
+    submittedAt: "2026-03-06T11:05:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+  {
+    id: "preview-app-5",
+    userId: "preview-user-5",
+    name: "Louie Marquez",
+    studentName: "Louie Marquez",
+    studentNumber: "MBC2022-0544",
+    scholarshipId: "preview-scholarship-4",
+    scholarshipName: "Science and Technology Aid",
+    course: "BS Computer Science",
+    yearLevel: "3rd",
+    campus: "Bongabong Campus",
+    status: "pending",
+    submittedDate: "03/05/2026",
+    submittedAt: "2026-03-05T09:00:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+  {
+    id: "preview-app-6",
+    userId: "preview-user-6",
+    name: "Stephanie Rivera",
+    studentName: "Stephanie Rivera",
+    studentNumber: "MBC2021-0723",
+    scholarshipId: "preview-scholarship-2",
+    scholarshipName: "Campus Merit Scholarship",
+    course: "BS Hospitality Management",
+    yearLevel: "2nd",
+    campus: "Main Campus",
+    status: "approved",
+    submittedDate: "03/03/2026",
+    submittedAt: "2026-03-03T13:12:00.000Z",
+    photoURL: null,
+    formData: {},
+    files: {},
+  },
+]
+
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,6 +130,8 @@ export default function ApplicationsPage() {
   const filterRef = useRef(null)
 
   const ITEMS_PER_PAGE = 10
+  const sourceApplications = applications.length > 0 ? applications : DUMMY_APPLICATIONS
+  const isPreviewMode = applications.length === 0
 
   // Fetch applications from Firestore
   useEffect(() => {
@@ -82,9 +195,9 @@ export default function ApplicationsPage() {
 
   // Get unique values for filters
   const uniqueScholarships = useMemo(() => {
-    const scholarships = [...new Set(applications.map(app => app.scholarshipName))]
+    const scholarships = [...new Set(sourceApplications.map(app => app.scholarshipName))]
     return scholarships.sort()
-  }, [applications])
+  }, [sourceApplications])
 
   const uniqueStatuses = useMemo(() => {
     return ["pending", "approved", "rejected", "under-review"]
@@ -92,7 +205,7 @@ export default function ApplicationsPage() {
 
   // Filter applications
   const filteredApplications = useMemo(() => {
-    let filtered = [...applications]
+    let filtered = [...sourceApplications]
 
     // Filter by name (search)
     if (searchQuery.trim()) {
@@ -115,7 +228,7 @@ export default function ApplicationsPage() {
     }
 
     return filtered
-  }, [applications, sortScholarship, sortStatus, searchQuery])
+  }, [sourceApplications, sortScholarship, sortStatus, searchQuery])
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -283,106 +396,48 @@ export default function ApplicationsPage() {
             <ApplicationsTableSkeleton />
           ) : (
             <>
+              {isPreviewMode && (
+                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                  Preview mode: showing static sample applications because no live records were found yet.
+                </div>
+              )}
               <div className="animate-in fade-in duration-300">
                 <ApplicationsTable 
                   applications={paginatedApplications}
                   onUpdate={handleApplicationUpdate}
+                  readOnly={isPreviewMode}
                 />
               </div>
 
               {/* Pagination and Records Info */}
               <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                {/* Records Info */}
-                <div className="text-sm text-muted-foreground text-center md:text-left">
-                  Showing {filteredApplications.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredApplications.length)} of {filteredApplications.length} record{filteredApplications.length !== 1 ? 's' : ''}
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    {/* Mobile Pagination */}
-                    <div className="md:hidden flex items-center gap-2 w-full justify-center">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-foreground font-medium px-3">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                    </div>
-
-                    {/* Desktop Pagination */}
-                    <div className="hidden md:flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        First
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      
-                      {/* Page Numbers */}
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`px-3 py-2 border border-border rounded-lg text-sm transition-all duration-200 active:scale-95 ${
-                                  currentPage === page
-                                    ? "bg-primary text-primary-foreground shadow-md"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            )
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return <span key={page} className="px-2 text-muted-foreground">...</span>
-                          }
-                          return null
-                        })}
-                      </div>
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Last
-                      </button>
-                    </div>
+                <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                  {/* Records Info */}
+                  <div className="text-sm text-muted-foreground text-center md:text-left">
+                    Showing {filteredApplications.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredApplications.length)} of {filteredApplications.length} record{filteredApplications.length !== 1 ? 's' : ''}
                   </div>
-                )}
+
+                  {/* Pagination Controls (same style mobile + desktop) */}
+                  <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-foreground font-medium px-3">
+                      Page {Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1))} of {Math.max(totalPages, 1)}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.max(totalPages, 1), prev + 1))}
+                      disabled={currentPage >= Math.max(totalPages, 1)}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           )}

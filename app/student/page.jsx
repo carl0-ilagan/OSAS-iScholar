@@ -380,13 +380,13 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 lg:p-8">
-        <div className="animate-pulse space-y-6">
+      <div className="p-4 md:p-5">
+        <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-64"></div>
           <div className="h-4 bg-muted rounded w-96"></div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-muted rounded-lg"></div>
+              <div key={i} className="h-28 rounded-lg bg-muted"></div>
             ))}
           </div>
         </div>
@@ -396,42 +396,42 @@ export default function StudentDashboard() {
 
   return (
     <>
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
+      <div className="space-y-4 p-3 md:p-4 lg:p-5">
         {/* Welcome Section */}
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold text-foreground md:text-2xl lg:text-3xl">
             Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}! 👋
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Here&apos;s your scholarship journey overview
           </p>
         </div>
 
         {/* Dashboard Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {dashboardCards.map((card, index) => (
               <DashboardCard key={index} {...card} />
             ))}
           </div>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Left Column - Notifications & Announcements */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-4 lg:col-span-2">
             {/* Notifications Section */}
-            <div className="bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-2xl p-5 sm:p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-5">
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl">
-                    <Bell className="w-5 h-5 text-white" />
+                  <div className="rounded-lg bg-yellow-500/15 p-2">
+                    <Bell className="h-4 w-4 text-yellow-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-foreground">Notifications</h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Latest updates and announcements</p>
+                    <h2 className="text-base font-semibold text-foreground">Notifications</h2>
+                    <p className="text-xs text-muted-foreground">Latest updates and announcements</p>
                   </div>
                 </div>
                 {notifications.length > 0 && (
-                  <span className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs font-semibold">
+                  <span className="rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
                     {notifications.length} New
                   </span>
                 )}
@@ -444,10 +444,10 @@ export default function StudentDashboard() {
                       return (
                         <div
                           key={notification.id}
-                          className={`group relative p-4 rounded-xl border-2 transition-all hover:shadow-lg ${
+                          className={`group relative rounded-lg border p-3 transition-all ${
                             notification.isRequired && !notification.isUploaded
-                              ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30 hover:border-red-500/50'
-                              : 'bg-gradient-to-r from-blue-500/10 to-primary/10 border-blue-500/30 hover:border-blue-500/50'
+                              ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50'
+                              : 'border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50'
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -455,7 +455,7 @@ export default function StudentDashboard() {
                               className="flex-1 min-w-0 cursor-pointer"
                               onClick={() => router.push("/student/requirements")}
                             >
-                              <div className={`p-2 rounded-lg flex-shrink-0 mb-2 ${
+                              <div className={`mb-2 inline-flex rounded-md p-1.5 ${
                                 notification.isRequired && !notification.isUploaded
                                   ? 'bg-red-500/20' 
                                   : 'bg-blue-500/20'
@@ -467,7 +467,7 @@ export default function StudentDashboard() {
                                 }`} />
                               </div>
                               <div className="flex items-start justify-between gap-2 mb-1">
-                                <h3 className="font-semibold text-foreground text-sm sm:text-base line-clamp-1">
+                                <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
                                   {notification.title}
                                 </h3>
                                 {notification.isRequired && !notification.isUploaded && (
@@ -481,7 +481,7 @@ export default function StudentDashboard() {
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2">
+                              <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
                                 {notification.description || "New document requirement"}
                               </p>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -519,12 +519,12 @@ export default function StudentDashboard() {
                     return (
                       <div
                         key={announcement.id}
-                        className={`group relative p-4 rounded-xl border-2 transition-all hover:shadow-lg ${
+                        className={`group relative rounded-lg border p-3 transition-all ${
                           isUrgent
-                            ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30 hover:border-red-500/50'
+                            ? 'border-red-500/30 bg-red-500/5 hover:border-red-500/50'
                             : isIncoming
-                            ? 'bg-gradient-to-r from-blue-500/10 to-primary/10 border-blue-500/30 hover:border-blue-500/50'
-                            : 'bg-muted/50 border-border hover:border-primary/50'
+                            ? 'border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50'
+                            : 'border-border bg-muted/30 hover:border-primary/50'
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -535,7 +535,7 @@ export default function StudentDashboard() {
                               setIsAnnouncementModalOpen(true)
                             }}
                           >
-                            <div className={`p-2 rounded-lg flex-shrink-0 mb-2 ${
+                            <div className={`mb-2 inline-flex rounded-md p-1.5 ${
                               isUrgent 
                                 ? 'bg-red-500/20' 
                                 : isIncoming 
@@ -549,7 +549,7 @@ export default function StudentDashboard() {
                               )}
                             </div>
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <h3 className="font-semibold text-foreground text-sm sm:text-base line-clamp-1">
+                              <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
                                 {announcement.title}
                               </h3>
                               {isUrgent && (
@@ -558,7 +558,7 @@ export default function StudentDashboard() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2">
+                            <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
                               {announcement.description}
                             </p>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -620,8 +620,8 @@ export default function StudentDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <div className="p-4 bg-muted/50 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                    <Bell className="w-8 h-8 text-muted-foreground" />
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
+                    <Bell className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <p className="text-muted-foreground font-medium">No notifications at this time</p>
                   <p className="text-xs text-muted-foreground mt-1">You&apos;re all caught up!</p>
@@ -630,14 +630,14 @@ export default function StudentDashboard() {
             </div>
 
             {/* Recent Announcements Section */}
-            <div className="bg-card border-2 border-border rounded-2xl p-5 sm:p-6 shadow-lg">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 bg-gradient-to-br from-primary to-secondary rounded-xl">
-                  <Megaphone className="w-5 h-5 text-white" />
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-lg bg-primary/15 p-2">
+                  <Megaphone className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-foreground">Announcements</h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Important updates from administration</p>
+                  <h2 className="text-base font-semibold text-foreground">Announcements</h2>
+                  <p className="text-xs text-muted-foreground">Important updates from administration</p>
                 </div>
               </div>
               
@@ -651,7 +651,7 @@ export default function StudentDashboard() {
                   return (
                     <div 
                       key={announcement.id}
-                        className={`p-4 rounded-xl border-l-4 transition-all hover:shadow-md cursor-pointer ${
+                        className={`cursor-pointer rounded-lg border-l-4 p-3 transition-all hover:shadow-sm ${
                           isIncoming 
                             ? 'bg-blue-500/5 border-blue-500 hover:bg-blue-500/10' 
                             : 'bg-muted/30 border-primary hover:bg-muted/50'
@@ -662,14 +662,14 @@ export default function StudentDashboard() {
                       }}
                     >
                         <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="font-semibold text-foreground text-sm sm:text-base flex-1">
+                          <h3 className="flex-1 text-sm font-semibold text-foreground">
                             {announcement.title}
                           </h3>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatTimeAgo(announcement.createdAt)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">
                         {announcement.description}
                       </p>
                       {endDate && (
@@ -686,7 +686,7 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="text-center py-8">
-                  <Megaphone className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <Megaphone className="mx-auto mb-3 h-10 w-10 text-muted-foreground opacity-50" />
                 <p className="text-muted-foreground">No announcements at this time</p>
                 </div>
               )}
@@ -694,22 +694,22 @@ export default function StudentDashboard() {
           </div>
 
           {/* Right Column - Quick Stats */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Application Status Card */}
             {applications.length > 0 && (
-              <div className="bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-2xl p-5 sm:p-6 shadow-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 bg-gradient-to-br from-blue-500 to-primary rounded-xl">
-                    <TrendingUp className="w-5 h-5 text-white" />
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-500/15 p-2">
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
                   </div>
-                  <h2 className="text-lg font-bold text-foreground">Application Status</h2>
+                  <h2 className="text-base font-semibold text-foreground">Application Status</h2>
                 </div>
                 
                 <div className="space-y-3">
                   {applications.slice(0, 3).map((app) => (
                     <div
                       key={app.id}
-                      className="p-3 rounded-lg border border-border bg-background hover:border-primary/50 transition-colors cursor-pointer"
+                      className="cursor-pointer rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary/50"
                       onClick={() => router.push("/student/applications")}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -732,7 +732,7 @@ export default function StudentDashboard() {
                 {applications.length > 3 && (
                   <button
                     onClick={() => router.push("/student/applications")}
-                    className="w-full mt-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                    className="mt-3 w-full py-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
                   >
                     View all applications →
                   </button>
@@ -741,18 +741,18 @@ export default function StudentDashboard() {
             )}
 
             {/* Quick Actions */}
-            <div className="bg-card border-2 border-border rounded-2xl p-5 sm:p-6 shadow-lg">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
-                  <Sparkles className="w-5 h-5 text-white" />
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-lg bg-purple-500/15 p-2">
+                  <Sparkles className="h-4 w-4 text-purple-600" />
                 </div>
-                <h2 className="text-lg font-bold text-foreground">Quick Actions</h2>
+                <h2 className="text-base font-semibold text-foreground">Quick Actions</h2>
               </div>
               
               <div className="space-y-2">
                 <button
                   onClick={() => router.push("/student/apply")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
+                  className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-all hover:border-primary/50 hover:bg-primary/5"
                 >
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <FileText className="w-4 h-4 text-primary" />
@@ -765,7 +765,7 @@ export default function StudentDashboard() {
                 
                 <button
                   onClick={() => router.push("/student/requirements")}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
+                  className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-all hover:border-primary/50 hover:bg-primary/5"
                 >
                   <div className="p-2 bg-orange-500/10 rounded-lg">
                     <AlertCircle className="w-4 h-4 text-orange-600" />

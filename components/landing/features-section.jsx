@@ -25,11 +25,24 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="py-20 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section
+      id="features"
+      className="relative overflow-hidden py-20"
+      style={{
+        backgroundImage: "url('/BG.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-emerald-900/65" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-foreground mb-4">System Features</h2>
-          <p className="text-muted-foreground text-lg">Everything you need for a smooth scholarship journey</p>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <span className="text-sm font-semibold text-emerald-100">Core Features</span>
+          </div>
+          <h2 className="text-4xl font-bold text-white mb-4">System Features</h2>
+          <p className="text-emerald-50/90 text-lg">Everything you need for a smooth scholarship journey</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -38,13 +51,13 @@ export default function FeaturesSection() {
             return (
               <div
                 key={index}
-                className="bg-card border border-border rounded-lg p-8 hover:shadow-lg transition-all hover:border-primary/50"
+                className="group rounded-2xl border border-white/20 bg-white/10 p-7 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-white/35 hover:bg-white/15"
               >
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <Icon className="w-6 h-6 text-primary" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 transition-colors group-hover:bg-white/30">
+                  <Icon className="w-6 h-6 text-emerald-100" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
+                <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+                <p className="text-sm leading-6 text-emerald-50/90">{feature.description}</p>
               </div>
             )
           })}

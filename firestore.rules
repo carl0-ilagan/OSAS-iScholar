@@ -11,7 +11,12 @@
 
         function isCampusAdmin() {
           return isAuthenticated() &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campus_admin";
+            (
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campus_admin" ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appRole == "campus_admin" ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campusAdmin" ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appRole == "campusAdmin"
+            );
         }
 
         function sameCampus(campus) {
@@ -122,23 +127,16 @@
 
         // Scholarships collection - scholarship programs
         match /scholarships/{scholarshipId} {
-          // Super admin can read all; campus admins can only read same-campus scholarships.
-          // Non-campus-admin authenticated users (students/regular admin flows) keep existing read behavior.
-          allow read: if request.auth != null && (
-            isSuperAdmin() ||
-            !isCampusAdmin() ||
-            sameCampus(resource.data.campus)
-          );
+          // Any authenticated user can read scholarships
+          // (student apply + testimonial scholarship picker depend on this).
+          allow read: if request.auth != null;
           
-          // Super admin has full write access; campus admin can manage own campus scholarships
-          allow create: if request.auth != null && (
-                        isSuperAdmin() ||
-                        sameCampus(request.resource.data.campus)
-                      );
-          allow update, delete: if request.auth != null && (
-                                isSuperAdmin() ||
-                                sameCampus(resource.data.campus)
-                              );
+          // Campus admin is the owner of scholarship setup/changes per campus.
+          // Super admin remains monitoring-only for this collection.
+          allow create: if request.auth != null &&
+                        sameCampus(request.resource.data.campus);
+          allow update, delete: if request.auth != null &&
+                                sameCampus(resource.data.campus);
           
           // Allow students to update slots field only (for application slot decrement)
           allow update: if request.auth != null &&

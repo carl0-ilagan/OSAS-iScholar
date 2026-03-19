@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { db } from "@/lib/firebase"
+import { auth, db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import { Users, Search, Filter, ChevronDown, FileText, User, BarChart3, PieChart, TrendingUp, Eye, Mail, Hash, GraduationCap, Calendar, CheckCircle, MapPin, Download } from "lucide-react"
@@ -43,6 +43,7 @@ export default function UsersPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [actionLoadingUserId, setActionLoadingUserId] = useState(null)
   const filterRef = useRef(null)
   
   // Application Forms Table Filters and Pagination
@@ -73,6 +74,30 @@ export default function UsersPage() {
   const ITEMS_PER_PAGE = 10
   const ADMIN_EMAIL = "contact.ischolar@gmail.com"
 
+  const callAdminUserAction = async (method, body) => {
+    const currentUser = auth.currentUser
+    if (!currentUser) {
+      throw new Error("Admin session expired. Please login again.")
+    }
+
+    const token = await currentUser.getIdToken(true)
+    const response = await fetch("/api/admin/users", {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(result?.error || "Action failed.")
+    }
+
+    return result
+  }
+
   // Color palette for charts
   const CHART_COLORS = [
     "#3b82f6", // blue-500
@@ -99,28 +124,8 @@ export default function UsersPage() {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data()
           
-          // Filter out admin and campus admin accounts - only show student users
-          const normalizedRole = String(data.role || "").trim().toLowerCase()
-          if (data.email === ADMIN_EMAIL || normalizedRole === "admin" || normalizedRole === "campus_admin") {
-            continue
-          }
-          
-          // Filter out users without valid student data
-          if (!data.email || !data.email.endsWith("@minsu.edu.ph")) {
-            continue
-          }
-          
-          const hasStudentData = data.studentNumber && 
-                                 data.studentNumber !== "N/A" && 
-                                 data.course && 
-                                 data.course !== "N/A"
-          
-          const hasValidName = (data.fullName && data.fullName !== "Unknown") || 
-                               (data.displayName && data.displayName !== "Unknown")
-          
-          if (!hasStudentData || !hasValidName) {
-            continue
-          }
+          const normalizedRole = String(data.role || data.appRole || "").trim().toLowerCase()
+          const resolvedRole = normalizedRole || (data.email === ADMIN_EMAIL ? "admin" : "student")
           
           usersData.push({
             id: docSnap.id,
@@ -132,8 +137,10 @@ export default function UsersPage() {
             course: data.course || "N/A",
             yearLevel: data.yearLevel || "N/A",
             campus: data.campus || "N/A",
+            role: resolvedRole,
             photoURL: data.photoURL || null,
-            status: data.status || "offline",
+            accountDisabled: Boolean(data.accountDisabled),
+            status: data.accountDisabled ? "disabled" : (data.status || "offline"),
             createdAt: data.createdAt || data.updatedAt || null,
             lastSeen: data.lastSeen || null,
           })
@@ -153,6 +160,115 @@ export default function UsersPage() {
 
     fetchUsers()
   }, [])
+
+  const handleToggleDisable = async (targetUser) => {
+    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    if (isPrimaryAdmin) {
+      toast.error("Primary admin account cannot be disabled.")
+      return
+    }
+
+    const nextDisabledState = !targetUser.accountDisabled
+    const confirmed = window.confirm(
+      `${nextDisabledState ? "Disable" : "Enable"} account for ${targetUser.fullName || targetUser.email}?`,
+    )
+    if (!confirmed) return
+
+    setActionLoadingUserId(targetUser.id)
+    try {
+      await callAdminUserAction("PATCH", {
+        uid: targetUser.uid || targetUser.id,
+        disabled: nextDisabledState,
+      })
+
+      setUsers((prev) =>
+        prev.map((row) =>
+          row.id === targetUser.id
+            ? {
+                ...row,
+                accountDisabled: nextDisabledState,
+                status: nextDisabledState ? "disabled" : "offline",
+              }
+            : row,
+        ),
+      )
+      toast.success(`Account ${nextDisabledState ? "disabled" : "enabled"} successfully.`)
+    } catch (error) {
+      toast.error(error.message || "Failed to update account status.")
+    } finally {
+      setActionLoadingUserId(null)
+    }
+  }
+
+  const handleResetPassword = async (targetUser) => {
+    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    if (isPrimaryAdmin) {
+      toast.error("Primary admin account password cannot be reset here.")
+      return
+    }
+
+    const newPassword = window.prompt(
+      `Set new password for ${targetUser.fullName || targetUser.email}\n\nMinimum 8 characters:`,
+      "",
+    )
+    if (!newPassword) return
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.")
+      return
+    }
+
+    setActionLoadingUserId(targetUser.id)
+    try {
+      await callAdminUserAction("POST", {
+        uid: targetUser.uid || targetUser.id,
+        newPassword,
+      })
+
+      setUsers((prev) =>
+        prev.map((row) =>
+          row.id === targetUser.id
+            ? {
+                ...row,
+                accountDisabled: false,
+                status: row.status === "disabled" ? "offline" : row.status,
+              }
+            : row,
+        ),
+      )
+      toast.success("Password changed successfully (no OTP).")
+    } catch (error) {
+      toast.error(error.message || "Failed to reset password.")
+    } finally {
+      setActionLoadingUserId(null)
+    }
+  }
+
+  const handleDeleteUser = async (targetUser) => {
+    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    if (isPrimaryAdmin) {
+      toast.error("Primary admin account cannot be deleted.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Delete account for ${targetUser.fullName || targetUser.email}?\n\nThis removes login access and user profile data.`,
+    )
+    if (!confirmed) return
+
+    setActionLoadingUserId(targetUser.id)
+    try {
+      await callAdminUserAction("DELETE", {
+        uid: targetUser.uid || targetUser.id,
+      })
+
+      setUsers((prev) => prev.filter((row) => row.id !== targetUser.id))
+      toast.success("User account deleted successfully.")
+    } catch (error) {
+      toast.error(error.message || "Failed to delete user account.")
+    } finally {
+      setActionLoadingUserId(null)
+    }
+  }
 
   // Fetch Application Forms
   useEffect(() => {
@@ -1096,31 +1212,31 @@ export default function UsersPage() {
   return (
     <AdminLayoutWrapper>
       <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="p-3 md:p-4 lg:p-5">
           {/* Tab Control - Enhanced for Desktop and Mobile */}
           <div className="relative mb-6">
-            <div className="flex gap-1 md:gap-2 border-b-2 border-border relative bg-gradient-to-r from-card/80 via-card/60 to-card/80 backdrop-blur-md rounded-t-xl p-1.5 md:p-2 overflow-x-auto scrollbar-hide shadow-lg">
+            <div className="flex gap-1 border-b border-border relative bg-card/60 rounded-lg p-1 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab("users")}
-                className={`px-4 md:px-8 py-2.5 md:py-3.5 font-bold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl whitespace-nowrap flex-shrink-0 group ${
+                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
                   activeTab === "users"
-                    ? "text-primary bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-br hover:from-muted/30 hover:via-muted/20 hover:to-muted/10"
+                    ? "text-primary bg-primary/10 border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md transition-all duration-200 ${
                     activeTab === "users" 
-                      ? "bg-primary/20 scale-110 rotate-3" 
-                      : "bg-muted/30 group-hover:bg-muted/50"
+                      ? "bg-primary/15" 
+                      : "bg-muted/30"
                   }`}>
-                    <Users className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "users" ? "text-primary scale-110" : "text-muted-foreground"}`} />
+                    <Users className={`w-4 h-4 transition-all duration-200 ${activeTab === "users" ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <span className="text-sm md:text-base font-semibold">User Management</span>
+                  <span className="text-xs md:text-sm font-medium">User Management</span>
                   {users.length > 0 && (
-                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                       activeTab === "users" 
-                        ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-md" 
+                        ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {users.length}
@@ -1130,25 +1246,25 @@ export default function UsersPage() {
               </button>
               <button
                 onClick={() => setActiveTab("application")}
-                className={`px-4 md:px-8 py-2.5 md:py-3.5 font-bold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl whitespace-nowrap flex-shrink-0 group ${
+                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
                   activeTab === "application"
-                    ? "text-primary bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-br hover:from-muted/30 hover:via-muted/20 hover:to-muted/10"
+                    ? "text-primary bg-primary/10 border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md transition-all duration-200 ${
                     activeTab === "application" 
-                      ? "bg-primary/20 scale-110 rotate-3" 
-                      : "bg-muted/30 group-hover:bg-muted/50"
+                      ? "bg-primary/15" 
+                      : "bg-muted/30"
                   }`}>
-                    <FileText className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "application" ? "text-primary scale-110" : "text-muted-foreground"}`} />
+                    <FileText className={`w-4 h-4 transition-all duration-200 ${activeTab === "application" ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <span className="text-sm md:text-base font-semibold">Application Form</span>
+                  <span className="text-xs md:text-sm font-medium">Application Form</span>
                   {applicationForms.length > 0 && (
-                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                       activeTab === "application" 
-                        ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-md" 
+                        ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {applicationForms.length}
@@ -1158,25 +1274,25 @@ export default function UsersPage() {
               </button>
               <button
                 onClick={() => setActiveTab("profile")}
-                className={`px-4 md:px-8 py-2.5 md:py-3.5 font-bold transition-all duration-300 relative z-10 rounded-t-lg md:rounded-t-xl whitespace-nowrap flex-shrink-0 group ${
+                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
                   activeTab === "profile"
-                    ? "text-primary bg-gradient-to-br from-primary/20 via-primary/15 to-primary/10 shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-br hover:from-muted/30 hover:via-muted/20 hover:to-muted/10"
+                    ? "text-primary bg-primary/10 border border-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                <div className="flex items-center gap-2">
+                  <div className={`p-1 rounded-md transition-all duration-200 ${
                     activeTab === "profile" 
-                      ? "bg-primary/20 scale-110 rotate-3" 
-                      : "bg-muted/30 group-hover:bg-muted/50"
+                      ? "bg-primary/15" 
+                      : "bg-muted/30"
                   }`}>
-                    <User className={`w-4 h-4 md:w-5 md:h-5 transition-all duration-300 ${activeTab === "profile" ? "text-primary scale-110" : "text-muted-foreground"}`} />
+                    <User className={`w-4 h-4 transition-all duration-200 ${activeTab === "profile" ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <span className="text-sm md:text-base font-semibold">Student Profile</span>
+                  <span className="text-xs md:text-sm font-medium">Student Profile</span>
                   {studentProfileForms.length > 0 && (
-                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 ${
                       activeTab === "profile" 
-                        ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-md" 
+                        ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     }`}>
                       {studentProfileForms.length}
@@ -1189,53 +1305,53 @@ export default function UsersPage() {
 
           {/* Statistics Cards - Only show for Application Form tab */}
           {activeTab === "application" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Responses</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{statistics.totalResponses}</p>
+                  <p className="text-xs text-muted-foreground">Total Responses</p>
+                  <p className="text-lg font-semibold text-foreground mt-1">{statistics.totalResponses}</p>
                 </div>
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <BarChart3 className="w-6 h-6 text-primary" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-primary" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Courses</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{Object.keys(statistics.courseDistribution).length}</p>
+                  <p className="text-xs text-muted-foreground">Total Courses</p>
+                  <p className="text-lg font-semibold text-foreground mt-1">{Object.keys(statistics.courseDistribution).length}</p>
                 </div>
-                <div className="p-3 bg-emerald-500/10 rounded-lg">
-                  <PieChart className="w-6 h-6 text-emerald-500" />
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <PieChart className="w-5 h-5 text-emerald-500" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">With Disability</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{statistics.disabilityStats.withDisability.length}</p>
+                  <p className="text-xs text-muted-foreground">With Disability</p>
+                  <p className="text-lg font-semibold text-foreground mt-1">{statistics.disabilityStats.withDisability.length}</p>
                 </div>
-                <div className="p-3 bg-amber-500/10 rounded-lg">
-                  <Users className="w-6 h-6 text-amber-500" />
+                <div className="p-2 bg-amber-500/10 rounded-lg">
+                  <Users className="w-5 h-5 text-amber-500" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Completion Rate</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
+                  <p className="text-xs text-muted-foreground">Completion Rate</p>
+                  <p className="text-lg font-semibold text-foreground mt-1">
                     {users.length > 0 ? Math.round((statistics.totalResponses / users.length) * 100) : 0}%
                   </p>
                 </div>
-                <div className="p-3 bg-violet-500/10 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-violet-500" />
+                <div className="p-2 bg-violet-500/10 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-violet-500" />
                 </div>
               </div>
             </div>
@@ -1985,17 +2101,17 @@ export default function UsersPage() {
               <div className="animate-in fade-in duration-300">
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
-                  <div className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gradient-to-r from-primary to-secondary">
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">User</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Email</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Student Number</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Course</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Submitted Date</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
+                        <tr className="bg-muted/60 border-b border-border">
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">User</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Email</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Student Number</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Course</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Year</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Submitted Date</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2009,13 +2125,13 @@ export default function UsersPage() {
                                   index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                                 }`}
                               >
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-3">
                                     {form.userPhotoURL ? (
                                       <img
                                         src={form.userPhotoURL}
                                         alt={form.userName}
-                                        className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
+                                        className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20"
                                         onError={(e) => {
                                           e.target.style.display = 'none'
                                           const fallback = e.target.nextElementSibling
@@ -2024,12 +2140,12 @@ export default function UsersPage() {
                                       />
                                     ) : null}
                                     <div 
-                                      className={`w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                                      className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                                     >
                                       {form.userName?.[0]?.toUpperCase() || "U"}
                                     </div>
                                     <div>
-                                      <p className="font-medium text-foreground">{form.userName}</p>
+                                      <p className="text-sm font-medium text-foreground">{form.userName}</p>
                                       {form.submittedDate && form.submittedDate !== "N/A" && (
                                         <p className="text-xs text-muted-foreground">
                                           Submitted {form.submittedDate}
@@ -2038,44 +2154,45 @@ export default function UsersPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <Mail className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm text-foreground">{formData.email || form.email || "N/A"}</p>
+                                    <p className="text-xs text-foreground">{formData.email || form.email || "N/A"}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <Hash className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm font-mono text-foreground">{form.studentNumber}</p>
+                                    <p className="text-xs font-mono text-foreground">{form.studentNumber}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <GraduationCap className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm text-foreground">{form.course}</p>
+                                    <p className="text-xs text-foreground">{form.course}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground">{form.yearLevel}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground">{form.yearLevel}</p>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm text-foreground">{form.submittedDate}</p>
+                                    <p className="text-xs text-foreground">{form.submittedDate}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <button
                                     onClick={() => {
                                       setSelectedFormData(formData)
                                       setSelectedUserPhoto(form.userPhotoURL)
                                       setIsFormModalOpen(true)
                                     }}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                    title="View details"
+                                    aria-label="View details"
                                   >
                                     <Eye className="w-4 h-4" />
-                                    <span>View</span>
                                   </button>
                                 </td>
                               </tr>
@@ -2151,17 +2268,18 @@ export default function UsersPage() {
                                 <span>Submitted {form.submittedDate}</span>
                               </div>
                             )}
-                            <div className="pt-2 border-t border-border/50">
+                            <div className="pt-2 border-t border-border/50 flex justify-end">
                               <button
                                 onClick={() => {
                                   setSelectedFormData(formData)
                                   setSelectedUserPhoto(form.userPhotoURL)
                                   setIsFormModalOpen(true)
                                 }}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                title="View details"
+                                aria-label="View details"
                               >
                                 <Eye className="w-4 h-4" />
-                                <span>View Application Form</span>
                               </button>
                             </div>
                           </div>
@@ -2177,92 +2295,31 @@ export default function UsersPage() {
               </div>
 
               <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                <div className="text-sm text-muted-foreground text-center md:text-left">
-                  Showing {filteredAndSortedApplicationForms.length > 0 ? applicationTableStartIndex + 1 : 0} to {Math.min(applicationTableEndIndex, filteredAndSortedApplicationForms.length)} of {filteredAndSortedApplicationForms.length} record{filteredAndSortedApplicationForms.length !== 1 ? 's' : ''}
-                </div>
-
-                {applicationTableTotalPages > 1 && (
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="md:hidden flex items-center gap-2 w-full justify-center">
-                      <button
-                        onClick={() => setApplicationTablePage(prev => Math.max(1, prev - 1))}
-                        disabled={applicationTablePage === 1}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-foreground font-medium px-3">
-                        Page {applicationTablePage} of {applicationTableTotalPages}
-                      </span>
-                      <button
-                        onClick={() => setApplicationTablePage(prev => Math.min(applicationTableTotalPages, prev + 1))}
-                        disabled={applicationTablePage === applicationTableTotalPages}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                    </div>
-
-                    <div className="hidden md:flex items-center gap-2">
-                      <button
-                        onClick={() => setApplicationTablePage(1)}
-                        disabled={applicationTablePage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        First
-                      </button>
-                      <button
-                        onClick={() => setApplicationTablePage(prev => Math.max(1, prev - 1))}
-                        disabled={applicationTablePage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: applicationTableTotalPages }, (_, i) => i + 1).map((page) => {
-                          if (
-                            page === 1 ||
-                            page === applicationTableTotalPages ||
-                            (page >= applicationTablePage - 1 && page <= applicationTablePage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setApplicationTablePage(page)}
-                                className={`px-3 py-2 border border-border rounded-lg text-sm transition-all duration-200 active:scale-95 ${
-                                  applicationTablePage === page
-                                    ? "bg-primary text-primary-foreground shadow-md"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            )
-                          } else if (page === applicationTablePage - 2 || page === applicationTablePage + 2) {
-                            return <span key={page} className="px-2 text-muted-foreground">...</span>
-                          }
-                          return null
-                        })}
-                      </div>
-
-                      <button
-                        onClick={() => setApplicationTablePage(prev => Math.min(applicationTableTotalPages, prev + 1))}
-                        disabled={applicationTablePage >= applicationTableTotalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                      <button
-                        onClick={() => setApplicationTablePage(applicationTableTotalPages)}
-                        disabled={applicationTablePage === applicationTableTotalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Last
-                      </button>
-                    </div>
+                <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-muted-foreground text-center md:text-left">
+                    Showing {filteredAndSortedApplicationForms.length > 0 ? applicationTableStartIndex + 1 : 0} to {Math.min(applicationTableEndIndex, filteredAndSortedApplicationForms.length)} of {filteredAndSortedApplicationForms.length} record{filteredAndSortedApplicationForms.length !== 1 ? 's' : ''}
                   </div>
-                )}
+
+                  <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => setApplicationTablePage(prev => Math.max(1, prev - 1))}
+                      disabled={applicationTablePage === 1}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-foreground font-medium px-3">
+                      Page {Math.min(Math.max(applicationTablePage, 1), Math.max(applicationTableTotalPages, 1))} of {Math.max(applicationTableTotalPages, 1)}
+                    </span>
+                    <button
+                      onClick={() => setApplicationTablePage(prev => Math.min(Math.max(applicationTableTotalPages, 1), prev + 1))}
+                      disabled={applicationTablePage >= Math.max(applicationTableTotalPages, 1)}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -3666,22 +3723,22 @@ export default function UsersPage() {
                 <div className="animate-in fade-in duration-300">
                   {/* Desktop Table View */}
                   <div className="hidden md:block overflow-x-auto">
-                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                       <table className="w-full">
                         <thead>
-                          <tr className="bg-gradient-to-r from-primary to-secondary">
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Picture</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Course</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Student ID</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Gender</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Scholarship</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Municipality</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Contact</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Vaccination</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">Actions</th>
+                          <tr className="bg-muted/60 border-b border-border">
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Picture</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Course</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Year</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Student ID</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Gender</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Scholarship</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Municipality</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Contact</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Vaccination</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Status</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3693,12 +3750,12 @@ export default function UsersPage() {
                                   index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                                 }`}
                               >
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   {form.userPhotoURL ? (
                                     <img
                                       src={form.userPhotoURL}
                                       alt={form.userName}
-                                      className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
+                                      className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20"
                                       onError={(e) => {
                                         e.target.style.display = 'none'
                                         const fallback = e.target.nextElementSibling
@@ -3707,55 +3764,55 @@ export default function UsersPage() {
                                     />
                                   ) : null}
                                   <div 
-                                    className={`w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                                    className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                                   >
                                     {form.userName?.[0]?.toUpperCase() || "U"}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="font-medium text-foreground">{form.userName}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-sm font-medium text-foreground">{form.userName}</p>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <GraduationCap className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm text-foreground">{form.course}</p>
+                                    <p className="text-xs text-foreground">{form.course}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground">{form.yearLevel}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground">{form.yearLevel}</p>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <Hash className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm font-mono text-foreground">{form.studentId}</p>
+                                    <p className="text-xs font-mono text-foreground">{form.studentId}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground">{form.gender}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground">{form.gender}</p>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground truncate max-w-[150px]" title={form.scholarship}>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground truncate max-w-[150px]" title={form.scholarship}>
                                     {form.scholarship}
                                   </p>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <MapPin className="w-4 h-4 text-muted-foreground" />
-                                    <p className="text-sm text-foreground">{form.municipality}</p>
+                                    <p className="text-xs text-foreground">{form.municipality}</p>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground">{form.contact}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground">{form.contact}</p>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm text-foreground">{form.vaccination}</p>
+                                <td className="px-4 py-3">
+                                  <p className="text-xs text-foreground">{form.vaccination}</p>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-600 border border-gray-500/30">
                                     Active
                                   </span>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3">
                                   <button
                                     onClick={() => {
                                       setSelectedFormData(form.formData)
@@ -3763,10 +3820,11 @@ export default function UsersPage() {
                                       setSelectedFormType("studentProfileForm")
                                       setIsFormModalOpen(true)
                                     }}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                    title="View details"
+                                    aria-label="View details"
                                   >
                                     <Eye className="w-4 h-4" />
-                                    <span>View</span>
                                   </button>
                                 </td>
                               </tr>
@@ -3846,7 +3904,7 @@ export default function UsersPage() {
                               <span className="text-muted-foreground">Vaccination:</span>
                               <span className="text-foreground">{form.vaccination}</span>
                             </div>
-                            <div className="pt-2 border-t border-border/50">
+                            <div className="pt-2 border-t border-border/50 flex justify-end">
                               <button
                                 onClick={() => {
                                   setSelectedFormData(form.formData)
@@ -3854,10 +3912,11 @@ export default function UsersPage() {
                                   setSelectedFormType("studentProfileForm")
                                   setIsFormModalOpen(true)
                                 }}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                                title="View details"
+                                aria-label="View details"
                               >
                                 <Eye className="w-4 h-4" />
-                                <span>View Profile</span>
                               </button>
                             </div>
                           </div>
@@ -3873,92 +3932,31 @@ export default function UsersPage() {
 
                 {/* Pagination */}
                 <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                  <div className="text-sm text-muted-foreground text-center md:text-left">
-                    Showing {filteredAndSortedProfileForms.length > 0 ? profileTableStartIndex + 1 : 0} to {Math.min(profileTableEndIndex, filteredAndSortedProfileForms.length)} of {filteredAndSortedProfileForms.length} record{filteredAndSortedProfileForms.length !== 1 ? 's' : ''}
-                  </div>
-
-                  {profileTableTotalPages > 1 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="md:hidden flex items-center gap-2 w-full justify-center">
-                        <button
-                          onClick={() => setProfileTablePage(prev => Math.max(1, prev - 1))}
-                          disabled={profileTablePage === 1}
-                          className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          Previous
-                        </button>
-                        <span className="text-sm text-foreground font-medium px-3">
-                          Page {profileTablePage} of {profileTableTotalPages}
-                        </span>
-                        <button
-                          onClick={() => setProfileTablePage(prev => Math.min(profileTableTotalPages, prev + 1))}
-                          disabled={profileTablePage === profileTableTotalPages}
-                          className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          Next
-                        </button>
-                      </div>
-
-                      <div className="hidden md:flex items-center gap-2">
-                        <button
-                          onClick={() => setProfileTablePage(1)}
-                          disabled={profileTablePage === 1}
-                          className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          First
-                        </button>
-                        <button
-                          onClick={() => setProfileTablePage(prev => Math.max(1, prev - 1))}
-                          disabled={profileTablePage === 1}
-                          className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          Previous
-                        </button>
-                        
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: profileTableTotalPages }, (_, i) => i + 1).map((page) => {
-                            if (
-                              page === 1 ||
-                              page === profileTableTotalPages ||
-                              (page >= profileTablePage - 1 && page <= profileTablePage + 1)
-                            ) {
-                              return (
-                                <button
-                                  key={page}
-                                  onClick={() => setProfileTablePage(page)}
-                                  className={`px-3 py-2 border border-border rounded-lg text-sm transition-all duration-200 active:scale-95 ${
-                                    profileTablePage === page
-                                      ? "bg-primary text-primary-foreground shadow-md"
-                                      : "bg-background text-foreground hover:bg-muted"
-                                  }`}
-                                >
-                                  {page}
-                                </button>
-                              )
-                            } else if (page === profileTablePage - 2 || page === profileTablePage + 2) {
-                              return <span key={page} className="px-2 text-muted-foreground">...</span>
-                            }
-                            return null
-                          })}
-                        </div>
-
-                        <button
-                          onClick={() => setProfileTablePage(prev => Math.min(profileTableTotalPages, prev + 1))}
-                          disabled={profileTablePage >= profileTableTotalPages}
-                          className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          Next
-                        </button>
-                        <button
-                          onClick={() => setProfileTablePage(profileTableTotalPages)}
-                          disabled={profileTablePage === profileTableTotalPages}
-                          className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                        >
-                          Last
-                        </button>
-                      </div>
+                  <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="text-sm text-muted-foreground text-center md:text-left">
+                      Showing {filteredAndSortedProfileForms.length > 0 ? profileTableStartIndex + 1 : 0} to {Math.min(profileTableEndIndex, filteredAndSortedProfileForms.length)} of {filteredAndSortedProfileForms.length} record{filteredAndSortedProfileForms.length !== 1 ? 's' : ''}
                     </div>
-                  )}
+
+                    <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => setProfileTablePage(prev => Math.max(1, prev - 1))}
+                        disabled={profileTablePage === 1}
+                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-foreground font-medium px-3">
+                        Page {Math.min(Math.max(profileTablePage, 1), Math.max(profileTableTotalPages, 1))} of {Math.max(profileTableTotalPages, 1)}
+                      </span>
+                      <button
+                        onClick={() => setProfileTablePage(prev => Math.min(Math.max(profileTableTotalPages, 1), prev + 1))}
+                        disabled={profileTablePage >= Math.max(profileTableTotalPages, 1)}
+                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </>
@@ -4052,6 +4050,7 @@ export default function UsersPage() {
                         <option value="all">All Status</option>
                         <option value="online">Online</option>
                         <option value="offline">Offline</option>
+                        <option value="disabled">Disabled</option>
                       </select>
                     </div>
                   </div>
@@ -4069,96 +4068,41 @@ export default function UsersPage() {
           ) : (
             <>
               <div className="animate-in fade-in duration-300">
-                <UsersTable users={paginatedUsers} />
+                <UsersTable
+                  users={paginatedUsers}
+                  onToggleDisable={handleToggleDisable}
+                  onResetPassword={handleResetPassword}
+                  onDeleteUser={handleDeleteUser}
+                  actionLoadingUserId={actionLoadingUserId}
+                />
               </div>
 
               <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                <div className="text-sm text-muted-foreground text-center md:text-left">
-                  Showing {filteredUsers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} record{filteredUsers.length !== 1 ? 's' : ''}
-                </div>
-
-                {totalPages > 1 && (
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="md:hidden flex items-center gap-2 w-full justify-center">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-foreground font-medium px-3">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                    </div>
-
-                    <div className="hidden md:flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        First
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`px-3 py-2 border border-border rounded-lg text-sm transition-all duration-200 active:scale-95 ${
-                                  currentPage === page
-                                    ? "bg-primary text-primary-foreground shadow-md"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            )
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return <span key={page} className="px-2 text-muted-foreground">...</span>
-                          }
-                          return null
-                        })}
-                      </div>
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Last
-                      </button>
-                    </div>
+                <div className="flex flex-col items-center justify-center gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-muted-foreground text-center md:text-left">
+                    Showing {filteredUsers.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} record{filteredUsers.length !== 1 ? 's' : ''}
                   </div>
-                )}
+
+                  <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-foreground font-medium px-3">
+                      Page {Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1))} of {Math.max(totalPages, 1)}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.max(totalPages, 1), prev + 1))}
+                      disabled={currentPage >= Math.max(totalPages, 1)}
+                      className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           )}

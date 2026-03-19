@@ -17,6 +17,8 @@ export default function AdminLoginPage() {
   const router = useRouter()
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth()
   const { branding } = useBranding()
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -122,10 +124,10 @@ export default function AdminLoginPage() {
           {/* Header */}
           <div className="bg-gradient-to-r from-primary to-secondary p-8 text-center">
             <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              {branding?.logo ? (
+              {brandLogo ? (
                 <img 
-                  src={branding.logo} 
-                  alt={branding.name || "Logo"} 
+                  src={brandLogo} 
+                  alt={brandName || "Logo"} 
                   className="w-12 h-12 object-contain p-1"
                 />
               ) : (
@@ -133,7 +135,7 @@ export default function AdminLoginPage() {
               )}
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
-            <p className="text-white/90 text-sm">{branding?.name || "iScholar"} Portal Administration</p>
+            <p className="text-white/90 text-sm">{brandName} Portal Administration</p>
           </div>
 
           {/* Content */}
@@ -204,7 +206,7 @@ export default function AdminLoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-sm text-white/80">
-            © 2024 iScholar Portal. All rights reserved.
+            © 2024 MOCAS Portal. All rights reserved.
           </p>
         </div>
       </div>

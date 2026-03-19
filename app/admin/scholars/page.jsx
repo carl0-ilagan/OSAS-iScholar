@@ -1,23 +1,53 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import { Award, Search, Filter, ChevronDown } from "lucide-react"
-import ScholarsTable from "@/components/admin/scholars-table"
-import ScholarsTableSkeleton from "@/components/admin/scholars-table-skeleton"
+import { Award, Building2, Search, Users } from "lucide-react"
+
+const DUMMY_SCHOLARS = [
+  {
+    id: "dummy-scholar-1",
+    name: "Juan Dela Cruz",
+    photoURL: null,
+    scholarshipName: "Academic Excellence Grant",
+    studentNumber: "2024-00123",
+    course: "BS Information Technology",
+    yearLevel: "3rd Year",
+    campus: "Calapan Campus",
+    reviewedDate: "03/12/2026",
+  },
+  {
+    id: "dummy-scholar-2",
+    name: "Maria Santos",
+    photoURL: null,
+    scholarshipName: "Financial Assistance Program",
+    studentNumber: "2023-00421",
+    course: "BS Accountancy",
+    yearLevel: "2nd Year",
+    campus: "Bongabong Campus",
+    reviewedDate: "03/09/2026",
+  },
+  {
+    id: "dummy-scholar-3",
+    name: "Carlo Reyes",
+    photoURL: null,
+    scholarshipName: "STEM Priority Scholarship",
+    studentNumber: "2022-00789",
+    course: "BS Civil Engineering",
+    yearLevel: "4th Year",
+    campus: "Naujan Campus",
+    reviewedDate: "03/05/2026",
+  },
+]
 
 export default function ScholarsPage() {
   const [scholars, setScholars] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
-  const [filterScholarship, setFilterScholarship] = useState("all")
-  const [filterCourse, setFilterCourse] = useState("all")
   const [filterCampus, setFilterCampus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const filterRef = useRef(null)
 
   const ITEMS_PER_PAGE = 10
 
@@ -108,16 +138,6 @@ export default function ScholarsPage() {
   }, [])
 
   // Get unique values for filters
-  const uniqueScholarships = useMemo(() => {
-    const scholarships = [...new Set(scholars.map(scholar => scholar.scholarshipName).filter(s => s && s !== "Unknown Scholarship"))]
-    return scholarships.sort()
-  }, [scholars])
-
-  const uniqueCourses = useMemo(() => {
-    const courses = [...new Set(scholars.map(scholar => scholar.course).filter(c => c && c !== "N/A"))]
-    return courses.sort()
-  }, [scholars])
-
   const uniqueCampuses = useMemo(() => {
     const campuses = [...new Set(scholars.map(scholar => scholar.campus).filter(c => c && c !== "N/A"))]
     return campuses.sort()
@@ -138,256 +158,178 @@ export default function ScholarsPage() {
       )
     }
 
-    // Filter by scholarship
-    if (filterScholarship !== "all") {
-      filtered = filtered.filter(scholar => scholar.scholarshipName === filterScholarship)
-    }
-
-    // Filter by course
-    if (filterCourse !== "all") {
-      filtered = filtered.filter(scholar => scholar.course === filterCourse)
-    }
-
     // Filter by campus
     if (filterCampus !== "all") {
       filtered = filtered.filter(scholar => scholar.campus === filterCampus)
     }
 
     return filtered
-  }, [scholars, filterScholarship, filterCourse, filterCampus, searchQuery])
+  }, [scholars, filterCampus, searchQuery])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterScholarship, filterCourse, filterCampus, searchQuery])
+  }, [filterCampus, searchQuery])
 
   // Pagination
-  const totalPages = Math.ceil(filteredScholars.length / ITEMS_PER_PAGE)
+  const tableRows = filteredScholars.length > 0 ? filteredScholars : DUMMY_SCHOLARS
+  const totalPages = Math.max(1, Math.ceil(tableRows.length / ITEMS_PER_PAGE))
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
-  const paginatedScholars = filteredScholars.slice(startIndex, endIndex)
+  const paginatedScholars = tableRows.slice(startIndex, endIndex)
 
-  // Close filter dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (filterRef.current && !filterRef.current.contains(event.target)) {
-        setIsFilterOpen(false)
-      }
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
     }
-
-    if (isFilterOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
-    }
-  }, [isFilterOpen])
+  }, [currentPage, totalPages])
 
   return (
     <AdminLayoutWrapper>
-      <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
-          {/* Search and Filters */}
-          <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-end">
-            {/* Search Bar */}
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="space-y-5">
+          <div className="mb-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
             <div className="relative flex-1 md:flex-initial md:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, student number, or scholarship..."
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
+                className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               />
             </div>
-
-            {/* Filter Dropdown - Right Side */}
-            <div className="relative" ref={filterRef}>
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="flex items-center justify-between gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-all duration-200 text-sm font-medium w-full md:w-48 shadow-sm hover:shadow-md"
+            <div className="w-full md:w-48">
+              <select
+                value={filterCampus}
+                onChange={(e) => setFilterCampus(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               >
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-primary" />
-                  <span>Filters</span>
-                </div>
-                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Filter Dropdown Menu */}
-              {isFilterOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                  <div className="p-3 space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-                    {/* Scholarship Filter */}
-                    <div>
-                      <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                        Scholarship
-                      </label>
-                      <select
-                        value={filterScholarship}
-                        onChange={(e) => setFilterScholarship(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
-                      >
-                        <option value="all">All Scholarships</option>
-                        {uniqueScholarships.map((scholarship) => (
-                          <option key={scholarship} value={scholarship}>
-                            {scholarship}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Course Filter */}
-                    <div>
-                      <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                        Course
-                      </label>
-                      <select
-                        value={filterCourse}
-                        onChange={(e) => setFilterCourse(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
-                      >
-                        <option value="all">All Courses</option>
-                        {uniqueCourses.map((course) => (
-                          <option key={course} value={course}>
-                            {course}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Campus Filter */}
-                    <div>
-                      <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                        Campus
-                      </label>
-                      <select
-                        value={filterCampus}
-                        onChange={(e) => setFilterCampus(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
-                      >
-                        <option value="all">All Campuses</option>
-                        {uniqueCampuses.map((campus) => (
-                          <option key={campus} value={campus}>
-                            {campus}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
+                <option value="all">All Campuses</option>
+                {uniqueCampuses.map((campus) => (
+                  <option key={campus} value={campus}>
+                    {campus}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Scholars Table */}
-          {loading ? (
-            <ScholarsTableSkeleton />
-          ) : (
-            <>
-              <div className="animate-in fade-in duration-300">
-                <ScholarsTable scholars={paginatedScholars} />
-              </div>
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            {loading ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading scholars...</p>
+            ) : (
+              <>
+                <div className="hidden md:block">
+                  <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
+                    <div className="col-span-3">Scholar</div>
+                    <div className="col-span-2">Scholarship</div>
+                    <div className="col-span-2">Student No.</div>
+                    <div className="col-span-2">Course / Year</div>
+                    <div className="col-span-2">Campus</div>
+                    <div className="col-span-1">Approved</div>
+                  </div>
 
-              {/* Pagination and Records Info */}
-              <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                {/* Records Info */}
-                <div className="text-sm text-muted-foreground text-center md:text-left">
-                  Showing {filteredScholars.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredScholars.length)} of {filteredScholars.length} record{filteredScholars.length !== 1 ? 's' : ''}
+                  {paginatedScholars.map((scholar) => (
+                    <div key={scholar.id} className="grid grid-cols-12 gap-2 border-b border-border/60 px-4 py-3 text-sm last:border-b-0">
+                      <div className="col-span-3 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {scholar.photoURL ? (
+                            <img
+                              src={scholar.photoURL}
+                              alt={scholar.name || "Scholar"}
+                              className="h-9 w-9 shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                              {scholar.name?.[0]?.toUpperCase() || "S"}
+                            </div>
+                          )}
+                          <p className="truncate font-medium text-foreground">{scholar.name || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="col-span-2 flex items-center gap-1.5 text-muted-foreground">
+                        <Award className="h-4 w-4" />
+                        <span className="truncate">{scholar.scholarshipName || "N/A"}</span>
+                      </div>
+                      <div className="col-span-2 truncate text-muted-foreground">{scholar.studentNumber || "N/A"}</div>
+                      <div className="col-span-2 min-w-0">
+                        <p className="truncate text-foreground">{scholar.course || "N/A"}</p>
+                        <p className="truncate text-xs text-muted-foreground">{scholar.yearLevel || "N/A"}</p>
+                      </div>
+                      <div className="col-span-2 flex items-center gap-1.5 text-muted-foreground">
+                        <Building2 className="h-4 w-4" />
+                        <span className="truncate">{scholar.campus || "N/A"}</span>
+                      </div>
+                      <div className="col-span-1 text-xs text-muted-foreground">{scholar.reviewedDate || "N/A"}</div>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    {/* Mobile Pagination */}
-                    <div className="md:hidden flex items-center gap-2 w-full justify-center">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-foreground font-medium px-3">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                    </div>
-
-                    {/* Desktop Pagination */}
-                    <div className="hidden md:flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        First
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Previous
-                      </button>
-                      
-                      {/* Page Numbers */}
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`px-3 py-2 border border-border rounded-lg text-sm transition-all duration-200 active:scale-95 ${
-                                  currentPage === page
-                                    ? "bg-primary text-primary-foreground shadow-md"
-                                    : "bg-background text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            )
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return <span key={page} className="px-2 text-muted-foreground">...</span>
-                          }
-                          return null
-                        })}
+                <div className="space-y-3 p-3 md:hidden">
+                  {paginatedScholars.map((scholar) => (
+                    <div key={scholar.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                      <div className="mb-2 flex items-center gap-2">
+                        {scholar.photoURL ? (
+                          <img
+                            src={scholar.photoURL}
+                            alt={scholar.name || "Scholar"}
+                            className="h-10 w-10 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                            {scholar.name?.[0]?.toUpperCase() || "S"}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-foreground">{scholar.name || "N/A"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{scholar.scholarshipName || "N/A"}</p>
+                        </div>
                       </div>
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Next
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-all duration-200 hover:bg-muted active:scale-95"
-                      >
-                        Last
-                      </button>
+                      <div className="space-y-1.5 text-sm text-muted-foreground">
+                        <p>Student No.: {scholar.studentNumber || "N/A"}</p>
+                        <p>Course: {scholar.course || "N/A"}</p>
+                        <p>Year: {scholar.yearLevel || "N/A"}</p>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4" />
+                          <span>{scholar.campus || "N/A"}</span>
+                        </div>
+                        <p className="text-xs">Approved: {scholar.reviewedDate || "N/A"}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {!loading ? (
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-center text-sm text-muted-foreground md:text-left">
+                Showing {tableRows.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, tableRows.length)} of {tableRows.length} record
+                {tableRows.length !== 1 ? "s" : ""}
               </div>
-            </>
-          )}
+              <div className="flex items-center justify-center gap-2 md:justify-end">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </AdminLayoutWrapper>

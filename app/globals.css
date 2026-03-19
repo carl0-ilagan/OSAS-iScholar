@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* <CHANGE> Updated color palette for iScholar Portal with MinSU branding */
+  /* <CHANGE> Updated color palette for MOCAS Portal with MinSU branding */
   --background: #ffffff;
   --foreground: #2b2b2b;
   --card: #ffffff;

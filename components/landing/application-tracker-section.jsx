@@ -134,24 +134,34 @@ export default function ApplicationTrackerSection() {
   const StatusIcon = status?.icon || Clock
 
   return (
-    <section id="track-application" className="py-16 bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section
+      id="track-application"
+      className="relative overflow-hidden py-20"
+      style={{
+        backgroundImage: "url('/BG.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-emerald-900/65" />
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
-            <Search className="w-5 h-5 text-primary" />
-            <span className="text-sm font-semibold text-primary">Track Your Application</span>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <Search className="w-5 h-5 text-emerald-100" />
+            <span className="text-sm font-semibold text-emerald-100">Track Your Application</span>
           </div>
-          <h2 className="text-4xl font-bold text-foreground mb-4">Application Tracker</h2>
-          <p className="text-muted-foreground text-lg">
+          <h2 className="text-4xl font-bold tracking-tight text-white mb-4">Application Tracker</h2>
+          <p className="text-emerald-50/90 text-lg">
             Enter your tracking code to view your application status and progress
           </p>
         </div>
 
         {/* Search Form */}
-        <div className="bg-card border-2 border-primary/20 rounded-xl p-4 sm:p-6 md:p-8 shadow-lg mb-8">
+        <div className="mb-8 rounded-2xl border border-white/20 bg-white/10 p-4 shadow-lg backdrop-blur-sm sm:p-6 md:p-8">
           <form onSubmit={handleTrack} className="space-y-4">
             <div>
-              <label htmlFor="trackingCode" className="block text-sm font-semibold text-foreground mb-2">
+              <label htmlFor="trackingCode" className="block text-sm font-semibold text-white mb-2">
                 Tracking Code
               </label>
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -165,12 +175,12 @@ export default function ApplicationTrackerSection() {
                     setApplication(null)
                   }}
                   placeholder="MINSU-2025-0101-000123"
-                  className="flex-1 min-w-0 px-3 sm:px-4 py-3 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all font-mono text-xs sm:text-sm"
+                  className="min-w-0 flex-1 rounded-xl border border-white/30 bg-white/95 px-3 py-3 font-mono text-xs text-foreground transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 sm:px-4 sm:text-sm"
                 />
                 <button
                   type="submit"
                   disabled={loading || !trackingCode.trim()}
-                  className="px-4 sm:px-6 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap flex-shrink-0"
+                  className="flex w-full flex-shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 py-3 font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-6"
                 >
                   {loading ? (
                     <>
@@ -185,7 +195,7 @@ export default function ApplicationTrackerSection() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-emerald-50/80 mt-2">
                 Format: MINSU-YYYY-MMDD-000000 (e.g., MINSU-2025-0101-000123)
               </p>
             </div>
@@ -200,38 +210,38 @@ export default function ApplicationTrackerSection() {
 
         {/* Application Status Card */}
         {application && (
-          <div className="bg-card border-2 border-primary/20 rounded-xl p-6 md:p-8 shadow-xl animate-in fade-in slide-in-from-bottom-4">
+          <div className="animate-in slide-in-from-bottom-4 fade-in rounded-2xl border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur-sm md:p-8">
             {/* Status Header */}
-            <div className={`${status.bgColor} ${status.borderColor} border-2 rounded-xl p-6 mb-6`}>
-              <div className="flex items-center justify-between mb-4">
+            <div className={`${status.bgColor} ${status.borderColor} mb-6 rounded-xl border p-6`}>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 ${status.bgColor} rounded-full flex items-center justify-center`}>
                     <StatusIcon className={`w-6 h-6 ${status.color}`} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Application Status</h3>
+                    <h3 className="text-lg font-semibold text-white">Application Status</h3>
                     <p className={`text-sm ${status.color} font-medium`}>{status.label}</p>
                   </div>
                 </div>
                 <button
                   onClick={copyTrackingCode}
-                  className="flex items-center gap-2 px-3 py-2 bg-background/50 hover:bg-background border border-border rounded-lg transition-colors text-sm"
+                  className="flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm text-emerald-50 transition-colors hover:bg-white/15"
                   title="Copy tracking code"
                 >
-                  <Copy className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Copy</span>
+                  <Copy className="w-4 h-4 text-emerald-50/90" />
+                  <span className="text-emerald-50/90">Copy</span>
                 </button>
               </div>
-              <p className="text-sm text-muted-foreground">{status.description}</p>
+              <p className="text-sm text-emerald-50/80">{status.description}</p>
             </div>
 
             {/* Tracking Code */}
             <div className="mb-6">
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide mb-2">
                 Tracking Code
               </label>
-              <div className="bg-muted/50 border border-border rounded-lg p-4">
-                <p className="font-mono text-lg font-bold text-foreground text-center">
+              <div className="bg-white/15 border border-white/20 rounded-lg p-4">
+                <p className="font-mono text-lg font-bold text-white text-center">
                   {application.trackerCode}
                 </p>
               </div>
@@ -240,54 +250,54 @@ export default function ApplicationTrackerSection() {
             {/* Application Details */}
             <div className="grid md:grid-cols-2 gap-4 mb-6">
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                   Scholarship Program
                 </label>
                 <div className="flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-primary" />
-                  <p className="text-foreground font-medium">{application.scholarshipName}</p>
+                  <GraduationCap className="w-4 h-4 text-emerald-100" />
+                  <p className="text-white font-medium">{application.scholarshipName}</p>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                   Student Name
                 </label>
-                <p className="text-foreground font-medium">{application.studentName}</p>
+                <p className="text-white font-medium">{application.studentName}</p>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                   Course
                 </label>
-                <p className="text-foreground font-medium">{application.course}</p>
+                <p className="text-white font-medium">{application.course}</p>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                   Year Level
                 </label>
-                <p className="text-foreground font-medium">{application.yearLevel}</p>
+                <p className="text-white font-medium">{application.yearLevel}</p>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                   Submitted Date
                 </label>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-foreground font-medium">{application.submittedDate}</p>
+                  <Calendar className="w-4 h-4 text-emerald-50/80" />
+                  <p className="text-white font-medium">{application.submittedDate}</p>
                 </div>
               </div>
 
               {application.reviewedDate && (
                 <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <label className="block text-xs font-semibold text-emerald-50/80 uppercase tracking-wide">
                     Reviewed Date
                   </label>
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-foreground font-medium">{application.reviewedDate}</p>
+                    <Calendar className="w-4 h-4 text-emerald-50/80" />
+                    <p className="text-white font-medium">{application.reviewedDate}</p>
                   </div>
                 </div>
               )}
@@ -298,12 +308,12 @@ export default function ApplicationTrackerSection() {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
                 <h4 className="text-sm font-semibold text-foreground mb-2">Benefit Information</h4>
                 {application.benefit !== "N/A" && (
-                  <p className="text-sm text-muted-foreground mb-1">
+                  <p className="text-sm text-emerald-50/85 mb-1">
                     <span className="font-medium">Benefit:</span> {application.benefit}
                   </p>
                 )}
                 {application.benefitAmount !== "N/A" && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-emerald-50/85">
                     <span className="font-medium">Amount:</span> {application.benefitAmount}
                   </p>
                 )}
@@ -312,9 +322,9 @@ export default function ApplicationTrackerSection() {
 
             {/* Admin Remarks */}
             {application.adminRemarks && (
-              <div className="bg-muted/50 border border-border rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-foreground mb-2">Admin Remarks</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <div className="bg-white/10 border border-white/20 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-white mb-2">Admin Remarks</h4>
+                <p className="text-sm text-emerald-50/85 whitespace-pre-wrap">
                   {application.adminRemarks}
                 </p>
               </div>

@@ -13,6 +13,8 @@ import LogoutModal from "./logout-modal"
 export default function MobileHeader() {
   const { user } = useAuth()
   const { branding } = useBranding()
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const [userPhotoURL, setUserPhotoURL] = useState(null)
@@ -79,14 +81,14 @@ export default function MobileHeader() {
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo and Name */}
           <div className="flex items-center gap-2">
-            {branding?.logo ? (
+            {brandLogo ? (
               <img 
-                key={branding.logo} 
-                src={branding.logo} 
-                alt={branding.name || "Logo"} 
+                key={brandLogo} 
+                src={brandLogo} 
+                alt={brandName || "Logo"} 
                 className="w-8 h-8 object-contain rounded-lg bg-white/10 p-1"
                 onError={(e) => {
-                  console.error("Error loading logo:", branding.logo)
+                  console.error("Error loading logo:", brandLogo)
                   e.target.style.display = 'none'
                 }}
               />
@@ -96,7 +98,7 @@ export default function MobileHeader() {
               </div>
             )}
             <span className="font-bold text-lg">
-              {branding?.name || "iScholar"}
+              {brandName}
             </span>
           </div>
 

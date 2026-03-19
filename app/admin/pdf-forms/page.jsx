@@ -188,6 +188,7 @@ export default function AdminPdfFormsPage() {
   const [isPanningCanvas, setIsPanningCanvas] = useState(false)
   const [undoStack, setUndoStack] = useState([])
   const [redoStack, setRedoStack] = useState([])
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   function cloneFields(items) {
     return items.map((entry) => ({ ...entry }))
@@ -314,6 +315,19 @@ export default function AdminPdfFormsPage() {
 
   useEffect(() => {
     fetchForms()
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined
+    const mediaQuery = window.matchMedia("(max-width: 767px)")
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches)
+    syncViewport()
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncViewport)
+      return () => mediaQuery.removeEventListener("change", syncViewport)
+    }
+    mediaQuery.addListener(syncViewport)
+    return () => mediaQuery.removeListener(syncViewport)
   }, [])
 
   useEffect(() => {
@@ -1208,6 +1222,21 @@ export default function AdminPdfFormsPage() {
 
   return (
     <AdminLayoutWrapper>
+      {isMobileViewport ? (
+        <div className="p-3 md:p-4">
+          <div className="flex min-h-[55vh] items-center justify-center rounded-xl border border-border bg-card p-5 text-center">
+            <div className="max-w-md space-y-2">
+              <p className="text-sm font-semibold text-foreground">PDF Builder is desktop-only.</p>
+              <p className="text-xs text-muted-foreground">
+                Open this page on tablet/desktop (at least 768px width) to create or edit PDF form fields.
+              </p>
+              <Link href="/admin" className="inline-flex rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium">
+                Back to Admin Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="p-2 md:p-3 lg:p-4">
         <div className="h-[calc(100vh-1rem)] rounded-xl border border-border bg-card shadow-sm overflow-hidden md:h-[calc(100vh-1.5rem)] lg:h-[calc(100vh-2rem)]">
           <div className="border-b border-border bg-card/95 p-3 md:p-4">
@@ -2110,6 +2139,7 @@ export default function AdminPdfFormsPage() {
           </div>
         </div>
       </div>
+      )}
     </AdminLayoutWrapper>
   )
 }

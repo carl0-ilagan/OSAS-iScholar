@@ -311,7 +311,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 to: secondaryEmail,
-                subject: 'Application Submitted Successfully - iScholar',
+                subject: 'Application Submitted Successfully - MOCAS',
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -341,7 +341,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                         </div>
                         <p>Your application is now under review. We will notify you once a decision has been made.</p>
                         <p>You can track your application status in your dashboard.</p>
-                        <p>Best regards,<br>iScholar Team</p>
+                        <p>Best regards,<br>MOCAS Team</p>
                       </div>
                     </div>
                   </body>
@@ -396,7 +396,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                         <div class="tracker-code">${trackerCode}</div>
                       </div>
                       <p>Please log in to the admin dashboard to review this application.</p>
-                      <p>Best regards,<br>iScholar System</p>
+                      <p>Best regards,<br>MOCAS System</p>
                     </div>
                   </div>
                 </body>
@@ -454,11 +454,11 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
       <div className="fixed inset-0 z-[90] flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
         <div
           ref={modalRef}
-          className="bg-card border-2 border-border/50 rounded-xl shadow-2xl w-full max-w-5xl max-h-[96vh] sm:max-h-[94vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 flex flex-col my-1 sm:my-2"
+          className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-5xl max-h-[96vh] sm:max-h-[94vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 flex flex-col my-1 sm:my-2"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Enhanced Header with Gradient */}
-          <div className="relative p-3 sm:p-4 md:p-5 border-b border-border/30 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 flex-shrink-0 overflow-hidden">
+          <div className="relative p-3 sm:p-4 md:p-5 border-b border-border/30 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 dark:from-muted/40 dark:via-card dark:to-muted/40 flex-shrink-0 overflow-hidden">
             {/* Decorative Background Elements - Hidden on mobile */}
             <div className="hidden md:block absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             <div className="hidden md:block absolute bottom-0 left-0 w-48 h-48 bg-secondary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
@@ -495,7 +495,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
           </div>
 
           {/* Content - Scrollable */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4 md:space-y-5 custom-scrollbar bg-gradient-to-b from-background to-muted/20">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4 md:space-y-5 custom-scrollbar bg-gradient-to-b from-background to-muted/20 dark:to-muted/50">
             {loading ? (
               <div className="space-y-4 sm:space-y-5 animate-pulse">
                 {/* Forms Skeleton */}
@@ -614,7 +614,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                         {formStatus.applicationForm ? (
                           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
                             <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                            <span className="text-xs font-semibold text-green-600">Completed</span>
+                            <span className="text-xs font-semibold text-green-600 dark:text-green-400">Completed</span>
                           </div>
                         ) : (
                           <button
@@ -658,7 +658,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                         {formStatus.studentProfileForm ? (
                           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
                             <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                            <span className="text-xs font-semibold text-green-600">Completed</span>
+                            <span className="text-xs font-semibold text-green-600 dark:text-green-400">Completed</span>
                           </div>
                         ) : (
                           <button
@@ -715,9 +715,9 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                       isUploaded ? 'bg-green-500/20' : 'bg-red-500/20'
                                     }`}>
                                       {isUploaded ? (
-                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
                                       ) : (
-                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-red-400" />
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -726,7 +726,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                         <p className="text-xs text-muted-foreground line-clamp-2 hidden sm:block">{req.description}</p>
                                       )}
                                       {isUploaded && studentDocuments[req.id]?.fileName && (
-                                        <p className="text-xs text-green-600 mt-1.5 font-medium flex items-center gap-1">
+                                        <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 font-medium flex items-center gap-1">
                                           <CheckCircle className="w-3 h-3" />
                                           <span className="truncate">{studentDocuments[req.id].fileName}</span>
                                         </p>
@@ -736,7 +736,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                   {isUploaded ? (
                                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-500/20 rounded-lg border border-green-500/30">
                                       <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                                      <span className="text-xs font-semibold text-green-600">Uploaded</span>
+                                      <span className="text-xs font-semibold text-green-600 dark:text-green-400">Uploaded</span>
                                     </div>
                                   ) : (
                                     <a
@@ -780,7 +780,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                       isUploaded ? 'bg-blue-500/20' : 'bg-muted'
                                     }`}>
                                       {isUploaded ? (
-                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                                       ) : (
                                         <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                                       )}
@@ -791,7 +791,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                         <p className="text-xs text-muted-foreground line-clamp-2 hidden sm:block">{req.description}</p>
                                       )}
                                       {isUploaded && studentDocuments[req.id]?.fileName && (
-                                        <p className="text-xs text-blue-600 mt-1.5 font-medium flex items-center gap-1">
+                                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5 font-medium flex items-center gap-1">
                                           <CheckCircle className="w-3 h-3" />
                                           <span className="truncate">{studentDocuments[req.id].fileName}</span>
                                         </p>
@@ -801,7 +801,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                                   {isUploaded ? (
                                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/20 rounded-lg border border-blue-500/30">
                                       <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
-                                      <span className="text-xs font-semibold text-blue-600">Uploaded</span>
+                                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Uploaded</span>
                                     </div>
                                   ) : (
                                     <a
@@ -823,7 +823,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                 )}
 
                 {/* Summary - Enhanced */}
-                <div className="relative p-3 sm:p-4 md:p-5 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 rounded-lg sm:rounded-xl border-2 border-primary/20 shadow-md overflow-hidden">
+                <div className="relative p-3 sm:p-4 md:p-5 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 dark:from-muted/40 dark:via-card dark:to-muted/40 rounded-lg sm:rounded-xl border border-primary/20 shadow-md overflow-hidden">
                   {/* Decorative Elements - Hidden on mobile */}
                   <div className="hidden md:block absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl"></div>
                   <div className="hidden md:block absolute bottom-0 left-0 w-24 h-24 bg-secondary/5 rounded-full blur-2xl"></div>
@@ -842,7 +842,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                       <div className="p-3 md:p-4 bg-card/80 backdrop-blur-sm rounded-lg md:rounded-xl border border-border/30">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-muted-foreground">Forms</span>
-                          <span className={`text-base md:text-lg font-bold ${allFormsFilled ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className={`text-base md:text-lg font-bold ${allFormsFilled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {allFormsFilled ? '2/2' : `${(formStatus.applicationForm ? 1 : 0) + (formStatus.studentProfileForm ? 1 : 0)}/2`}
                           </span>
                         </div>
@@ -858,7 +858,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                       <div className="p-3 md:p-4 bg-card/80 backdrop-blur-sm rounded-lg md:rounded-xl border border-border/30">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-muted-foreground">Required Docs</span>
-                          <span className={`text-base md:text-lg font-bold ${allRequiredDocsUploaded ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className={`text-base md:text-lg font-bold ${allRequiredDocsUploaded ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {requiredDocs.filter(req => studentDocuments[req.id]).length}/{requiredDocs.length}
                           </span>
                         </div>
@@ -874,7 +874,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
                       <div className="p-3 md:p-4 bg-card/80 backdrop-blur-sm rounded-lg md:rounded-xl border border-border/30">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-muted-foreground">Optional Docs</span>
-                          <span className="text-base md:text-lg font-bold text-blue-600">
+                          <span className="text-base md:text-lg font-bold text-blue-600 dark:text-blue-400">
                             {optionalDocs.filter(req => studentDocuments[req.id]).length}/{optionalDocs.length}
                           </span>
                         </div>
@@ -893,7 +893,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
           </div>
 
           {/* Footer - Enhanced */}
-          <div className="p-3 sm:p-4 md:p-5 border-t-2 border-border/30 flex-shrink-0 bg-gradient-to-r from-muted/50 to-background">
+          <div className="p-3 sm:p-4 md:p-5 border-t border-border/30 flex-shrink-0 bg-gradient-to-r from-muted/50 to-background dark:from-muted/60 dark:to-card">
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
@@ -924,7 +924,7 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
             </div>
             {!canSubmit && !loading && (
               <div className="mt-2.5 sm:mt-3 p-2 sm:p-2.5 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-xs text-red-600 font-medium text-center flex items-center justify-center gap-1.5 flex-wrap">
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium text-center flex items-center justify-center gap-1.5 flex-wrap">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>{!allFormsFilled && "Please complete both forms. "}</span>
                   <span>{!allRequiredDocsUploaded && "Please upload all required documents."}</span>

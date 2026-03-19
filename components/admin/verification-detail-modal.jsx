@@ -115,7 +115,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     to: secondaryEmail,
-                    subject: 'Account Verification Approved - iScholar',
+                    subject: 'Account Verification Approved - MOCAS',
                     html: `
                       <!DOCTYPE html>
                       <html>
@@ -136,7 +136,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                           <div class="content">
                             <p>Dear ${studentName},</p>
                             <p>Great news! Your account verification has been <strong>approved</strong>.</p>
-                            <p>Your account is now verified and you can access all features of the iScholar platform.</p>
+                            <p>Your account is now verified and you can access all features of the MOCAS platform.</p>
                             <p>You can now:</p>
                             <ul>
                               <li>Apply for scholarships</li>
@@ -145,7 +145,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                               <li>Access all platform features</li>
                             </ul>
                             <p>Thank you for your patience during the verification process.</p>
-                            <p>Best regards,<br>iScholar Team</p>
+                            <p>Best regards,<br>MOCAS Team</p>
                           </div>
                         </div>
                       </body>
@@ -223,7 +223,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   to: secondaryEmail,
-                  subject: 'Account Verification Update - iScholar',
+                  subject: 'Account Verification Update - MOCAS',
                   html: `
                     <!DOCTYPE html>
                     <html>
@@ -251,7 +251,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                           </div>
                           <p>Please review the reason above and resubmit your verification with the necessary corrections.</p>
                           <p>If you have any questions, please contact our support team.</p>
-                          <p>Best regards,<br>iScholar Team</p>
+                          <p>Best regards,<br>MOCAS Team</p>
                         </div>
                       </div>
                     </body>

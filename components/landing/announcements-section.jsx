@@ -167,30 +167,40 @@ export default function AnnouncementsSection() {
 
   if (loading) {
     return (
-      <section id="announcements" className="py-16 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="announcements"
+        className="relative overflow-hidden py-20"
+        style={{
+          backgroundImage: "url('/BG.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        <div className="absolute inset-0 bg-emerald-900/65" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4 animate-pulse">
-              <div className="w-5 h-5 bg-primary/20 rounded"></div>
-              <div className="w-24 h-4 bg-primary/20 rounded"></div>
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-4 py-2 rounded-full mb-4 backdrop-blur-sm animate-pulse">
+              <div className="w-5 h-5 bg-white/25 rounded"></div>
+              <div className="w-24 h-4 bg-white/25 rounded"></div>
             </div>
-            <div className="h-10 bg-muted/50 rounded-lg w-64 mx-auto mb-4 animate-pulse"></div>
-            <div className="h-6 bg-muted/50 rounded-lg w-96 mx-auto animate-pulse"></div>
+            <div className="h-10 bg-white/20 rounded-lg w-64 mx-auto mb-4 animate-pulse"></div>
+            <div className="h-6 bg-white/20 rounded-lg w-96 mx-auto animate-pulse"></div>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-card border-2 border-border/50 rounded-xl p-6 animate-pulse">
+              <div key={i} className="bg-white/10 border border-white/20 rounded-2xl p-6 backdrop-blur-sm animate-pulse">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                  <div className="w-12 h-6 bg-muted rounded-full"></div>
+                  <div className="w-12 h-12 bg-white/20 rounded-lg"></div>
+                  <div className="w-12 h-6 bg-white/20 rounded-full"></div>
                 </div>
-                <div className="h-6 bg-muted rounded mb-3"></div>
-                <div className="h-4 bg-muted rounded mb-2"></div>
-                <div className="h-4 bg-muted rounded mb-4 w-3/4"></div>
-                <div className="space-y-2 pt-4 border-t border-border/50">
-                  <div className="h-3 bg-muted rounded w-2/3"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                  <div className="h-3 bg-muted rounded w-3/4"></div>
+                <div className="h-6 bg-white/20 rounded mb-3"></div>
+                <div className="h-4 bg-white/20 rounded mb-2"></div>
+                <div className="h-4 bg-white/20 rounded mb-4 w-3/4"></div>
+                <div className="space-y-2 pt-4 border-t border-white/20">
+                  <div className="h-3 bg-white/20 rounded w-2/3"></div>
+                  <div className="h-3 bg-white/20 rounded w-1/2"></div>
+                  <div className="h-3 bg-white/20 rounded w-3/4"></div>
                 </div>
               </div>
             ))}
@@ -201,15 +211,25 @@ export default function AnnouncementsSection() {
   }
 
   return (
-    <section id="announcements" className="py-16 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
-            <Bell className="w-5 h-5 text-primary" />
-            <span className="text-sm font-semibold text-primary">Latest Updates</span>
+      <section
+        id="announcements"
+        className="relative overflow-hidden py-20"
+        style={{
+          backgroundImage: "url('/BG.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
+      <div className="absolute inset-0 bg-emerald-900/65" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-12 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">
+            <Bell className="w-5 h-5 text-emerald-100" />
+            <span className="text-sm font-semibold text-emerald-100">Latest Updates</span>
           </div>
-          <h2 className="text-4xl font-bold text-foreground mb-4">Announcements</h2>
-          <p className="text-muted-foreground text-lg">Stay updated with the latest news and updates from OSAS</p>
+          <h2 className="mb-3 text-4xl font-semibold tracking-tight text-white">Announcements</h2>
+          <p className="text-emerald-50/90 text-lg">Stay updated with the latest news and updates from MOCAS</p>
         </div>
 
         {announcements.length > 0 ? (
@@ -219,40 +239,40 @@ export default function AnnouncementsSection() {
               {visibleAnnouncements.map((announcement, index) => (
               <div
                 key={announcement.id}
-                className="w-full max-w-sm md:max-w-none bg-card border-2 border-primary/20 rounded-xl p-6 hover:shadow-xl transition-all duration-300 hover:border-primary/40 hover:scale-[1.02] group animate-in fade-in slide-in-from-right"
+                className="group w-full max-w-sm animate-in slide-in-from-right fade-in rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-white/35 hover:bg-white/15 md:max-w-none"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Bell className="w-6 h-6 text-white" />
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/20">
+                    <Bell className="w-5 h-5 text-emerald-100" />
                   </div>
-                  <div className="px-2.5 py-1 bg-primary/10 rounded-full">
-                    <span className="text-xs font-semibold text-primary">New</span>
+                  <div className="rounded-full bg-white/20 px-2.5 py-1">
+                    <span className="text-xs font-semibold text-emerald-100">New</span>
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-foreground mb-3 line-clamp-2 group-hover:text-primary transition-colors">
+                <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">
                   {announcement.title}
                 </h3>
 
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-3 leading-relaxed">
+                <p className="text-emerald-50/90 text-sm mb-4 line-clamp-3 leading-relaxed">
                   {announcement.description}
                 </p>
 
-                <div className="space-y-2 pt-4 border-t border-border/50">
+                <div className="space-y-2 pt-4 border-t border-white/20">
                   {announcement.endDate && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-emerald-50/80">
                       <Calendar className="w-4 h-4 flex-shrink-0" />
                       <span>Starts: {formatDate(announcement.endDate)}</span>
                     </div>
                   )}
                   {announcement.venue && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-emerald-50/80">
                       <MapPin className="w-4 h-4 flex-shrink-0" />
                       <span className="truncate">{announcement.venue}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-emerald-50/80">
                     <Clock className="w-4 h-4 flex-shrink-0" />
                     <span>Posted {formatDate(announcement.createdAt)}</span>
                   </div>
@@ -266,14 +286,14 @@ export default function AnnouncementsSection() {
               <>
                 <button
                   onClick={prevSlide}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-6 bg-background border border-border/50 text-foreground p-3 rounded-full shadow-sm hover:shadow-md hover:bg-muted transition-all duration-200 z-10"
+                  className="absolute left-0 top-1/2 z-10 -translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:-translate-x-6"
                   aria-label="Previous announcements"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={nextSlide}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-6 bg-background border border-border/50 text-foreground p-3 rounded-full shadow-sm hover:shadow-md hover:bg-muted transition-all duration-200 z-10"
+                  className="absolute right-0 top-1/2 z-10 translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:translate-x-6"
                   aria-label="Next announcements"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -300,12 +320,12 @@ export default function AnnouncementsSection() {
             )}
           </div>
         ) : (
-          <div className="bg-card border-2 border-border/50 rounded-xl p-12 text-center">
-            <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-8 h-8 text-muted-foreground" />
+          <div className="rounded-2xl border-2 border-white/20 bg-white/10 p-12 text-center shadow-lg backdrop-blur-sm">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bell className="w-8 h-8 text-emerald-100" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No Announcements</h3>
-            <p className="text-muted-foreground text-sm">
+            <h3 className="text-lg font-semibold text-white mb-2">No Announcements</h3>
+            <p className="text-emerald-50/80 text-sm">
               There are no announcements at the moment. Check back later for updates.
             </p>
           </div>

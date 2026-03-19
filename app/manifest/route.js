@@ -10,8 +10,8 @@ export async function GET() {
     
     const branding = brandingSnap.exists() ? brandingSnap.data() : null
     
-    const appName = branding?.name || "iScholar"
-    const tabTitle = branding?.tabTitle || "iScholar Portal"
+    const appName = branding?.name || "MOCAS"
+    const tabTitle = branding?.tabTitle || "MOCAS Portal"
     const favicon = branding?.favicon || null
     const logo = branding?.logo || null
 
@@ -77,8 +77,8 @@ export async function GET() {
     
     // Fallback manifest
     const fallbackManifest = {
-      name: "iScholar Portal",
-      short_name: "iScholar",
+      name: "MOCAS Portal",
+      short_name: "MOCAS",
       description: "Scholarship Management System for MinSU Students",
       start_url: "/",
       display: "standalone",

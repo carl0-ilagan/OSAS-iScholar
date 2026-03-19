@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { useBranding } from "@/contexts/BrandingContext"
@@ -9,15 +9,19 @@ import SignupModal from "@/components/auth/SignupModal"
 
 export default function Header() {
   const { branding } = useBranding()
+  const rawBrandName = String(branding?.name || "").trim()
+  const isLegacyBrand = !rawBrandName || rawBrandName.toLowerCase() === "ischolar"
+  const brandName = isLegacyBrand ? "MOCAS" : rawBrandName
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [mobileOpen, setMobileOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [signupOpen, setSignupOpen] = useState(false)
+  const [hasScrolled, setHasScrolled] = useState(false)
 
   const navLinks = [
     { label: "Home", href: "#home" },
     { label: "Features", href: "#features" },
-    { label: "Scholarships", href: "#scholarships" },
-    { label: "About OSAS", href: "#about" },
+    { label: "About MOCAS", href: "#about" },
     { label: "Testimonials", href: "#testimonials" },
   ]
 
@@ -45,59 +49,96 @@ export default function Header() {
     }
   }
 
+  useEffect(() => {
+    const onScroll = () => {
+      setHasScrolled(window.scrollY > 12)
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header
+      className={`fixed left-0 right-0 top-0 z-50 transition-all duration-300 ${
+        hasScrolled ? "bg-transparent px-2 pt-2 sm:px-4" : "bg-transparent"
+      }`}
+    >
+      <div
+        className={`mx-auto max-w-7xl transition-all duration-300 ${
+          hasScrolled
+            ? "rounded-xl border border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur-xl sm:px-6 lg:px-8"
+            : "px-4 sm:px-6 lg:px-8"
+        }`}
+      >
+        <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            {branding?.logo ? (
-              <img 
-                key={branding.logo} 
-                src={branding.logo} 
-                alt={branding.name || "Logo"} 
-                className="w-10 h-10 object-contain"
-                onError={(e) => {
-                  console.error("Error loading logo:", branding.logo)
-                  e.target.style.display = 'none'
-                }}
-              />
+            {brandLogo ? (
+              <div
+                className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-emerald-100 bg-white shadow-sm transition-all duration-300"
+              >
+                <img
+                  key={brandLogo}
+                  src={brandLogo}
+                  alt={brandName || "Logo"}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    console.error("Error loading logo:", brandLogo)
+                    e.target.style.display = "none"
+                  }}
+                />
+              </div>
             ) : (
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              iS
-            </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-100 bg-white text-base font-bold text-emerald-700 shadow-sm">
+                M
+              </div>
             )}
-            <span className="font-bold text-primary text-base sm:text-lg">
-              {branding?.name || "iScholar"}
+            <span className={`text-base font-bold sm:text-lg ${hasScrolled ? "text-primary" : "text-emerald-50"}`}>
+              {brandName}
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav
+            className={`hidden items-center gap-6 transition-all duration-300 md:flex ${
+              hasScrolled ? "rounded-full border border-border bg-muted/40 px-4 py-1.5" : ""
+            }`}
+          >
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
                 onClick={(e) => handleSmoothScroll(e, link.href)}
-                className="text-foreground hover:text-primary transition-all duration-200 font-medium text-sm cursor-pointer relative group"
+                className={`group relative cursor-pointer px-1 py-0.5 text-sm font-medium transition-all duration-200 ${
+                  hasScrolled ? "text-foreground/85 hover:text-primary" : "text-emerald-50/90 hover:text-white"
+                }`}
               >
                 {link.label}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
+                <span className={`absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full ${hasScrolled ? "bg-primary" : "bg-emerald-200"}`} />
               </a>
             ))}
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden items-center gap-3 md:flex">
             <button
               onClick={() => setLoginOpen(true)}
-              className="px-4 py-2 text-primary border-2 border-primary font-medium hover:bg-primary hover:text-white transition-all duration-200 rounded-lg"
+              className={`rounded-lg px-4 py-2 font-medium transition-all duration-200 ${
+                hasScrolled
+                  ? "border border-primary/40 text-primary hover:bg-primary/10"
+                  : "border border-emerald-100/35 text-emerald-50 hover:bg-white/10"
+              }`}
             >
               Login
             </button>
             <button
               onClick={() => setSignupOpen(true)}
-              className="px-6 py-2 bg-accent text-accent-foreground font-medium rounded-lg hover:bg-yellow-500 transition-colors"
+              className={`rounded-lg px-5 py-2 font-medium shadow-sm transition-all duration-200 hover:translate-y-[-1px] hover:shadow-md ${
+                hasScrolled
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-white text-emerald-800 hover:bg-emerald-50"
+              }`}
             >
               Apply Now
             </button>
@@ -105,7 +146,7 @@ export default function Header() {
 
           {/* Mobile Menu Toggle */}
           <button 
-            className="md:hidden p-2 transition-transform duration-300 hover:scale-110" 
+            className="p-2 transition-transform duration-300 hover:scale-110 md:hidden" 
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -126,7 +167,7 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         <div
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`overflow-hidden transition-all duration-300 ease-in-out md:hidden ${
             mobileOpen ? "max-h-[600px] opacity-100 pb-4" : "max-h-0 opacity-0"
           }`}
         >

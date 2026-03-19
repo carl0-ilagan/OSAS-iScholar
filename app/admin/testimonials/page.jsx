@@ -2,20 +2,24 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, query, orderBy, doc, updateDoc, getDoc } from "firebase/firestore"
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import { MessageSquare, Star, CheckCircle2, Loader2, Award, GraduationCap, Filter, ArrowUpDown, Calendar } from "lucide-react"
+import { MessageSquare, RotateCcw, Search, Star, CheckCircle2, Loader2, Award, GraduationCap, Calendar, Building2 } from "lucide-react"
 import { toast } from "sonner"
 import TestimonialsSkeleton from "@/components/admin/testimonials-skeleton"
+
+const ITEMS_PER_PAGE = 6
 
 export default function TestimonialsPage() {
   const [testimonials, setTestimonials] = useState([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const [filterScholarship, setFilterScholarship] = useState("All")
   const [filterFeatured, setFilterFeatured] = useState("All")
   const [filterRating, setFilterRating] = useState("All")
   const [sortBy, setSortBy] = useState("newest")
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     fetchTestimonials()
@@ -30,7 +34,6 @@ export default function TestimonialsPage() {
       )
       const snapshot = await getDocs(testimonialsQuery)
       
-      // Use data directly from testimonial document (name and photoURL are stored there)
       const testimonialsData = snapshot.docs.map((docSnap) => {
         const data = docSnap.data()
         return {
@@ -96,35 +99,37 @@ export default function TestimonialsPage() {
     }
   }
 
-  // Get unique scholarships for filter
   const uniqueScholarships = useMemo(() => {
     const scholarships = new Set(testimonials.map(t => t.scholarship).filter(Boolean))
     return ["All", ...Array.from(scholarships).sort()]
   }, [testimonials])
 
-  // Filter and sort testimonials
   const filteredAndSortedTestimonials = useMemo(() => {
     let filtered = [...testimonials]
 
-    // Scholarship filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      filtered = filtered.filter((t) =>
+        [t.name, t.scholarship, t.course, t.campus, t.testimonial]
+          .some((field) => String(field || "").toLowerCase().includes(q))
+      )
+    }
+
     if (filterScholarship !== "All") {
       filtered = filtered.filter(t => t.scholarship === filterScholarship)
     }
 
-    // Featured filter
     if (filterFeatured === "Featured") {
       filtered = filtered.filter(t => t.featuredOnLanding)
     } else if (filterFeatured === "Not Featured") {
       filtered = filtered.filter(t => !t.featuredOnLanding)
     }
 
-    // Rating filter
     if (filterRating !== "All") {
       const rating = parseInt(filterRating)
       filtered = filtered.filter(t => t.rating === rating)
     }
 
-    // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "newest":
@@ -145,116 +150,81 @@ export default function TestimonialsPage() {
     })
 
     return filtered
-  }, [testimonials, filterScholarship, filterFeatured, filterRating, sortBy])
+  }, [testimonials, searchQuery, filterScholarship, filterFeatured, filterRating, sortBy])
 
   const featuredCount = testimonials.filter(t => t.featuredOnLanding).length
+  const averageRating = useMemo(() => {
+    if (!testimonials.length) return 0
+    const total = testimonials.reduce((sum, item) => sum + Number(item.rating || 0), 0)
+    return total / testimonials.length
+  }, [testimonials])
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedTestimonials.length / ITEMS_PER_PAGE))
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedTestimonials = filteredAndSortedTestimonials.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, filterScholarship, filterFeatured, filterRating, sortBy])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
+
+  const resetFilters = () => {
+    setSearchQuery("")
+    setFilterScholarship("All")
+    setFilterFeatured("All")
+    setFilterRating("All")
+    setSortBy("newest")
+  }
 
   return (
     <AdminLayoutWrapper>
-      <div className="relative">
-        <div className="p-6 space-y-6">
-          {/* Featured Count Card - Enhanced */}
-          <div className="bg-gradient-to-br from-green-500/10 via-green-500/5 to-green-600/5 border-2 border-green-500/30 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-foreground">Featured on Landing Page</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {featuredCount} of 6 testimonials selected for display
-                    </p>
-                  </div>
-                </div>
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="relative w-full md:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search name, scholarship, course..."
+                  className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
+                />
               </div>
-              <div className={`px-8 py-4 rounded-2xl font-bold text-3xl shadow-lg transition-all duration-300 ${
-                featuredCount >= 6 
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white scale-105' 
-                  : 'bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 text-yellow-700 border-2 border-yellow-500/40 hover:scale-105'
-              }`}>
-                {featuredCount} / 6
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span className="text-muted-foreground">Featured:</span>
+                <span className="font-semibold text-foreground">{featuredCount}/6</span>
               </div>
             </div>
-          </div>
-
-        {/* Filters and Sort - Enhanced */}
-        <div className="bg-gradient-to-br from-card via-card to-primary/5 border-2 border-border rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-              <Filter className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-foreground">Filters & Sort</h3>
-              <p className="text-xs text-muted-foreground">Refine your search results</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Scholarship Filter */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-primary" />
-                Scholarship
-              </label>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
               <select
                 value={filterScholarship}
                 onChange={(e) => setFilterScholarship(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  paddingRight: '2.5rem',
-                }}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               >
                 {uniqueScholarships.map((scholarship) => (
                   <option key={scholarship} value={scholarship}>
-                    {scholarship}
+                    {scholarship === "All" ? "All Scholarships" : scholarship}
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Featured Filter */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-primary" />
-                Status
-              </label>
               <select
                 value={filterFeatured}
                 onChange={(e) => setFilterFeatured(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  paddingRight: '2.5rem',
-                }}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               >
-                <option value="All">All</option>
+                <option value="All">All Status</option>
                 <option value="Featured">Featured</option>
                 <option value="Not Featured">Not Featured</option>
               </select>
-            </div>
-
-            {/* Rating Filter */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
-                <Star className="w-4 h-4 text-primary" />
-                Rating
-              </label>
               <select
                 value={filterRating}
                 onChange={(e) => setFilterRating(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  paddingRight: '2.5rem',
-                }}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               >
                 <option value="All">All Ratings</option>
                 <option value="5">5 Stars</option>
@@ -263,24 +233,10 @@ export default function TestimonialsPage() {
                 <option value="2">2 Stars</option>
                 <option value="1">1 Star</option>
               </select>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
-                <ArrowUpDown className="w-4 h-4 text-primary" />
-                Sort By
-              </label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-300 ease-in-out appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm focus:shadow-md"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  paddingRight: '2.5rem',
-                }}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -289,41 +245,79 @@ export default function TestimonialsPage() {
                 <option value="name-asc">Name (A-Z)</option>
                 <option value="name-desc">Name (Z-A)</option>
               </select>
+              <button
+                onClick={resetFilters}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </button>
             </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+                Total Testimonials: <span className="font-semibold text-foreground">{testimonials.length}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+                Avg Rating: <span className="font-semibold text-foreground">{averageRating.toFixed(1)}</span>
+              </span>
+              {featuredCount >= 6 ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-green-700">
+                  Featured slots full (6/6)
+                </span>
+              ) : null}
+            </div>
+          </div>
 
-            {/* Results Count - Enhanced */}
-            <div className="flex items-end">
-              <div className="w-full px-5 py-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border-2 border-primary/20 shadow-sm">
-                <p className="text-xs text-muted-foreground mb-1 font-medium">Total Results</p>
-                <p className="text-2xl font-bold text-primary">{filteredAndSortedTestimonials.length}</p>
+          {loading ? (
+            <TestimonialsSkeleton />
+          ) : filteredAndSortedTestimonials.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-10 text-center">
+              <MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <h3 className="text-base font-semibold text-foreground">No testimonials found</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Try changing the current filters.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {paginatedTestimonials.map((testimonial) => (
+                <TestimonialCard
+                  key={testimonial.id}
+                  testimonial={testimonial}
+                  isFeatured={testimonial.featuredOnLanding}
+                  onToggle={toggleFeatured}
+                  updating={updating === testimonial.id}
+                />
+              ))}
+            </div>
+          )}
+
+          {!loading ? (
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-center text-sm text-muted-foreground md:text-left">
+                Showing {filteredAndSortedTestimonials.length > 0 ? startIndex + 1 : 0} to{" "}
+                {Math.min(endIndex, filteredAndSortedTestimonials.length)} of {filteredAndSortedTestimonials.length} record
+                {filteredAndSortedTestimonials.length !== 1 ? "s" : ""}
+              </div>
+              <div className="flex items-center justify-center gap-2 md:justify-end">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {loading ? (
-          <TestimonialsSkeleton />
-        ) : filteredAndSortedTestimonials.length === 0 ? (
-          <div className="text-center py-16 bg-gradient-to-br from-card to-muted/30 border-2 border-border rounded-2xl shadow-lg">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">No Testimonials Found</h3>
-            <p className="text-muted-foreground">Try adjusting your filters to see more results.</p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedTestimonials.map((testimonial) => (
-              <TestimonialCard
-                key={testimonial.id}
-                testimonial={testimonial}
-                isFeatured={testimonial.featuredOnLanding}
-                onToggle={toggleFeatured}
-                updating={updating === testimonial.id}
-              />
-            ))}
-          </div>
-        )}
+          ) : null}
         </div>
       </div>
     </AdminLayoutWrapper>
@@ -332,16 +326,13 @@ export default function TestimonialsPage() {
 
 function TestimonialCard({ testimonial, isFeatured, onToggle, updating }) {
   return (
-    <div className={`bg-card border rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] group ${
-      isFeatured ? 'border-green-500/50 bg-gradient-to-br from-green-500/10 to-green-500/5 ring-2 ring-green-500/20' : 'border-border hover:border-primary/50'
-    }`}>
-      {/* Header with Profile Pic, Name, Course */}
-      <div className="flex items-start gap-4 mb-4">
+    <div className={`rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 ${isFeatured ? "border-green-500/40" : "border-border"}`}>
+      <div className="mb-3 flex items-start gap-3">
         {testimonial.photoURL ? (
           <img
             src={testimonial.photoURL}
             alt={testimonial.name}
-            className="w-14 h-14 rounded-full object-cover ring-2 ring-primary/20 shadow-md flex-shrink-0 group-hover:ring-primary/50 transition-all duration-300"
+            className="h-11 w-11 shrink-0 rounded-full object-cover"
             onError={(e) => {
               e.target.style.display = 'none'
               const fallback = e.target.nextElementSibling
@@ -350,40 +341,40 @@ function TestimonialCard({ testimonial, isFeatured, onToggle, updating }) {
           />
         ) : null}
         <div 
-          className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg ring-2 ring-primary/20 shadow-md flex-shrink-0 group-hover:ring-primary/50 transition-all duration-300 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground ${testimonial.photoURL ? 'hidden' : 'flex'}`}
         >
           {testimonial.name?.[0]?.toUpperCase() || "A"}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <p className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors duration-300">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <p className="truncate font-semibold text-foreground">
               {testimonial.name}
             </p>
             {isFeatured && (
-              <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <GraduationCap className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <GraduationCap className="h-3.5 w-3.5" />
             <span className="truncate">{testimonial.course}</span>
           </div>
         </div>
       </div>
 
-      {/* Scholarship Badge */}
-      <div className="mb-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg border border-primary/20 transition-all duration-200">
-          <Award className="w-3.5 h-3.5" />
-          <span className="text-xs font-semibold truncate max-w-[200px]">{testimonial.scholarship}</span>
-        </div>
+      <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">
+        <Award className="h-3.5 w-3.5" />
+        <span className="max-w-[180px] truncate">{testimonial.scholarship}</span>
+      </div>
+      <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+        <Building2 className="h-3.5 w-3.5" />
+        <span className="truncate">{testimonial.campus || "N/A"}</span>
       </div>
 
-      {/* Rating */}
-      <div className="flex gap-1 mb-4">
+      <div className="mb-3 flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`w-4 h-4 transition-all duration-200 ${
+            className={`h-4 w-4 ${
               star <= testimonial.rating
                 ? "fill-yellow-400 text-yellow-400"
                 : "text-gray-300"
@@ -392,15 +383,13 @@ function TestimonialCard({ testimonial, isFeatured, onToggle, updating }) {
         ))}
       </div>
 
-      {/* Testimonial Text */}
-      <p className="text-sm text-foreground mb-5 line-clamp-4 italic leading-relaxed">
+      <p className="mb-4 line-clamp-4 text-sm italic leading-relaxed text-foreground">
         "{testimonial.testimonial}"
       </p>
 
-      {/* Footer with Date and Action */}
-      <div className="flex items-center justify-between pt-4 border-t border-border/50">
+      <div className="flex items-center justify-between border-t border-border/50 pt-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="w-3.5 h-3.5" />
+          <Calendar className="h-3.5 w-3.5" />
           <span>{testimonial.createdAt?.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -410,10 +399,10 @@ function TestimonialCard({ testimonial, isFeatured, onToggle, updating }) {
         <button
           onClick={() => onToggle(testimonial.id, isFeatured)}
           disabled={updating}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
             isFeatured
-              ? "bg-red-500/10 text-red-600 hover:bg-red-500/20 border border-red-500/20"
-              : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border border-green-500/20"
+              ? "border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20"
+              : "border-green-500/20 bg-green-500/10 text-green-600 hover:bg-green-500/20"
           }`}
         >
           {updating ? (

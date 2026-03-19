@@ -1,23 +1,69 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore"
-import { FileText } from "lucide-react"
-import { toast } from "sonner"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore"
+import { ChevronDown, Filter, Search } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
-import CampusAdminLayoutWrapper from "../campus-admin-layout"
 import { normalizeCampus } from "@/lib/campus-admin-config"
+import CampusAdminLayoutWrapper from "../campus-admin-layout"
+import ApplicationsTable from "@/components/admin/applications-table"
+import ApplicationsTableSkeleton from "@/components/admin/applications-table-skeleton"
 
-const STATUS_OPTIONS = ["pending", "under-review", "approved", "rejected"]
+const ITEMS_PER_PAGE = 10
 
 export default function CampusAdminApplicationsPage() {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
-  const [applications, setApplications] = useState([])
   const activeCampus = useMemo(() => normalizeCampus(user?.campus || null), [user?.campus])
 
-  const fetchApplications = async () => {
+  const [applications, setApplications] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortStatus, setSortStatus] = useState("all")
+  const [sortScholarship, setSortScholarship] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const filterRef = useRef(null)
+
+  const mapApplicationRecord = async (docSnap) => {
+    const data = docSnap.data() || {}
+    let userName = "Unknown"
+    let userPhotoURL = null
+
+    if (data.userId) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", data.userId))
+        if (userDoc.exists()) {
+          const userData = userDoc.data() || {}
+          userName = userData.fullName || userData.displayName || "Unknown"
+          userPhotoURL = userData.photoURL || null
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      }
+    }
+
+    return {
+      id: docSnap.id,
+      userId: data.userId,
+      name: userName,
+      photoURL: userPhotoURL,
+      scholarshipId: data.scholarshipId,
+      scholarshipName: data.scholarshipName || "Unknown Scholarship",
+      studentName: data.studentName || userName,
+      studentNumber: data.studentNumber || "N/A",
+      course: data.course || "N/A",
+      yearLevel: data.yearLevel || "N/A",
+      campus: data.campus || "N/A",
+      status: data.status || "pending",
+      submittedDate: data.submittedAt ? new Date(data.submittedAt).toLocaleDateString() : "N/A",
+      submittedAt: data.submittedAt,
+      formData: data.formData || {},
+      files: data.files || {},
+    }
+  }
+
+  const fetchCampusApplications = async () => {
     if (!activeCampus) {
       setApplications([])
       setLoading(false)
@@ -26,88 +72,273 @@ export default function CampusAdminApplicationsPage() {
 
     try {
       setLoading(true)
-      const appsSnapshot = await getDocs(query(collection(db, "applications"), where("campus", "==", activeCampus)))
-      const rows = appsSnapshot.docs
-        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        .filter((row) => normalizeCampus(row.campus) === activeCampus)
-      setApplications(rows)
+      let snapshot
+      try {
+        const applicationsQuery = query(
+          collection(db, "applications"),
+          where("campus", "==", activeCampus),
+          orderBy("submittedAt", "desc"),
+        )
+        snapshot = await getDocs(applicationsQuery)
+      } catch (queryError) {
+        // Fallback when orderBy index is unavailable; keep campus restriction to satisfy rules.
+        console.warn("Campus applications ordered query failed, using fallback:", queryError)
+        const fallbackQuery = query(collection(db, "applications"), where("campus", "==", activeCampus))
+        snapshot = await getDocs(fallbackQuery)
+      }
+      const records = []
+
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data() || {}
+        records.push(await mapApplicationRecord(docSnap))
+      }
+
+      setApplications(records)
     } catch (error) {
       console.error("Error fetching campus applications:", error)
+      setApplications([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchApplications()
+    fetchCampusApplications()
   }, [activeCampus])
 
-  const handleStatusChange = async (id, status) => {
-    try {
-      await updateDoc(doc(db, "applications", id), {
-        status,
-        reviewedBy: user?.uid || null,
-        reviewedAt: new Date().toISOString(),
-      })
-      setApplications((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)))
-      toast.success("Application status updated.")
-    } catch (error) {
-      console.error("Failed to update application:", error)
-      toast.error("Failed to update application status.")
+  const uniqueScholarships = useMemo(() => {
+    const values = [...new Set(applications.map((app) => app.scholarshipName))]
+    return values.sort()
+  }, [applications])
+
+  const uniqueStatuses = useMemo(() => ["pending", "approved", "rejected", "under-review"], [])
+
+  const filteredApplications = useMemo(() => {
+    let filtered = [...applications]
+
+    if (searchQuery.trim()) {
+      const queryText = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(
+        (app) =>
+          app.name?.toLowerCase().includes(queryText) ||
+          app.studentName?.toLowerCase().includes(queryText) ||
+          app.studentNumber?.toLowerCase().includes(queryText),
+      )
     }
+
+    if (sortScholarship !== "all") {
+      filtered = filtered.filter((app) => app.scholarshipName === sortScholarship)
+    }
+
+    if (sortStatus !== "all") {
+      filtered = filtered.filter((app) => app.status === sortStatus)
+    }
+
+    return filtered
+  }, [applications, sortScholarship, sortStatus, searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [sortScholarship, sortStatus, searchQuery])
+
+  const totalPages = Math.ceil(filteredApplications.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedApplications = filteredApplications.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setIsFilterOpen(false)
+      }
+    }
+
+    if (isFilterOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+      document.addEventListener("touchstart", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("touchstart", handleClickOutside)
+    }
+  }, [isFilterOpen])
+
+  const handleApplicationUpdate = async () => {
+    await fetchCampusApplications()
   }
 
   return (
     <CampusAdminLayoutWrapper>
-      <div className="p-4 md:p-6 lg:p-8">
-        <div className="w-full space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <h1 className="text-lg font-semibold text-foreground">Campus Applications</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">Only applications from {activeCampus || "your campus"} are shown here.</p>
+      <div className="relative p-4 md:p-6 lg:p-8">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+          <div className="relative flex-1 md:w-64 md:flex-initial">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or student number..."
+              className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
           </div>
 
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
-              <div className="col-span-3">Student</div>
-              <div className="col-span-3">Scholarship</div>
-              <div className="col-span-2">Course</div>
-              <div className="col-span-2">Submitted</div>
-              <div className="col-span-2">Status</div>
-            </div>
-            {loading ? (
-              <p className="p-4 text-sm text-muted-foreground">Loading applications...</p>
-            ) : applications.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">No applications for this campus yet.</p>
-            ) : (
-              applications.map((row) => (
-                <div key={row.id} className="grid grid-cols-12 gap-2 border-b border-border/60 px-4 py-3 text-sm last:border-b-0">
-                  <div className="col-span-3 text-foreground font-medium">{row.studentName || row.fullName || row.email || "N/A"}</div>
-                  <div className="col-span-3 text-muted-foreground">{row.scholarshipName || row.scholarship || "N/A"}</div>
-                  <div className="col-span-2 text-muted-foreground">{row.course || "N/A"}</div>
-                  <div className="col-span-2 text-muted-foreground">
-                    {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : "N/A"}
-                  </div>
-                  <div className="col-span-2">
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-all duration-200 hover:bg-muted hover:shadow-md md:w-48"
+            >
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" />
+                <span>Filters</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isFilterOpen ? (
+              <div className="animate-in fade-in zoom-in-95 absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-2xl duration-200">
+                <div className="space-y-3 p-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scholarship</label>
                     <select
-                      value={row.status || "pending"}
-                      onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                      className="w-full rounded-md border border-border bg-input px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      value={sortScholarship}
+                      onChange={(e) => setSortScholarship(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
-                      {STATUS_OPTIONS.map((status) => (
+                      <option value="all">All Scholarships</option>
+                      {uniqueScholarships.map((scholarship) => (
+                        <option key={scholarship} value={scholarship}>
+                          {scholarship}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
+                    <select
+                      value={sortStatus}
+                      onChange={(e) => setSortStatus(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="all">All Status</option>
+                      {uniqueStatuses.map((status) => (
                         <option key={status} value={status}>
-                          {status}
+                          {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
                         </option>
                       ))}
                     </select>
                   </div>
                 </div>
-              ))
-            )}
+              </div>
+            ) : null}
           </div>
         </div>
+
+        {loading ? (
+          <ApplicationsTableSkeleton />
+        ) : (
+          <>
+            <div className="animate-in fade-in duration-300">
+              <ApplicationsTable
+                applications={paginatedApplications}
+                onUpdate={handleApplicationUpdate}
+                reviewedBy="campus_admin"
+              />
+            </div>
+
+            <div className="animate-in fade-in mt-6 space-y-4 duration-300">
+              <div className="text-center text-sm text-muted-foreground md:text-left">
+                Showing {filteredApplications.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredApplications.length)} of{" "}
+                {filteredApplications.length} record{filteredApplications.length !== 1 ? "s" : ""}
+              </div>
+
+              {totalPages > 1 ? (
+                <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+                  <div className="flex w-full items-center justify-center gap-2 md:hidden">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-3 text-sm font-medium text-foreground">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+
+                  <div className="hidden items-center gap-2 md:flex">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      First
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`rounded-lg border border-border px-3 py-2 text-sm transition-all duration-200 active:scale-95 ${
+                                currentPage === page
+                                  ? "bg-primary text-primary-foreground shadow-md"
+                                  : "bg-background text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          )
+                        }
+                        if (page === currentPage - 2 || page === currentPage + 2) {
+                          return (
+                            <span key={page} className="px-2 text-muted-foreground">
+                              ...
+                            </span>
+                          )
+                        }
+                        return null
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Last
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </CampusAdminLayoutWrapper>
   )

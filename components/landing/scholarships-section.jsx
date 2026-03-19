@@ -9,25 +9,25 @@ const scholarships = [
     name: "Merit Scholarship",
     description: "For academically excellent students",
     amount: "Full Tuition + Allowance",
-    color: "from-primary to-secondary",
+    tone: "bg-primary",
   },
   {
     name: "Needs-Based Grant",
     description: "For financially challenged students",
     amount: "Up to 50% Tuition",
-    color: "from-secondary to-primary",
+    tone: "bg-emerald-500",
   },
   {
     name: "TES (Technical Education Scholarship)",
     description: "For technical program students",
     amount: "Partial Tuition Coverage",
-    color: "from-accent to-yellow-400",
+    tone: "bg-amber-500",
   },
   {
     name: "TDP (Tunong Dunong Program)",
     description: "For future education professionals",
     amount: "Full Support + Internship",
-    color: "from-primary to-accent",
+    tone: "bg-violet-500",
   },
 ]
 
@@ -36,27 +36,34 @@ export default function ScholarshipsSection() {
 
   return (
     <>
-      <section id="scholarships" className="py-20 bg-muted">
+      <section id="scholarships" className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Scholarships Offered</h2>
-            <p className="text-muted-foreground text-lg">Choose the scholarship program that fits your profile</p>
+          <div className="mb-10 text-center">
+            <span className="inline-flex items-center rounded-full border border-emerald-700/20 bg-white px-3 py-1 text-xs font-medium text-emerald-700">
+              Scholarship Programs
+            </span>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Find the right support for your studies
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+              Explore available grants and open the details to check requirements.
+            </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {scholarships.map((scholarship, index) => (
               <div
                 key={index}
-                className={`bg-gradient-to-br ${scholarship.color} rounded-xl p-8 text-white shadow-lg hover:shadow-2xl transition-all transform hover:scale-105 flex flex-col`}
+                className="group relative flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
               >
+                <span className={`absolute left-0 top-0 h-1.5 w-full rounded-t-xl ${scholarship.tone}`} />
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold mb-2">{scholarship.name}</h3>
-                  <p className="text-white/90 text-sm mb-4">{scholarship.description}</p>
-                  <p className="text-sm font-semibold mb-6 text-white/80">{scholarship.amount}</p>
+                  <h3 className="mb-2 text-base font-semibold text-foreground">{scholarship.name}</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">{scholarship.description}</p>
+                  <p className="mb-6 text-sm font-medium text-foreground">{scholarship.amount}</p>
                 </div>
                 <button
                   onClick={() => setLoginOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 bg-white text-foreground font-semibold px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors text-sm mt-auto"
+                  className="mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground"
                 >
                   View Full Requirements
                   <ArrowRight className="w-4 h-4" />

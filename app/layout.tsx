@@ -16,8 +16,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'iScholar Portal - OSAS MinSU',
-  description: 'Scholarship Management System',
+  title: 'MOCAS Portal',
+  description: 'MinSU Online Consultation for Admission and Scholarship',
   icons: {
     icon: '/download.ico',
     shortcut: '/download.ico',
@@ -39,7 +39,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#005c2b" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="iScholar" />
+        <meta name="apple-mobile-web-app-title" content="MOCAS" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
       <body className={`${manrope.variable} font-sans antialiased scrollbar-hide`}>

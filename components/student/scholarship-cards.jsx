@@ -134,29 +134,29 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
   return (
     <>
       <div 
-        className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary/50 group relative"
+        className="group relative overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:border-primary/40 hover:shadow-md"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{
-          transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+          transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
         }}
       >
         {/* Header with Icon */}
-        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 md:p-5 border-b border-border/50">
+        <div className="border-b border-border/60 bg-muted/30 p-3.5 md:p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 flex-1">
               {logo ? (
-                <div className="w-12 h-12 rounded-xl bg-card border border-border/30 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-md overflow-hidden">
+                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-border/40 bg-card transition-transform duration-300 group-hover:scale-105">
                   <img src={logo} alt={name} className="w-full h-full object-contain p-1" />
                 </div>
               ) : (
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <GraduationCap className="w-6 h-6 text-white" />
+              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-primary/15 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                <GraduationCap className="h-5 w-5 text-primary" />
               </div>
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg md:text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                  <h3 className="text-base md:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                   {name}
                 </h3>
                   {temporarilyClosed && (
@@ -165,7 +165,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                     </span>
                   )}
                 </div>
-                <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
+                <p className="text-xs text-muted-foreground line-clamp-2">
                   {description}
                 </p>
               </div>
@@ -174,16 +174,16 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
         </div>
 
         {/* Content */}
-        <div className="p-4 md:p-5">
+        <div className="p-3.5 md:p-4">
           {/* Benefit Section - Enhanced */}
-          <div className="mb-4 p-4 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 rounded-xl border border-primary/20">
+          <div className="mb-3.5 rounded-lg border border-border bg-muted/20 p-3">
             <div className="flex items-center gap-2 mb-2">
               <p className="text-xs font-semibold text-primary uppercase tracking-wide">Benefit</p>
             </div>
-            <p className="text-base md:text-lg font-bold text-foreground mb-1">{benefit}</p>
-            <p className="text-sm font-semibold text-primary mb-2">{formatBenefitAmount(benefitAmount)}</p>
+            <p className="mb-1 text-sm md:text-base font-semibold text-foreground">{benefit}</p>
+            <p className="mb-2 text-xs font-semibold text-primary">{formatBenefitAmount(benefitAmount)}</p>
             {(batchName || slots) && (
-              <div className="flex items-center gap-4 pt-2 border-t border-primary/20 text-xs">
+              <div className="flex items-center gap-4 border-t border-border pt-2 text-xs">
                 {batchName && (
                   <span className="text-muted-foreground">
                     Batch: <span className="font-semibold text-foreground">{batchName}</span>
@@ -199,16 +199,16 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
           </div>
 
           {/* Basic Requirements Preview */}
-          <div className="mb-4">
+          <div className="mb-3.5">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Requirements</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Requirements</p>
             </div>
             <div className="space-y-2">
               {defaultForms.map((form, index) => (
                 <div 
                   key={index} 
-                  className="flex items-start gap-2.5 text-sm"
+                  className="flex items-start gap-2.5 text-xs"
                 >
                   <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                   <span className="text-foreground">{form}</span>
@@ -226,7 +226,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
           <div className="space-y-2">
             {hasApplied ? (
               <button 
-                className="w-full bg-muted text-muted-foreground font-semibold py-3 rounded-lg cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-sm"
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
                 disabled
               >
                 <CheckCircle className="w-4 h-4" />
@@ -234,7 +234,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               </button>
             ) : temporarilyClosed ? (
               <button 
-                className="w-full bg-muted text-muted-foreground font-semibold py-3 rounded-lg cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-sm"
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
                 disabled
               >
                 <AlertCircle className="w-4 h-4" />
@@ -242,7 +242,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               </button>
             ) : !active ? (
               <button 
-                className="w-full bg-muted text-muted-foreground font-semibold py-3 rounded-lg cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-sm"
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
                 disabled
               >
                 <AlertCircle className="w-4 h-4" />
@@ -250,7 +250,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               </button>
             ) : (
               <button 
-                className="w-full bg-gradient-to-r from-primary to-secondary text-white font-semibold py-3 rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-md hover:shadow-lg"
+                className="group/btn flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
                 onClick={(e) => {
                   e.stopPropagation()
                   setIsApplyModalOpen(true)
@@ -267,7 +267,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                 setIsClosing(false)
                 setIsModalOpen(true)
               }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors border border-primary/20 hover:border-primary/40"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
             >
               <Eye className="w-4 h-4" />
               <span>View Full Requirements</span>
@@ -291,7 +291,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
             <div
               ref={modalRef}
-              className={`bg-card border-2 border-border/50 rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-5xl max-h-[96vh] sm:max-h-[94vh] overflow-hidden flex flex-col md:flex-row transition-all duration-300 ${
+              className={`bg-card border border-border rounded-xl sm:rounded-2xl shadow-lg w-full max-w-5xl max-h-[96vh] sm:max-h-[94vh] overflow-hidden flex flex-col md:flex-row transition-all duration-300 ${
                 isClosing 
                   ? 'opacity-0 scale-95 translate-y-4' 
                   : 'opacity-100 scale-100 translate-y-0 animate-in zoom-in-95 slide-in-from-bottom-4'
@@ -299,10 +299,9 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               onClick={(e) => e.stopPropagation()}
             >
               {/* Left Side - Scholarship Info (Desktop) / Top (Mobile) */}
-              <div className="w-full md:w-2/5 lg:w-1/3 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 p-4 sm:p-5 md:p-6 border-b md:border-b-0 md:border-r border-border/30 flex flex-col flex-shrink-0 relative overflow-hidden">
+              <div className="w-full md:w-2/5 lg:w-1/3 bg-muted/25 p-4 sm:p-5 md:p-6 border-b md:border-b-0 md:border-r border-border/30 flex flex-col flex-shrink-0 relative overflow-hidden">
                 {/* Decorative Background Elements */}
                 <div className="hidden md:block absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                <div className="hidden md:block absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
                 
                 <div className="relative mb-4">
                   <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
@@ -325,19 +324,19 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-foreground truncate flex-1">{name}</h2>
+                        <h2 className="text-base sm:text-lg md:text-xl font-semibold text-foreground truncate flex-1">{name}</h2>
                         <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2">{description}</p>
                     </div>
                   </div>
 
-                  <div className="p-3 sm:p-4 bg-card/80 backdrop-blur-sm rounded-lg sm:rounded-xl border border-primary/20 shadow-sm">
+                  <div className="p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border shadow-sm">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                       <p className="text-xs font-semibold text-primary uppercase tracking-wider">Benefit</p>
                     </div>
-                    <p className="text-sm sm:text-base md:text-lg font-bold text-foreground mb-1">{benefit}</p>
+                    <p className="text-sm sm:text-base font-semibold text-foreground mb-1">{benefit}</p>
                     <p className="text-xs sm:text-sm font-semibold text-primary">{formatBenefitAmount(benefitAmount)}</p>
                     {(batchName || slots) && (
                       <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-primary/20 text-xs">
@@ -359,34 +358,34 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               {/* Right Side - Full Requirements List (Desktop) / Bottom (Mobile) */}
               <div className="w-full md:w-3/5 lg:w-2/3 flex flex-col min-h-0 bg-card">
                 {/* Header - Enhanced */}
-                <div className="relative p-4 sm:p-5 md:p-6 border-b border-border/30 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 flex-shrink-0 overflow-hidden">
+                <div className="relative p-4 sm:p-5 md:p-6 border-b border-border/30 bg-muted/20 flex-shrink-0 overflow-hidden">
                   {/* Decorative Elements */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
                   
                   <div className="relative flex items-center gap-2.5 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md">
-                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-base sm:text-lg md:text-xl font-bold text-foreground">Full Requirements</h3>
+                      <h3 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">Full Requirements</h3>
                       <p className="text-xs text-muted-foreground hidden sm:block">Complete list of required forms and documents</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Content - Scrollable, Enhanced */}
-                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4 custom-scrollbar bg-gradient-to-b from-background to-muted/20">
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4 custom-scrollbar bg-background">
                   {/* Default Forms */}
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-green-600 rounded-full"></div>
+                        <div className="w-1 h-5 bg-green-600 rounded-full"></div>
                       <p className="text-xs sm:text-sm font-bold text-foreground">Required Forms (2)</p>
                     </div>
                     <div className="space-y-2">
                       {defaultForms.map((form, index) => (
                         <div 
                           key={index} 
-                          className="flex items-start gap-2.5 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-green-500/10 to-primary/10 border-2 border-green-500/30 hover:border-primary/40 hover:shadow-md transition-all duration-200 group"
+                          className="flex items-start gap-2.5 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-muted/25 border border-border hover:border-primary/40 hover:shadow-sm transition-all duration-200 group"
                           style={{
                             animationDelay: `${index * 50}ms`,
                             animation: isClosing ? 'none' : 'fadeInUp 0.5s ease-out forwards',
@@ -409,12 +408,12 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                   {documentRequirementIds && documentRequirementIds.length > 0 && (
                     <div className="space-y-2.5">
                       <div className="flex items-center gap-2 mb-2.5">
-                        <div className="w-1 h-5 bg-gradient-to-b from-primary to-secondary rounded-full"></div>
+                        <div className="w-1 h-5 bg-primary rounded-full"></div>
                         <p className="text-xs sm:text-sm font-bold text-foreground">
                           Document Requirements ({documentRequirementIds.length})
                         </p>
                       </div>
-                      <div className="p-3 sm:p-4 bg-gradient-to-br from-primary/10 via-secondary/10 to-primary/10 border-2 border-primary/20 rounded-lg sm:rounded-xl">
+                      <div className="p-3 sm:p-4 bg-muted/25 border border-border rounded-lg sm:rounded-xl">
                         <div className="flex items-start gap-2.5">
                           <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0 mt-0.5" />
                           <div>
@@ -431,7 +430,7 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                   )}
 
                   {/* Info Box */}
-                  <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-blue-500/20 rounded-lg sm:rounded-xl">
+                  <div className="p-3 sm:p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg sm:rounded-xl">
                     <div className="flex items-start gap-2.5">
                       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                         <Award className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
@@ -447,10 +446,10 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                 </div>
 
                 {/* Footer - Enhanced */}
-                <div className="p-4 sm:p-5 md:p-6 border-t-2 border-border/30 flex-shrink-0 bg-gradient-to-r from-muted/50 to-background">
+                <div className="p-4 sm:p-5 md:p-6 border-t border-border/30 flex-shrink-0 bg-muted/20">
                   <button
                     onClick={handleCloseModal}
-                    className="w-full bg-gradient-to-r from-primary to-secondary text-white font-bold py-2.5 sm:py-3 rounded-lg hover:from-primary/90 hover:to-secondary/90 transition-all shadow-md hover:shadow-lg text-sm sm:text-base"
+                    className="w-full rounded-lg bg-primary py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white transition-colors hover:bg-primary/90"
                   >
                     Close
                   </button>

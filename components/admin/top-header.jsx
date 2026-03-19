@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch"
 export default function AdminTopHeader({ isDarkMode = false, onToggleTheme = () => {} }) {
   const { user } = useAuth()
   const { branding } = useBranding()
+  const brandName = branding?.name || "MOCAS"
+  const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
   const [isVisible, setIsVisible] = useState(true)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
@@ -75,11 +77,11 @@ export default function AdminTopHeader({ isDarkMode = false, onToggleTheme = () 
       >
         <div className="flex h-16 items-center justify-between px-4 md:px-6">
           <Link href="/admin" className="flex items-center gap-2.5">
-            {branding?.logo ? (
+            {brandLogo ? (
               <img
-                key={branding.logo}
-                src={branding.logo}
-                alt={branding.name || "Logo"}
+                key={brandLogo}
+                src={brandLogo}
+                alt={brandName || "Logo"}
                 className="h-8 w-8 rounded-lg bg-muted/40 p-1 object-contain"
               />
             ) : (
@@ -88,7 +90,7 @@ export default function AdminTopHeader({ isDarkMode = false, onToggleTheme = () 
               </div>
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{branding?.name || "iScholar"} Admin</p>
+              <p className="truncate text-sm font-semibold text-foreground">{brandName} Admin</p>
               <p className="truncate text-xs text-muted-foreground">Management Header</p>
             </div>
           </Link>

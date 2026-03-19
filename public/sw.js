@@ -1,7 +1,7 @@
-// Service Worker for iScholar PWA
-const CACHE_NAME = 'ischolar-v2'
-const RUNTIME_CACHE = 'ischolar-runtime-v2'
-const STATIC_CACHE = 'ischolar-static-v2'
+// Service Worker for MOCAS PWA
+const CACHE_NAME = 'mocas-v2'
+const RUNTIME_CACHE = 'mocas-runtime-v2'
+const STATIC_CACHE = 'mocas-static-v2'
 
 // Assets to cache on install
 const STATIC_ASSETS = [

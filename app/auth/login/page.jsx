@@ -33,7 +33,7 @@ export default function LoginPage() {
       <div className="max-w-md mx-auto px-4 py-20">
         <div className="bg-card border border-border rounded-lg p-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">Welcome Back</h1>
-          <p className="text-muted-foreground mb-8">Sign in to your iScholar account</p>
+          <p className="text-muted-foreground mb-8">Sign in to your MOCAS account</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User Type Selection */}

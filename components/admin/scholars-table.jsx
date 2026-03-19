@@ -205,6 +205,7 @@ export default function ScholarsTable({ scholars }) {
         <ApplicationDetailModal
           application={selectedScholar}
           isOpen={isModalOpen}
+          readOnly
           onClose={() => {
             setIsModalOpen(false)
             setSelectedScholar(null)

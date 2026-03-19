@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { addDoc, collection, doc, getDocs, onSnapshot, query, runTransaction, updateDoc, where } from "firebase/firestore"
+import { addDoc, collection, doc, getDocs, onSnapshot, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore"
 import { Clock3, MessageCircle, PanelRightClose, PanelRightOpen, Video } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/contexts/AuthContext"
@@ -27,6 +27,19 @@ function formatRemainingTime(expiresAt) {
   return `${mins}:${String(secs).padStart(2, "0")} left`
 }
 
+function getDisplayInitials(value) {
+  const text = String(value || "").trim()
+  if (!text) return "ST"
+  const parts = text.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase() || "ST"
+}
+
+function hasSeenByOtherUser(message) {
+  const seenBy = message?.seenBy || {}
+  return Object.entries(seenBy).some(([uid, seen]) => uid !== message?.senderId && Boolean(seen))
+}
+
 export default function CampusAdminConsultationsPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -41,10 +54,13 @@ export default function CampusAdminConsultationsPage() {
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
   const [sendingChat, setSendingChat] = useState(false)
+  const [typingUsers, setTypingUsers] = useState([])
   const [form, setForm] = useState(INITIAL_FORM)
   const [previewError, setPreviewError] = useState("")
   const localPreviewRef = useRef(null)
   const previewStreamRef = useRef(null)
+  const typingTimeoutRef = useRef(null)
+  const typingStateRef = useRef(false)
   const activeCampus = useMemo(() => normalizeCampus(user?.campus || null), [user?.campus])
 
   const fetchData = async () => {
@@ -192,6 +208,58 @@ export default function CampusAdminConsultationsPage() {
     return () => unsubscribe()
   }, [activeRoomId])
 
+  useEffect(() => {
+    if (!activeRoomId) {
+      setTypingUsers([])
+      return
+    }
+    const unsubscribe = onSnapshot(
+      collection(db, "consultation_rooms", activeRoomId, "typing"),
+      (snapshot) => {
+        const now = Date.now()
+        const rows = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((entry) => Boolean(entry.isTyping))
+          .filter((entry) => entry.userId !== user?.uid)
+          .filter((entry) => {
+            const stamp = entry.updatedAt ? new Date(entry.updatedAt).getTime() : 0
+            return stamp > 0 && now - stamp < 8000
+          })
+          .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+        setTypingUsers(rows)
+      },
+      () => {
+        setTypingUsers([])
+      },
+    )
+    return () => unsubscribe()
+  }, [activeRoomId, user?.uid])
+
+  useEffect(() => {
+    if (!activeRoomId || !user?.uid || sidebarTab !== "chat" || chatMessages.length === 0) return
+    const unseen = chatMessages.filter((msg) => msg.senderId && msg.senderId !== user.uid && !msg?.seenBy?.[user.uid])
+    if (unseen.length === 0) return
+    Promise.all(
+      unseen.map((msg) =>
+        updateDoc(doc(db, "consultation_rooms", activeRoomId, "messages", msg.id), {
+          [`seenBy.${user.uid}`]: true,
+          [`seenAt.${user.uid}`]: new Date().toISOString(),
+        }),
+      ),
+    ).catch((error) => {
+      console.error("Failed to update seen status:", error)
+    })
+  }, [activeRoomId, chatMessages, sidebarTab, user?.uid])
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = null
+      }
+    }
+  }, [])
+
   const filteredRooms = useMemo(() => {
     if (statusFilter === "all") return rooms
     return rooms.filter((row) => String(row.status || "active") === statusFilter)
@@ -200,6 +268,28 @@ export default function CampusAdminConsultationsPage() {
     () => rooms.find((room) => room.id === activeRoomId) || null,
     [rooms, activeRoomId],
   )
+
+  const setTypingState = async (nextTyping) => {
+    if (!activeRoomId || !user?.uid) return
+    if (typingStateRef.current === nextTyping) return
+    typingStateRef.current = nextTyping
+    try {
+      await setDoc(
+        doc(db, "consultation_rooms", activeRoomId, "typing", user.uid),
+        {
+          userId: user.uid,
+          userName: user?.fullName || user?.displayName || user?.email || "Campus Admin",
+          userPhotoURL: user?.photoURL || null,
+          userRole: "campus_admin",
+          isTyping: Boolean(nextTyping),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      )
+    } catch (error) {
+      console.error("Failed to update typing status:", error)
+    }
+  }
 
   const handleCreateRoom = async (event) => {
     event.preventDefault()
@@ -296,6 +386,7 @@ export default function CampusAdminConsultationsPage() {
         tx.update(roomRef, {
           invitedStudentId: studentId,
           invitedStudentName: student.fullName || student.name || student.email || "Student",
+          invitedStudentPhotoURL: student.photoURL || null,
           invitedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
@@ -324,10 +415,14 @@ export default function CampusAdminConsultationsPage() {
         text,
         senderId: user?.uid || null,
         senderName: user?.fullName || user?.displayName || user?.email || "Campus Admin",
+        senderPhotoURL: user?.photoURL || null,
         senderRole: "campus_admin",
+        seenBy: user?.uid ? { [user.uid]: true } : {},
+        seenAt: user?.uid ? { [user.uid]: new Date().toISOString() } : {},
         createdAt: new Date().toISOString(),
       })
       setChatInput("")
+      await setTypingState(false)
     } catch (error) {
       console.error("Error sending chat message:", error)
       toast.error("Failed to send message.")
@@ -510,10 +605,24 @@ export default function CampusAdminConsultationsPage() {
                         onlineStudents.map((student) => {
                           const studentId = student.uid || student.id
                           const label = student.fullName || student.name || student.email || "Student"
+                          const photoURL = String(student.photoURL || "").trim()
                           const isInviting = invitingStudentId === studentId
                           return (
                             <div key={studentId} className="flex items-center justify-between gap-2 border-b border-slate-800/70 px-4 py-2">
-                              <p className="truncate text-xs text-slate-200">{label}</p>
+                              <div className="flex min-w-0 items-center gap-2">
+                                {photoURL ? (
+                                  <img
+                                    src={photoURL}
+                                    alt={label}
+                                    className="h-7 w-7 rounded-full border border-slate-700 object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[10px] font-semibold text-slate-200">
+                                    {getDisplayInitials(label)}
+                                  </div>
+                                )}
+                                <p className="truncate text-xs text-slate-200">{label}</p>
+                              </div>
                               <button
                                 onClick={() => inviteOnlineStudent(student)}
                                 disabled={isInviting || !activeRoomId || !activeRoom || String(activeRoom.status || "active") !== "active"}
@@ -598,26 +707,80 @@ export default function CampusAdminConsultationsPage() {
                       ) : (
                         chatMessages.map((msg) => {
                           const mine = msg.senderId === user?.uid
+                          const avatarUrl = String(msg.senderPhotoURL || "").trim()
+                          const displayName = msg.senderName || "User"
                           return (
-                            <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                            <div key={msg.id} className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}>
+                              {!mine ? (
+                                avatarUrl ? (
+                                  <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full border border-slate-700 object-cover" />
+                                ) : (
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[10px] font-semibold text-slate-200">
+                                    {getDisplayInitials(displayName)}
+                                  </div>
+                                )
+                              ) : null}
                               <div
                                 className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${
                                   mine ? "bg-emerald-500/25 text-emerald-100" : "bg-slate-800 text-slate-100"
                                 }`}
                               >
-                                <p className="mb-0.5 text-[10px] text-slate-300">{msg.senderName || "User"}</p>
+                                <p className="mb-0.5 text-[10px] text-slate-300">{displayName}</p>
                                 <p className="break-words">{msg.text}</p>
+                                {mine ? (
+                                  <p className="mt-1 text-[10px] text-slate-300/90">{hasSeenByOtherUser(msg) ? "Seen" : "Sent"}</p>
+                                ) : null}
                               </div>
+                              {mine ? (
+                                avatarUrl ? (
+                                  <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full border border-slate-700 object-cover" />
+                                ) : (
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[10px] font-semibold text-slate-200">
+                                    {getDisplayInitials(displayName)}
+                                  </div>
+                                )
+                              ) : null}
                             </div>
                           )
                         })
                       )}
                     </div>
                     <div className="border-t border-slate-800 p-2">
+                      {typingUsers.length > 0 ? (
+                        <p className="mb-1 px-1 text-[11px] text-slate-400">
+                          {typingUsers[0].userName || "User"} is typing...
+                        </p>
+                      ) : null}
                       <div className="flex items-center gap-2">
                         <input
                           value={chatInput}
-                          onChange={(event) => setChatInput(event.target.value)}
+                          onChange={(event) => {
+                            const value = event.target.value
+                            setChatInput(value)
+                            if (!activeRoomId) return
+                            if (value.trim()) {
+                              setTypingState(true)
+                              if (typingTimeoutRef.current) {
+                                clearTimeout(typingTimeoutRef.current)
+                              }
+                              typingTimeoutRef.current = setTimeout(() => {
+                                setTypingState(false)
+                              }, 1200)
+                              return
+                            }
+                            if (typingTimeoutRef.current) {
+                              clearTimeout(typingTimeoutRef.current)
+                              typingTimeoutRef.current = null
+                            }
+                            setTypingState(false)
+                          }}
+                          onBlur={() => {
+                            if (typingTimeoutRef.current) {
+                              clearTimeout(typingTimeoutRef.current)
+                              typingTimeoutRef.current = null
+                            }
+                            setTypingState(false)
+                          }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
                               event.preventDefault()

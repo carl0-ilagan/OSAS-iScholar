@@ -9,7 +9,7 @@ export default function DynamicManifest() {
   useEffect(() => {
     if (loading) return
 
-    const appName = branding?.name || "iScholar"
+    const appName = branding?.name || "MOCAS"
     const favicon = branding?.favicon || null
     const logo = branding?.logo || null
 
