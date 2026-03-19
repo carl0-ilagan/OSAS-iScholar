@@ -11,6 +11,7 @@ import ActiveUsersChart from "@/components/admin/active-users-chart"
 import FormViewModal from "@/components/admin/form-view-modal"
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts"
 import { toast } from "sonner"
+import { isAdminEmail } from "@/lib/role-check"
 
 // Helper function to convert Firestore timestamps to ISO strings
 const convertTimestamp = (timestamp) => {
@@ -72,7 +73,6 @@ export default function UsersPage() {
   const PROFILE_TABLE_ITEMS_PER_PAGE = 10
 
   const ITEMS_PER_PAGE = 10
-  const ADMIN_EMAIL = "contact.ischolar@gmail.com"
 
   const callAdminUserAction = async (method, body) => {
     const currentUser = auth.currentUser
@@ -125,7 +125,7 @@ export default function UsersPage() {
           const data = docSnap.data()
           
           const normalizedRole = String(data.role || data.appRole || "").trim().toLowerCase()
-          const resolvedRole = normalizedRole || (data.email === ADMIN_EMAIL ? "admin" : "student")
+          const resolvedRole = normalizedRole || (isAdminEmail(data.email) ? "admin" : "student")
           
           usersData.push({
             id: docSnap.id,
@@ -162,7 +162,7 @@ export default function UsersPage() {
   }, [])
 
   const handleToggleDisable = async (targetUser) => {
-    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    const isPrimaryAdmin = isAdminEmail(targetUser.email) || String(targetUser.role || "").toLowerCase() === "admin"
     if (isPrimaryAdmin) {
       toast.error("Primary admin account cannot be disabled.")
       return
@@ -201,7 +201,7 @@ export default function UsersPage() {
   }
 
   const handleResetPassword = async (targetUser) => {
-    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    const isPrimaryAdmin = isAdminEmail(targetUser.email) || String(targetUser.role || "").toLowerCase() === "admin"
     if (isPrimaryAdmin) {
       toast.error("Primary admin account password cannot be reset here.")
       return
@@ -244,7 +244,7 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = async (targetUser) => {
-    const isPrimaryAdmin = targetUser.email === ADMIN_EMAIL || String(targetUser.role || "").toLowerCase() === "admin"
+    const isPrimaryAdmin = isAdminEmail(targetUser.email) || String(targetUser.role || "").toLowerCase() === "admin"
     if (isPrimaryAdmin) {
       toast.error("Primary admin account cannot be deleted.")
       return
@@ -2139,10 +2139,10 @@ export default function UsersPage() {
                                         }}
                                       />
                                     ) : null}
-                                    <div 
-                                      className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                                    <div
+                                      className={`w-9 h-9 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                                     >
-                                      {form.userName?.[0]?.toUpperCase() || "U"}
+                                      <User className="w-4 h-4" />
                                     </div>
                                     <div>
                                       <p className="text-sm font-medium text-foreground">{form.userName}</p>
@@ -2233,10 +2233,10 @@ export default function UsersPage() {
                                 }}
                               />
                             ) : null}
-                            <div 
-                              className={`w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 flex-shrink-0 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                            <div
+                              className={`w-12 h-12 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center flex-shrink-0 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                             >
-                              {form.userName?.[0]?.toUpperCase() || "U"}
+                              <User className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-foreground text-base mb-1 truncate">
@@ -3763,10 +3763,10 @@ export default function UsersPage() {
                                       }}
                                     />
                                   ) : null}
-                                  <div 
-                                    className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                                  <div
+                                    className={`w-9 h-9 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                                   >
-                                    {form.userName?.[0]?.toUpperCase() || "U"}
+                                    <User className="w-4 h-4" />
                                   </div>
                                 </td>
                                 <td className="px-4 py-3">
@@ -3862,10 +3862,10 @@ export default function UsersPage() {
                                 }}
                               />
                             ) : null}
-                            <div 
-                              className={`w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 flex-shrink-0 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
+                            <div
+                              className={`w-12 h-12 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center flex-shrink-0 ${form.userPhotoURL ? 'hidden' : 'flex'}`}
                             >
-                              {form.userName?.[0]?.toUpperCase() || "U"}
+                              <User className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-foreground text-base mb-1 truncate">

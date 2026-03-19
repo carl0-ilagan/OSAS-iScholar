@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, ChevronLeft, ChevronRight } from "lucide-react"
+import { Eye, ChevronLeft, ChevronRight, User } from "lucide-react"
 import VerificationDetailModal from "./verification-detail-modal"
 
 export default function VerificationTable({ verifications, currentPage, totalPages, onPageChange, onUpdate }) {
@@ -42,7 +42,7 @@ export default function VerificationTable({ verifications, currentPage, totalPag
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary overflow-hidden ring-2 ring-primary/20 shadow-sm flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 overflow-hidden shadow-sm flex-shrink-0">
                         {verification.photoURL ? (
                           <img 
                             src={verification.photoURL} 
@@ -55,10 +55,10 @@ export default function VerificationTable({ verifications, currentPage, totalPag
                             }}
                           />
                         ) : null}
-                        <div 
-                          className={`w-full h-full flex items-center justify-center font-bold text-white text-sm bg-gradient-to-br from-primary to-secondary ${verification.photoURL ? 'hidden' : ''}`}
+                        <div
+                          className={`w-full h-full flex items-center justify-center ${verification.photoURL ? 'hidden' : ''}`}
                         >
-                          {verification.name?.[0]?.toUpperCase() || "U"}
+                          <User className="w-5 h-5" />
                         </div>
                       </div>
                       <span className="font-medium text-foreground">{verification.name}</span>
@@ -113,7 +113,7 @@ export default function VerificationTable({ verifications, currentPage, totalPag
             className="bg-card border border-border rounded-lg p-4 shadow-sm"
           >
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary overflow-hidden ring-2 ring-primary/20 shadow-sm flex-shrink-0">
+              <div className="w-12 h-12 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 overflow-hidden shadow-sm flex-shrink-0">
                 {verification.photoURL ? (
                   <img 
                     src={verification.photoURL} 
@@ -126,10 +126,10 @@ export default function VerificationTable({ verifications, currentPage, totalPag
                     }}
                   />
                 ) : null}
-                <div 
-                  className={`w-full h-full flex items-center justify-center font-bold text-white text-sm bg-gradient-to-br from-primary to-secondary ${verification.photoURL ? 'hidden' : ''}`}
+                <div
+                  className={`w-full h-full flex items-center justify-center ${verification.photoURL ? 'hidden' : ''}`}
                 >
-                  {verification.name?.[0]?.toUpperCase() || "U"}
+                  <User className="w-6 h-6" />
                 </div>
               </div>
               <div className="flex-1 min-w-0">

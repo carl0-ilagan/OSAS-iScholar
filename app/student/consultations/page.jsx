@@ -51,13 +51,13 @@ export default function StudentConsultationsPage() {
   const activeCampus = useMemo(() => normalizeCampus(user?.campus || null), [user?.campus])
 
   useEffect(() => {
-    if (!user?.uid || !activeCampus) {
-      setRooms([])
-      setLoading(false)
-      return
-    }
+      if (!user?.uid || !activeCampus) {
+        setRooms([])
+        setLoading(false)
+        return
+      }
 
-    setLoading(true)
+        setLoading(true)
     const roomsQuery = query(collection(db, "consultation_rooms"), where("campus", "==", activeCampus))
     const unsub = onSnapshot(
       roomsQuery,
@@ -281,14 +281,14 @@ export default function StudentConsultationsPage() {
                   {activeRoom ? String(activeRoom.callState || "waiting") : "Not connected"}
                 </p>
               </div>
-            </div>
+          </div>
             <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-right">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Remaining</p>
               <p className="text-sm font-semibold text-slate-100">
                 {activeRoom ? formatRemainingTime(activeRoom.expiresAt) : "No timer"}
               </p>
             </div>
-          </div>
+        </div>
 
           <div className="border-b border-slate-800 px-4 py-2">
             <p className="text-xs text-slate-400">Room Creator View</p>
@@ -390,9 +390,9 @@ export default function StudentConsultationsPage() {
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-300">
                           <span className="inline-flex items-center gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            {Number(room.durationMinutes || 0)} min
-                          </span>
+                    <Clock3 className="h-3.5 w-3.5" />
+                    {Number(room.durationMinutes || 0)} min
+                  </span>
                           <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300">
                             {String(room.status || "active")}
                           </span>
@@ -514,9 +514,9 @@ export default function StudentConsultationsPage() {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
           </aside>
-        </div>
+          </div>
       </div>
     </div>
   )

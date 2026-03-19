@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { ADMIN_EMAIL } from "@/lib/role-check"
+import { isAdminEmail } from "@/lib/role-check"
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin"
 
 const UNAUTHORIZED_MESSAGE = "Unauthorized admin action."
@@ -14,7 +14,7 @@ async function requireSuperAdmin(request) {
 
   const adminAuth = getAdminAuth()
   const decoded = await adminAuth.verifyIdToken(token)
-  if (!decoded?.email || decoded.email !== ADMIN_EMAIL) {
+  if (!decoded?.email || !isAdminEmail(decoded.email)) {
     throw new Error(UNAUTHORIZED_MESSAGE)
   }
 
@@ -40,8 +40,8 @@ export async function PATCH(request) {
     }
 
     const targetUser = await adminAuth.getUser(targetUid)
-    if (targetUser.email === ADMIN_EMAIL) {
-      return badRequest("Primary admin account cannot be disabled.")
+    if (isAdminEmail(targetUser.email)) {
+      return badRequest("Admin account cannot be disabled.")
     }
 
     await adminAuth.updateUser(targetUid, { disabled })
@@ -82,8 +82,8 @@ export async function POST(request) {
     }
 
     const targetUser = await adminAuth.getUser(targetUid)
-    if (targetUser.email === ADMIN_EMAIL) {
-      return badRequest("Primary admin account password cannot be changed here.")
+    if (isAdminEmail(targetUser.email)) {
+      return badRequest("Admin account password cannot be changed here.")
     }
 
     await adminAuth.updateUser(targetUid, {
@@ -124,8 +124,8 @@ export async function DELETE(request) {
     }
 
     const targetUser = await adminAuth.getUser(targetUid)
-    if (targetUser.email === ADMIN_EMAIL) {
-      return badRequest("Primary admin account cannot be deleted.")
+    if (isAdminEmail(targetUser.email)) {
+      return badRequest("Admin account cannot be deleted.")
     }
 
     await adminAuth.deleteUser(targetUid)

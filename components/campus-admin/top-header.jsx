@@ -92,10 +92,10 @@ export default function CampusAdminTopHeader({
             <img
               src={brandLogo}
               alt={brandName || "Logo"}
-              className="h-8 w-8 rounded-lg bg-muted/40 p-1 object-contain"
+              className="h-10 w-10 rounded-xl bg-muted/40 p-1.5 object-contain"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">
               CA
             </div>
           )}

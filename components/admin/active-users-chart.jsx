@@ -4,8 +4,7 @@ import { useMemo, useState } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { TrendingUp, Filter } from "lucide-react"
-
-const ADMIN_EMAIL = "contact.ischolar@gmail.com"
+import { isAdminEmail } from "@/lib/role-check"
 
 export default function ActiveUsersChart({ users, uniqueCampuses, uniqueCourses }) {
   const [chartFilterCampus, setChartFilterCampus] = useState("all")
@@ -16,7 +15,7 @@ export default function ActiveUsersChart({ users, uniqueCampuses, uniqueCourses 
     return users.filter(user => {
       // Filter out admin and campus admin
       const role = String(user.role || user.appRole || "").trim().toLowerCase()
-      if (user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin") return false
+      if (isAdminEmail(user.email) || role === "admin" || role === "campus_admin") return false
       
       // Filter out users without @minsu.edu.ph email
       if (!user.email || !user.email.endsWith("@minsu.edu.ph")) return false

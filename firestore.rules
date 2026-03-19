@@ -6,7 +6,10 @@
         }
 
         function isSuperAdmin() {
-          return isAuthenticated() && request.auth.token.email == "contact.ischolar@gmail.com";
+          return isAuthenticated() && (
+            request.auth.token.email == "contact.ischolar@gmail.com" ||
+            request.auth.token.email == "mocas.support@gmail.com"
+          );
         }
 
         function isCampusAdmin() {
@@ -70,7 +73,7 @@
           // Allow read for all users (including unauthenticated for landing page)
           allow read: if true;
           
-          // Allow write only for admin (contact.ischolar@gmail.com)
+          // Allow write only for super admins
           allow write: if isSuperAdmin();
         }
         

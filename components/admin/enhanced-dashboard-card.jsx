@@ -1,12 +1,30 @@
 "use client"
 
-export default function EnhancedDashboardCard({ icon: Icon, label, value, color, change, trend, bgColor }) {
+export default function EnhancedDashboardCard({ icon: Icon, label, value, color, change, trend, bgColor, onClick }) {
   const isPositive = trend === "up"
   const changeColor = isPositive ? "text-green-600" : "text-red-600"
   const bgGradient = bgColor || "from-primary/20 to-primary/5"
+  const isInteractive = typeof onClick === "function"
 
   return (
-    <div className={`bg-gradient-to-br ${bgGradient} border border-border/50 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group`}>
+    <div
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={isInteractive ? onClick : undefined}
+      onKeyDown={
+        isInteractive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
+      className={`bg-gradient-to-br ${bgGradient} border border-border/50 rounded-xl p-3 md:p-4 shadow-sm transition-all duration-300 relative overflow-hidden group ${
+        isInteractive ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/35" : ""
+      }`}
+    >
       {/* Background Icon */}
       <div className={`absolute -right-3 -bottom-3 w-16 h-16 md:w-20 md:h-20 opacity-5 group-hover:opacity-10 transition-opacity duration-300`}>
         <Icon className="w-full h-full" style={{ color: `var(--${color.replace('text-', '')})` }} />

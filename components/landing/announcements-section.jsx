@@ -167,17 +167,7 @@ export default function AnnouncementsSection() {
 
   if (loading) {
     return (
-      <section
-        id="announcements"
-        className="relative overflow-hidden py-20"
-        style={{
-          backgroundImage: "url('/BG.jpg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-        }}
-      >
-        <div className="absolute inset-0 bg-emerald-900/65" />
+      <section id="announcements" className="relative bg-transparent py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-4 py-2 rounded-full mb-4 backdrop-blur-sm animate-pulse">
@@ -211,17 +201,7 @@ export default function AnnouncementsSection() {
   }
 
   return (
-      <section
-        id="announcements"
-        className="relative overflow-hidden py-20"
-        style={{
-          backgroundImage: "url('/BG.jpg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-        }}
-      >
-      <div className="absolute inset-0 bg-emerald-900/65" />
+      <section id="announcements" className="relative bg-transparent py-20">
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">

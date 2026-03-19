@@ -60,24 +60,24 @@ export default function AdminMobileHeader({ isDarkMode = false, onToggleTheme = 
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary via-primary to-secondary text-white shadow-lg border-b border-white/10">
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo and Name */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {brandLogo ? (
               <img 
                 key={brandLogo} 
                 src={brandLogo} 
                 alt={brandName || "Logo"} 
-                className="w-8 h-8 object-contain rounded-lg bg-white/10 p-1"
+                className="h-10 w-10 rounded-xl bg-white/10 p-1.5 object-contain"
                 onError={(e) => {
                   console.error("Error loading logo:", brandLogo)
                   e.target.style.display = 'none'
                 }}
               />
             ) : (
-              <div className="w-8 h-8 bg-gradient-to-br from-accent to-accent/90 rounded-lg flex items-center justify-center font-bold text-primary text-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent/90 font-bold text-primary text-sm">
                 iA
               </div>
             )}
-            <span className="font-bold text-base">
+            <span className="font-bold text-[1.05rem] leading-none">
               {brandName} Admin
             </span>
           </div>

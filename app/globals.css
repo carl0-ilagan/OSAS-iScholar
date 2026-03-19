@@ -280,6 +280,10 @@
   }
 }
 
+.landing-fixed-bg {
+  background-position: center top;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

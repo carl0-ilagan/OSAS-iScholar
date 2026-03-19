@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import { MessageSquare, RotateCcw, Search, Star, CheckCircle2, Loader2, Award, GraduationCap, Calendar, Building2 } from "lucide-react"
+import { MessageSquare, RotateCcw, Search, Star, CheckCircle2, Loader2, Award, GraduationCap, Calendar, Building2, User } from "lucide-react"
 import { toast } from "sonner"
 import TestimonialsSkeleton from "@/components/admin/testimonials-skeleton"
 
@@ -340,10 +340,10 @@ function TestimonialCard({ testimonial, isFeatured, onToggle, updating }) {
             }}
           />
         ) : null}
-        <div 
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground ${testimonial.photoURL ? 'hidden' : 'flex'}`}
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
         >
-          {testimonial.name?.[0]?.toUpperCase() || "A"}
+          <User className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="mb-1 flex items-start justify-between gap-2">

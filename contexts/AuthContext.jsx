@@ -12,12 +12,18 @@ import {
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, updateDoc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
-import { ADMIN_EMAIL, ROLE_ADMIN, ROLE_CAMPUS_ADMIN, ROLE_STUDENT } from "@/lib/role-check"
+import { ROLE_ADMIN, ROLE_CAMPUS_ADMIN, ROLE_STUDENT, isAdminEmail } from "@/lib/role-check"
 import { getCampusAdminProfileByEmail, normalizeCampus } from "@/lib/campus-admin-config"
 
 const AuthContext = createContext({})
 
 export const useAuth = () => useContext(AuthContext)
+
+function normalizePhotoURL(value) {
+  const url = String(value || "").trim()
+  if (!url) return null
+  return url.startsWith("http://") || url.startsWith("https://") ? url : null
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -35,11 +41,16 @@ export const AuthProvider = ({ children }) => {
         const userDocRef = doc(db, "users", user.uid)
         const userDoc = await getDoc(userDocRef)
         const profile = userDoc.exists() ? userDoc.data() : {}
+        const resolvedPhotoURL =
+          normalizePhotoURL(user.photoURL) ||
+          normalizePhotoURL(user.providerData?.[0]?.photoURL) ||
+          normalizePhotoURL(profile?.photoURL) ||
+          null
         const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
         const normalizedRole = String(profile?.role || "").trim().toLowerCase()
         const appRole =
           normalizedRole ||
-          (user.email === ADMIN_EMAIL
+          (isAdminEmail(user.email)
             ? ROLE_ADMIN
             : campusAdminProfile
               ? ROLE_CAMPUS_ADMIN
@@ -48,6 +59,7 @@ export const AuthProvider = ({ children }) => {
 
         setUser({
           ...user,
+          photoURL: resolvedPhotoURL,
           appRole,
           role: appRole,
           campus: resolvedCampus,
@@ -59,6 +71,7 @@ export const AuthProvider = ({ children }) => {
           email: user.email || "",
           displayName: user.displayName || profile?.displayName || "",
           fullName: profile?.fullName || user.displayName || "",
+          photoURL: resolvedPhotoURL,
           role: appRole,
           ...(resolvedCampus ? { campus: resolvedCampus } : {}),
           status: "online",
@@ -71,6 +84,7 @@ export const AuthProvider = ({ children }) => {
             status: "online",
             lastSeen: serverTimestamp(),
             updatedAt: new Date().toISOString(),
+            photoURL: resolvedPhotoURL,
             role: appRole,
             ...(resolvedCampus ? { campus: resolvedCampus } : {}),
           })
@@ -84,9 +98,10 @@ export const AuthProvider = ({ children }) => {
         console.error("Error updating user status:", error)
         const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
         const fallbackRole =
-          user.email === ADMIN_EMAIL ? ROLE_ADMIN : campusAdminProfile ? ROLE_CAMPUS_ADMIN : ROLE_STUDENT
+          isAdminEmail(user.email) ? ROLE_ADMIN : campusAdminProfile ? ROLE_CAMPUS_ADMIN : ROLE_STUDENT
         setUser({
           ...user,
+          photoURL: normalizePhotoURL(user.photoURL) || normalizePhotoURL(user.providerData?.[0]?.photoURL) || null,
           appRole: fallbackRole,
           role: fallbackRole,
           campus: normalizeCampus(campusAdminProfile?.campus || null),

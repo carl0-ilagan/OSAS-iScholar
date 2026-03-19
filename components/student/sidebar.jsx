@@ -90,14 +90,14 @@ export default function StudentSidebar() {
                 key={brandLogo}
                 src={brandLogo}
                 alt={brandName || "Logo"}
-                className="h-11 w-11 rounded-xl bg-sidebar-accent/30 p-1 object-contain shadow-sm transition-transform duration-200 group-hover:scale-105"
+                className="h-12 w-12 rounded-xl bg-sidebar-accent/30 p-1 object-contain shadow-sm transition-transform duration-200 group-hover:scale-105"
                 onError={(e) => {
                   console.error("Error loading logo:", brandLogo)
                   e.target.style.display = "none"
                 }}
               />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground shadow-sm">
                 iS
               </div>
             )}

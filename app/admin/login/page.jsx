@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
@@ -10,8 +9,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
 import { getCampusAdminProfileByEmail, normalizeCampus } from "@/lib/campus-admin-config"
-
-const ADMIN_EMAIL = "contact.ischolar@gmail.com"
+import { ADMIN_EMAILS, isAdminEmail } from "@/lib/role-check"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -25,9 +23,9 @@ export default function AdminLoginPage() {
   // Redirect if already logged in as admin
   useEffect(() => {
     const role = String(user?.appRole || user?.role || "").toLowerCase()
-    const canAccessAdmin = user && (user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin")
+    const canAccessAdmin = user && (isAdminEmail(user.email) || role === "admin" || role === "campus_admin")
     if (!authLoading && canAccessAdmin) {
-      if (role === "campus_admin" && user?.email !== ADMIN_EMAIL) {
+      if (role === "campus_admin" && !isAdminEmail(user?.email)) {
         router.push("/campus-admin")
         return
       }
@@ -45,7 +43,7 @@ export default function AdminLoginPage() {
       const role = String(userDoc.exists() ? userDoc.data()?.role : "").trim().toLowerCase()
       const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
       const canAccessAdmin =
-        user.email === ADMIN_EMAIL || role === "admin" || role === "campus_admin" || Boolean(campusAdminProfile)
+        isAdminEmail(user.email) || role === "admin" || role === "campus_admin" || Boolean(campusAdminProfile)
 
       if (!canAccessAdmin) {
         setError("Access denied. Only authorized administrators can access this page.")
@@ -55,13 +53,14 @@ export default function AdminLoginPage() {
         return
       }
 
-      if (user.email === ADMIN_EMAIL) {
+      if (isAdminEmail(user.email)) {
         await setDoc(
           userDocRef,
           {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || "Administrator",
+            photoURL: user.photoURL || null,
             role: "admin",
             status: "online",
             updatedAt: new Date().toISOString(),
@@ -77,6 +76,7 @@ export default function AdminLoginPage() {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || campusAdminProfile.label,
+            photoURL: user.photoURL || null,
             role: "campus_admin",
             campus: normalizeCampus(campusAdminProfile.campus),
             status: "online",
@@ -87,7 +87,7 @@ export default function AdminLoginPage() {
       }
       
       // Success - redirect to role portal
-      if ((role === "campus_admin" || campusAdminProfile) && user.email !== ADMIN_EMAIL) {
+      if ((role === "campus_admin" || campusAdminProfile) && !isAdminEmail(user.email)) {
         router.push("/campus-admin")
       } else {
         router.push("/admin")
@@ -108,7 +108,14 @@ export default function AdminLoginPage() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-primary to-secondary flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          backgroundImage: "url('/BG.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+        }}
+      >
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Loading...</p>
@@ -118,40 +125,46 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary to-secondary flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-8"
+      style={{
+        backgroundImage: "url('/BG.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+      }}
+    >
+      <div className="w-full max-w-lg">
+        <div className="overflow-hidden rounded-3xl border border-white/30 bg-emerald-950/55 shadow-2xl shadow-emerald-950/35 backdrop-blur-md">
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary to-secondary p-8 text-center">
-            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <div className="border-b border-white/15 px-8 pb-8 pt-10 text-center">
+            <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/45 bg-white shadow-lg">
               {brandLogo ? (
                 <img 
                   src={brandLogo} 
                   alt={brandName || "Logo"} 
-                  className="w-12 h-12 object-contain p-1"
+                  className="h-full w-full scale-[1.8] object-contain"
                 />
               ) : (
-                <span className="text-2xl font-bold text-primary">iA</span>
+                <span className="text-3xl font-bold text-primary">M</span>
               )}
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
-            <p className="text-white/90 text-sm">{brandName} Portal Administration</p>
+            <h1 className="mb-2 text-4xl font-bold tracking-tight text-white">Admin Login</h1>
+            <p className="text-sm text-emerald-50/90">{brandName} Portal Administration</p>
           </div>
 
           {/* Content */}
-          <div className="p-8">
-            <div className="space-y-6">
+          <div className="space-y-7 p-8 sm:p-10">
               {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-4 rounded-lg border border-destructive/20">
+                <div className="rounded-xl border border-destructive/30 bg-destructive/15 p-4 text-sm text-red-100">
                   {error}
                 </div>
               )}
 
-              <div className="text-center space-y-2 mb-6">
-                <p className="text-sm text-muted-foreground">
+              <div className="mb-6 space-y-2 text-center">
+                <p className="text-sm text-emerald-50/90">
                   Sign in with your authorized Google account
                 </p>
-                <p className="text-xs text-muted-foreground font-medium">
+                <p className="text-xs font-medium text-emerald-100/80">
                   Only authorized administrators can access
                 </p>
               </div>
@@ -159,7 +172,7 @@ export default function AdminLoginPage() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white hover:bg-gray-50 border-2 border-gray-300 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md font-medium"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/45 bg-white px-6 py-4 font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -191,21 +204,20 @@ export default function AdminLoginPage() {
                 )}
               </button>
 
-              <div className="text-center pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  Authorized email: {ADMIN_EMAIL}
+              <div className="border-t border-white/15 pt-4 text-center">
+                <p className="text-xs text-emerald-50/80">
+                  Authorized administrators only
                 </p>
-                <Link href="/campus-admin/login" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+                <Link href="/campus-admin/login" className="mt-2 inline-block text-xs font-semibold text-emerald-200 hover:text-white hover:underline">
                   Campus Admin Login
                 </Link>
               </div>
-            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6">
-          <p className="text-sm text-white/80">
+          <p className="text-sm text-white/95">
             © 2024 MOCAS Portal. All rights reserved.
           </p>
         </div>

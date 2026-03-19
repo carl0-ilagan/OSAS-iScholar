@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle, XCircle, Loader2, FileText, Image as ImageIcon, ZoomIn, X, MapPin } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, FileText, Image as ImageIcon, ZoomIn, X, MapPin, User } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
 import { doc, updateDoc, getDoc } from "firebase/firestore"
@@ -316,7 +316,7 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
           {/* Header - Enhanced with Status and Close */}
           <div className="flex items-start justify-between p-4 md:p-5 border-b border-border/50">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary overflow-hidden ring-1 ring-primary/20 flex-shrink-0">
+              <div className="w-10 h-10 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 overflow-hidden ring-2 ring-emerald-100 flex-shrink-0">
                 {verification.photoURL ? (
                   <img 
                     src={verification.photoURL} 
@@ -324,8 +324,8 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center font-semibold text-white text-sm bg-gradient-to-br from-primary to-secondary">
-                    {verification.name?.[0]?.toUpperCase() || "U"}
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-5 h-5" />
                   </div>
                 )}
               </div>

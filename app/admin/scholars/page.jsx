@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, getDoc, where } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
-import { Award, Building2, Search, Users } from "lucide-react"
+import { Award, Building2, Search, Users, User } from "lucide-react"
 
 const DUMMY_SCHOLARS = [
   {
@@ -241,8 +241,8 @@ export default function ScholarsPage() {
                               className="h-9 w-9 shrink-0 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                              {scholar.name?.[0]?.toUpperCase() || "S"}
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100">
+                              <User className="h-4 w-4" />
                             </div>
                           )}
                           <p className="truncate font-medium text-foreground">{scholar.name || "N/A"}</p>
@@ -277,8 +277,8 @@ export default function ScholarsPage() {
                             className="h-10 w-10 shrink-0 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                            {scholar.name?.[0]?.toUpperCase() || "S"}
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100">
+                            <User className="h-5 w-5" />
                           </div>
                         )}
                         <div className="min-w-0">

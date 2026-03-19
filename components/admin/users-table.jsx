@@ -112,10 +112,10 @@ export default function UsersTable({
                           }}
                         />
                       ) : null}
-                      <div 
-                        className={`h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 ${user.photoURL ? 'hidden' : 'flex'}`}
+                      <div
+                        className={`h-9 w-9 shrink-0 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center ${user.photoURL ? 'hidden' : 'flex'}`}
                       >
-                        {user.fullName?.[0]?.toUpperCase() || "U"}
+                        <User className="h-4 w-4" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">{user.fullName}</p>
@@ -224,10 +224,10 @@ export default function UsersTable({
                   }}
                 />
               ) : null}
-              <div 
-                className={`h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 ${user.photoURL ? 'hidden' : 'flex'}`}
+              <div
+                className={`h-12 w-12 shrink-0 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center ${user.photoURL ? 'hidden' : 'flex'}`}
               >
-                {user.fullName?.[0]?.toUpperCase() || "U"}
+                <User className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-foreground text-base mb-1 truncate">

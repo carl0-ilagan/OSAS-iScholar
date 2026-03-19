@@ -6,10 +6,11 @@ import { db } from "@/lib/firebase"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import CampusAdminLayoutWrapper from "@/app/campus-admin/campus-admin-layout"
-import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
+import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, User, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { sendNewDocumentRequirementEmail } from "@/lib/email-service"
 import DocumentPreviewModal from "@/components/admin/document-preview-modal"
+import { isAdminEmail } from "@/lib/role-check"
 
 export default function DocumentRequirementsPage() {
   const pathname = usePathname()
@@ -543,7 +544,7 @@ export default function DocumentRequirementsPage() {
           usersSnapshot.docs.forEach(async (userDoc) => {
             const userData = userDoc.data()
             // Only send to students (not admin)
-            if (userData.email && userData.email.endsWith("@minsu.edu.ph") && userData.email !== "contact.ischolar@gmail.com") {
+            if (userData.email && userData.email.endsWith("@minsu.edu.ph") && !isAdminEmail(userData.email)) {
               const studentName = userData.fullName || userData.displayName || "Student"
               const microsoftEmail = userData.email
               const secondaryEmail = userData.secondaryEmail
@@ -1373,10 +1374,10 @@ export default function DocumentRequirementsPage() {
                                             }}
                                           />
                                         ) : null}
-                                        <div 
-                                          className={`w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-xs ring-2 ring-primary/20 flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
+                                        <div
+                                          className={`w-9 h-9 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
                                         >
-                                          {record.userName?.[0]?.toUpperCase() || "U"}
+                                          <User className="w-4 h-4" />
                                         </div>
                                         <div className="min-w-0">
                                           <p className="text-sm font-medium text-foreground truncate">{record.userName}</p>
@@ -1514,10 +1515,10 @@ export default function DocumentRequirementsPage() {
                                     }}
                                   />
                                 ) : null}
-                                <div 
-                                  className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-base ring-2 ring-primary/20 flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
+                                <div
+                                  className={`w-14 h-14 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center flex-shrink-0 ${record.userPhotoURL ? 'hidden' : 'flex'}`}
                                 >
-                                  {record.userName?.[0]?.toUpperCase() || "U"}
+                                  <User className="w-6 h-6" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between gap-2 mb-1">

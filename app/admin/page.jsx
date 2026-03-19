@@ -21,6 +21,7 @@ export default function AdminDashboard() {
       icon: Users, 
       label: "Total Students", 
       value: "0", 
+      href: "/admin/users",
       color: "text-green-600",
       bgColor: "from-green-500/20 to-green-500/5",
       change: null,
@@ -30,6 +31,7 @@ export default function AdminDashboard() {
       icon: FileText, 
       label: "Pending Applications", 
       value: "0", 
+      href: "/admin/applications",
       color: "text-blue-600",
       bgColor: "from-blue-500/20 to-blue-500/5",
       change: null,
@@ -39,6 +41,7 @@ export default function AdminDashboard() {
       icon: Award, 
       label: "Scholarships Approved", 
       value: "0", 
+      href: "/admin/scholars",
       color: "text-purple-600",
       bgColor: "from-purple-500/20 to-purple-500/5",
       change: null,
@@ -48,6 +51,7 @@ export default function AdminDashboard() {
       icon: MessageSquare, 
       label: "Testimonials Received", 
       value: "0", 
+      href: "/admin/testimonials",
       color: "text-orange-600",
       bgColor: "from-orange-500/20 to-orange-500/5",
       change: null,
@@ -57,6 +61,7 @@ export default function AdminDashboard() {
       icon: Calendar, 
       label: "Upcoming Events", 
       value: "0", 
+      href: "/admin/announcements",
       color: "text-pink-600",
       bgColor: "from-pink-500/20 to-pink-500/5",
       change: null,
@@ -87,8 +92,20 @@ export default function AdminDashboard() {
           const usersSnapshot = await getDocs(collection(db, "users"))
           totalStudentsCount = usersSnapshot.docs.filter(doc => {
             const data = doc.data()
-            // Filter out admin accounts
-            return data.email !== "contact.ischolar@gmail.com" && data.email?.endsWith("@minsu.edu.ph")
+            const normalizedRole = String(data.role || data.appRole || "").trim().toLowerCase()
+            if (normalizedRole === "admin" || normalizedRole === "campus_admin" || normalizedRole === "campusadmin") {
+              return false
+            }
+
+            if (normalizedRole === "student") {
+              return true
+            }
+
+            // Backward compatibility for old user docs without explicit role.
+            // Treat as student only if it looks like a student account.
+            const email = String(data.email || "").toLowerCase()
+            const hasStudentSignals = Boolean(data.studentNumber || data.course || data.yearLevel)
+            return email.endsWith("@minsu.edu.ph") && hasStudentSignals
           }).length
         } catch (error) {
           console.error("Error fetching students:", error)
@@ -174,6 +191,7 @@ export default function AdminDashboard() {
             icon: Users, 
             label: "Total Students", 
             value: totalStudentsCount.toLocaleString(), 
+            href: "/admin/users",
             color: "text-green-600",
             bgColor: "from-green-500/20 to-green-500/5",
             change: calculateChange(totalStudentsCount),
@@ -183,6 +201,7 @@ export default function AdminDashboard() {
             icon: FileText, 
             label: "Pending Applications", 
             value: pendingApplicationsCount.toLocaleString(), 
+            href: "/admin/applications",
             color: "text-blue-600",
             bgColor: "from-blue-500/20 to-blue-500/5",
             change: calculateChange(pendingApplicationsCount),
@@ -192,6 +211,7 @@ export default function AdminDashboard() {
             icon: Award, 
             label: "Scholarships Approved", 
             value: approvedScholarshipsCount.toLocaleString(), 
+            href: "/admin/scholars",
             color: "text-purple-600",
             bgColor: "from-purple-500/20 to-purple-500/5",
             change: calculateChange(approvedScholarshipsCount),
@@ -201,6 +221,7 @@ export default function AdminDashboard() {
             icon: MessageSquare, 
             label: "Testimonials Received", 
             value: testimonialsCount.toLocaleString(), 
+            href: "/admin/testimonials",
             color: "text-orange-600",
             bgColor: "from-orange-500/20 to-orange-500/5",
             change: calculateChange(testimonialsCount),
@@ -210,6 +231,7 @@ export default function AdminDashboard() {
             icon: Calendar, 
             label: "Upcoming Events", 
             value: upcomingEventsCount.toLocaleString(), 
+            href: "/admin/announcements",
             color: "text-pink-600",
             bgColor: "from-pink-500/20 to-pink-500/5",
             change: calculateChange(upcomingEventsCount),
@@ -479,7 +501,11 @@ export default function AdminDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-5">
               {metrics.map((metric, index) => (
-                <EnhancedDashboardCard key={index} {...metric} />
+                <EnhancedDashboardCard
+                  key={index}
+                  {...metric}
+                  onClick={metric.href ? () => router.push(metric.href) : undefined}
+                />
               ))}
             </div>
           )}

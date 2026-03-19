@@ -61,10 +61,10 @@ export default function ScholarsTable({ scholars }) {
                           }}
                         />
                       ) : null}
-                      <div 
-                        className={`w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 ${scholar.photoURL ? 'hidden' : 'flex'}`}
+                      <div
+                        className={`w-10 h-10 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center ${scholar.photoURL ? 'hidden' : 'flex'}`}
                       >
-                        {scholar.name?.[0]?.toUpperCase() || "S"}
+                        <User className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{scholar.name}</p>
@@ -145,10 +145,10 @@ export default function ScholarsTable({ scholars }) {
                   }}
                 />
               ) : null}
-              <div 
-                className={`w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm ring-2 ring-primary/20 flex-shrink-0 ${scholar.photoURL ? 'hidden' : 'flex'}`}
+              <div
+                className={`w-12 h-12 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center flex-shrink-0 ${scholar.photoURL ? 'hidden' : 'flex'}`}
               >
-                {scholar.name?.[0]?.toUpperCase() || "S"}
+                <User className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-foreground text-base mb-1 truncate">

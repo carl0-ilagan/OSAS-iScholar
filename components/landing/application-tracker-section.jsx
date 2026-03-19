@@ -134,17 +134,7 @@ export default function ApplicationTrackerSection() {
   const StatusIcon = status?.icon || Clock
 
   return (
-    <section
-      id="track-application"
-      className="relative overflow-hidden py-20"
-      style={{
-        backgroundImage: "url('/BG.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="absolute inset-0 bg-emerald-900/65" />
+    <section id="track-application" className="relative bg-transparent py-20">
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur-sm">

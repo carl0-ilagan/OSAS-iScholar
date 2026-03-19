@@ -6,6 +6,7 @@ import FeaturesSection from "@/components/landing/features-section"
 import BenefitsSection from "@/components/landing/benefits-section"
 import TestimonialsSection from "@/components/landing/testimonials-section"
 import Footer from "@/components/common/footer"
+import ScrollTopFab from "@/components/common/scroll-top-fab"
 
 export const metadata = {
   title: "MOCAS Portal",
@@ -15,7 +16,15 @@ export const metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#eef6f0] text-foreground">
+    <div className="relative min-h-screen bg-transparent text-foreground">
+      <div
+        className="pointer-events-none fixed inset-0 z-0 landing-fixed-bg"
+        style={{
+          backgroundImage: "url('/BG.jpg')",
+          backgroundSize: "cover",
+        }}
+      />
+      <div className="relative z-10">
       <Header />
       <Hero />
       <div className="relative">
@@ -26,6 +35,8 @@ export default function Home() {
         <TestimonialsSection />
       </div>
       <Footer />
+      <ScrollTopFab />
+      </div>
     </div>
   )
 }

@@ -86,8 +86,8 @@ export default function ApplicationsTable({ applications, onUpdate, reviewedBy =
                           className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
-                          <User className="w-4 h-4 text-primary" />
+                        <div className="w-9 h-9 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center">
+                          <User className="w-4 h-4" />
                         </div>
                       )}
                       <div>
@@ -147,8 +147,8 @@ export default function ApplicationsTable({ applications, onUpdate, reviewedBy =
                     className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
-                    <User className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-100 flex items-center justify-center">
+                    <User className="w-5 h-5" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">

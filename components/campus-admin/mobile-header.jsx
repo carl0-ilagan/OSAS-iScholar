@@ -45,15 +45,15 @@ export default function CampusAdminMobileHeader() {
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-gradient-to-r from-primary to-secondary px-4 py-3 text-white md:hidden">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
             {brandLogo ? (
-              <img src={brandLogo} alt={brandName || "Logo"} className="h-6 w-6 object-contain" />
+              <img src={brandLogo} alt={brandName || "Logo"} className="h-8 w-8 object-contain" />
             ) : (
-              <Building2 className="h-4 w-4" />
+              <Building2 className="h-5 w-5" />
             )}
           </div>
-          <span className="text-sm font-semibold">{brandName} Campus Admin</span>
+          <span className="text-sm font-semibold md:text-base">{brandName} Campus Admin</span>
         </div>
 
         <div className="relative" ref={menuRef}>

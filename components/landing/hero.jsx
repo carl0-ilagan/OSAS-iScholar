@@ -13,17 +13,8 @@ export default function Hero() {
   const [signupOpen, setSignupOpen] = useState(false)
 
   return (
-    <section
-      id="home"
-      className="relative overflow-hidden pb-20 pt-32 md:pb-24 md:pt-28"
-      style={{
-        backgroundImage: "url('/BG.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section id="home" className="relative bg-transparent pb-20 pt-24 md:pb-24 md:pt-24">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 md:grid-cols-2">
           {/* Left Content */}
           <div className="space-y-7 text-white">
