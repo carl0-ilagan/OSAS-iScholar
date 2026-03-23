@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileText, Megaphone, MessageSquare, Users, Award, Palette, BookOpen, FolderCheck, FilePenLine } from "lucide-react"
+import { LayoutDashboard, FileText, Megaphone, MessageSquare, Users, Award, Palette, BookOpen, FolderCheck } from "lucide-react"
 import { useBranding } from "@/contexts/BrandingContext"
 
 const navGroups = [
@@ -17,7 +17,6 @@ const navGroups = [
   {
     label: "Content",
     items: [
-      { icon: FilePenLine, label: "PDF Form Builder", href: "/admin/pdf-forms" },
       { icon: FolderCheck, label: "Requirements", href: "/admin/requirements" },
       { icon: BookOpen, label: "Scholarships", href: "/admin/scholarships" },
       { icon: Award, label: "Scholars", href: "/admin/scholars" },

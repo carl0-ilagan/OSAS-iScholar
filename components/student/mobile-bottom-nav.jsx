@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, ClipboardCheck, FilePenLine, Video } from "lucide-react"
+import { LayoutDashboard, FileCheck, FileText, History, MessageSquare, ClipboardCheck, Video } from "lucide-react"
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/student" },
   { icon: FileText, label: "Apply", href: "/student/apply" },
-  { icon: FilePenLine, label: "PDF", href: "/student/pdf-forms" },
   { icon: History, label: "History", href: "/student/applications" },
   { icon: Video, label: "Consult", href: "/student/consultations" },
   { icon: ClipboardCheck, label: "Requirements", href: "/student/requirements" },

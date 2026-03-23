@@ -32,7 +32,9 @@ export default function AdminTopHeader({
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const [profileImageError, setProfileImageError] = useState(false)
   const dropdownRef = useRef(null)
-  const validProfilePhoto = Boolean(user?.photoURL && /^https?:\/\//i.test(user.photoURL) && !profileImageError)
+  const validProfilePhoto = Boolean(
+    user?.photoURL && (/^https?:\/\//i.test(user.photoURL) || /^data:image\//i.test(user.photoURL)) && !profileImageError,
+  )
 
   useEffect(() => {
     const handleClickOutside = (event) => {

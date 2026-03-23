@@ -8,48 +8,6 @@ import { MessageSquare, Star, ChevronLeft, ChevronRight, Calendar, Quote, Award,
 import TestimonialModal from "@/components/student/testimonial-modal"
 import TestimonialsSkeleton from "@/components/student/testimonials-skeleton"
 
-const STATIC_TESTIMONIALS = [
-  {
-    id: "demo-t1",
-    userId: "demo-u1",
-    name: "Carl Angelo G.",
-    photoURL: null,
-    testimonial:
-      "Malaking tulong sa tuition ko ang scholarship. Mas naging focus ako sa studies at mas confident akong tapusin ang program.",
-    rating: 5,
-    scholarship: "Merit Scholarship",
-    course: "BSIT",
-    campus: "Mindoro State University",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20),
-  },
-  {
-    id: "demo-t2",
-    userId: "demo-u2",
-    name: "Mica R.",
-    photoURL: null,
-    testimonial:
-      "Naibsan yung financial burden namin. Dito ko nalaman na may suporta talaga sa students, at nakakatulong siya sa pagpaplano ng budget.",
-    rating: 4,
-    scholarship: "Tertiary Education Subsidy (TES)",
-    course: "BSIT",
-    campus: "Mindoro State University",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4),
-  },
-  {
-    id: "demo-t3",
-    userId: "demo-u3",
-    name: "Kristine A.",
-    photoURL: null,
-    testimonial:
-      "Thankful ako dahil natuloy ang pag-aaral ko kahit may challenges sa home. Malaking impact sa confidence at future plans ko.",
-    rating: 5,
-    scholarship: "Needs-Based Grant",
-    course: "BSIT",
-    campus: "Mindoro State University",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
-  },
-]
-
 function isPermissionDenied(error) {
   const code = String(error?.code || "").toLowerCase()
   const message = String(error?.message || "").toLowerCase()
@@ -178,13 +136,11 @@ export default function TestimonialsPage() {
           return bTime - aTime
         })
 
-        const finalData = testimonialsData.length > 0 ? testimonialsData : STATIC_TESTIMONIALS
-        setTestimonials(finalData)
-        setFilteredTestimonials(finalData)
+        setTestimonials(testimonialsData)
+        setFilteredTestimonials(testimonialsData)
       } catch (error) {
-        const finalData = isPermissionDenied(error) ? STATIC_TESTIMONIALS : []
-        setTestimonials(finalData)
-        setFilteredTestimonials(finalData)
+        setTestimonials([])
+        setFilteredTestimonials([])
         if (!isPermissionDenied(error)) console.error("Error fetching testimonials:", error)
       }
     }
@@ -265,11 +221,11 @@ export default function TestimonialsPage() {
   if (loading) {
     return (
       <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="px-3 pb-20 pt-3 md:px-6 md:pb-8 md:pt-4 lg:px-8 lg:pb-10">
           <div 
             className="space-y-8 transition-all duration-300"
           >
-            <div className="bg-gradient-to-br from-card via-card to-secondary/5 border border-border rounded-xl p-6 md:p-8 shadow-lg">
+            <div className="rounded-xl border border-border bg-gradient-to-br from-card via-card to-secondary/5 p-4 shadow-lg md:p-8">
               <TestimonialsSkeleton />
             </div>
           </div>
@@ -280,19 +236,19 @@ export default function TestimonialsPage() {
 
   return (
     <div className="relative">
-      <div className="p-4 md:p-6 lg:p-8">
+      <div className="px-3 pb-20 pt-3 md:px-6 md:pb-8 md:pt-4 lg:px-8 lg:pb-10">
         {/* Testimonials Section - Exact same width as banner */}
         <div 
-          className="bg-gradient-to-br from-card via-card to-secondary/5 border border-border rounded-2xl p-6 md:p-8 lg:p-10 xl:p-12 shadow-xl transition-all duration-300"
+          className="rounded-2xl border border-border bg-gradient-to-br from-card via-card to-secondary/5 p-4 shadow-xl transition-all duration-300 sm:p-5 md:p-8 lg:p-10 xl:p-12"
         >
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+            <div className="mb-6 flex flex-col gap-3 sm:mb-7 md:mb-8 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Student Testimonials</h2>
-                <p className="text-base text-muted-foreground">Read what other students are saying about their scholarship experience</p>
+                <h2 className="mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-2xl font-bold text-transparent sm:text-3xl md:text-4xl">Student Testimonials</h2>
+                <p className="text-sm text-muted-foreground sm:text-base">Read what other students are saying about their scholarship experience</p>
               </div>
               <button
                 onClick={() => setIsTestimonialModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white rounded-xl transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl w-full md:w-auto justify-center transform hover:scale-105"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:from-primary/90 hover:to-secondary/90 hover:shadow-xl sm:px-6 sm:py-3 md:w-auto md:transform md:hover:scale-105"
               >
                 <MessageSquare className="w-5 h-5" />
                 Share Your Testimonial
@@ -301,12 +257,12 @@ export default function TestimonialsPage() {
 
             {/* Filters and Sort */}
             {testimonials.length > 0 && (
-              <div className="mb-6 p-5 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="mb-6 rounded-xl border border-border bg-gradient-to-br from-muted/50 to-muted/30 p-3.5 shadow-sm sm:p-5">
+                <div className="mb-3.5 flex items-center gap-2 sm:mb-4">
                   <Filter className="w-4 h-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground">Filters & Sort</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                   {/* Scholarship Filter */}
                   <div>
                     <label className="block text-xs font-medium text-foreground mb-2 flex items-center gap-1.5">
@@ -317,7 +273,7 @@ export default function TestimonialsPage() {
                       <select
                         value={selectedScholarship}
                         onChange={(e) => setSelectedScholarship(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5"
+                        className="w-full cursor-pointer appearance-none rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 sm:px-4"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                           backgroundRepeat: 'no-repeat',
@@ -344,7 +300,7 @@ export default function TestimonialsPage() {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 appearance-none cursor-pointer hover:border-primary/50 hover:bg-primary/5"
+                        className="w-full cursor-pointer appearance-none rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 sm:px-4"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                           backgroundRepeat: 'no-repeat',
@@ -375,19 +331,19 @@ export default function TestimonialsPage() {
             ) : (
               <>
                 {/* Testimonials Grid - Enhanced Cards */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8 mb-8">
+                <div className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:gap-6 lg:grid-cols-3 lg:gap-8">
                   {paginatedTestimonials.map((testimonial) => (
                     <div
                       key={testimonial.id}
-                      className="bg-card border border-border rounded-2xl p-6 md:p-7 hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 flex flex-col group"
+                      className="group flex flex-col rounded-2xl border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:p-5 md:p-6 lg:p-7 lg:hover:scale-[1.02]"
                     >
                       {/* Card Header */}
-                      <div className="flex items-start gap-4 mb-5">
+                      <div className="mb-4 flex items-start gap-3 sm:mb-5 sm:gap-4">
                         {testimonial.photoURL ? (
                           <img
                             src={testimonial.photoURL}
                             alt={testimonial.name}
-                            className="w-14 h-14 rounded-full object-cover ring-2 ring-primary/30 shadow-md flex-shrink-0 group-hover:ring-primary/50 transition-all duration-300"
+                            className="h-12 w-12 flex-shrink-0 rounded-full object-cover ring-2 ring-primary/30 shadow-md transition-all duration-300 group-hover:ring-primary/50 sm:h-14 sm:w-14"
                             onError={(e) => {
                               e.target.style.display = 'none'
                               const fallback = e.target.nextElementSibling
@@ -396,12 +352,12 @@ export default function TestimonialsPage() {
                           />
                         ) : null}
                         <div 
-                          className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-lg ring-2 ring-primary/30 shadow-md flex-shrink-0 group-hover:ring-primary/50 transition-all duration-300 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
+                          className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-base font-bold text-white ring-2 ring-primary/30 shadow-md transition-all duration-300 group-hover:ring-primary/50 sm:h-14 sm:w-14 sm:text-lg ${testimonial.photoURL ? 'hidden' : 'flex'}`}
                         >
                           {testimonial.name?.[0]?.toUpperCase() || "A"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-foreground text-lg mb-2 truncate group-hover:text-primary transition-colors duration-300">
+                          <p className="mb-2 truncate text-base font-bold text-foreground transition-colors duration-300 group-hover:text-primary sm:text-lg">
                             {testimonial.name}
                           </p>
                           <div className="flex items-center gap-1 mb-3">
@@ -418,19 +374,19 @@ export default function TestimonialsPage() {
                           </div>
                           {/* Scholarship */}
                           <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5 text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg border border-primary/20 transition-all duration-200">
+                            <div className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-primary transition-all duration-200 hover:bg-primary/20 sm:px-3">
                               <Award className="w-3.5 h-3.5" />
-                              <span className="text-xs font-semibold truncate max-w-[160px]">{testimonial.scholarship}</span>
+                              <span className="max-w-[145px] truncate text-xs font-semibold sm:max-w-[160px]">{testimonial.scholarship}</span>
                             </div>
                           </div>
                         </div>
                       </div>
                       
                       {/* Testimonial Content */}
-                      <div className="flex-1 mb-5 relative">
+                      <div className="relative mb-4 flex-1 sm:mb-5">
                         <Quote className="w-7 h-7 text-primary/20 absolute -top-1 -left-1 group-hover:text-primary/30 transition-colors duration-300" />
                         <div className="pl-6">
-                          <p className={`text-sm text-foreground leading-relaxed transition-all duration-300 ${
+                          <p className={`text-sm leading-relaxed text-foreground transition-all duration-300 ${
                             expandedCards.has(testimonial.id) ? '' : 'line-clamp-5'
                           }`}>
                             {testimonial.testimonial}
@@ -457,8 +413,8 @@ export default function TestimonialsPage() {
                       </div>
                       
                       {/* Card Footer - Date & Time like Facebook */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-5 border-t border-border/50 mt-auto">
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors duration-200">
+                      <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-4 text-xs text-muted-foreground sm:gap-2 sm:pt-5">
+                        <div className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors duration-200 hover:bg-muted/50">
                           <Calendar className="w-3.5 h-3.5" />
                           <span className="font-semibold">
                             {formatTimeAgo(testimonial.createdAt)}
@@ -480,29 +436,29 @@ export default function TestimonialsPage() {
 
                 {/* Pagination footer (uniform: Previous | Page X of Y | Next) */}
                 {totalPages > 1 && (
-                  <div className="flex flex-col gap-3 pt-6 border-t border-border/50 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col gap-3 border-t border-border/50 pt-5 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
+                    <div className="text-center text-xs text-muted-foreground sm:text-left sm:text-sm">
                       Showing{" "}
                       <span className="font-semibold text-foreground">{startIndex + 1}</span> to{" "}
                       <span className="font-semibold text-foreground">{Math.min(endIndex, filteredTestimonials.length)}</span>{" "}
                       of <span className="font-semibold text-foreground">{filteredTestimonials.length}</span> testimonial
                       {filteredTestimonials.length !== 1 ? "s" : ""}
                     </div>
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-center gap-2 sm:justify-end">
                       <button
                         onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
-                        className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                       >
                         Previous
                       </button>
-                      <span className="px-2 text-xs font-medium text-foreground">
+                      <span className="px-1.5 text-xs font-medium text-foreground sm:px-2">
                         Page {currentPage} of {totalPages}
                       </span>
                       <button
                         onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
-                        className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                       >
                         Next
                       </button>

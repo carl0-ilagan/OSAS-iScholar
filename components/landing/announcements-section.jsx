@@ -3,19 +3,19 @@
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy } from "firebase/firestore"
-import { Calendar, MapPin, Clock, Bell, ChevronLeft, ChevronRight } from "lucide-react"
+import { Calendar, MapPin, Clock, Bell, X, ChevronLeft, ChevronRight } from "lucide-react"
 
 export default function AnnouncementsSection() {
   const [announcements, setAnnouncements] = useState([])
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [galleryImages, setGalleryImages] = useState([])
+  const [galleryIndex, setGalleryIndex] = useState(0)
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
         setLoading(true)
-        // Add cache-busting timestamp to ensure fresh data
-        const timestamp = Date.now()
         let snapshot
         try {
           snapshot = await getDocs(query(collection(db, "announcements"), orderBy("createdAt", "desc")))
@@ -49,26 +49,21 @@ export default function AnnouncementsSection() {
               description: data.description || "",
               endDate: endDate,
               venue: data.venue || "",
+              images: Array.isArray(data.images) ? data.images : [],
               createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date(),
             })
           }
         })
 
-        // Sort by creation date (newest first) and limit to 6 most recent
+        // Sort by creation date (newest first)
         activeAnnouncements.sort((a, b) => {
           const dateA = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
           const dateB = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
           return dateB - dateA
         })
 
-        const limitedAnnouncements = activeAnnouncements.slice(0, 6) // Limit to 6
-        setAnnouncements(limitedAnnouncements)
-        
-        // Start from center (if 6 items, start at index 1 to show items 1, 2, 3)
-        if (limitedAnnouncements.length > 3) {
-          const centerStart = Math.floor((limitedAnnouncements.length - 3) / 2)
-          setCurrentIndex(centerStart)
-        }
+        // Landing page shows up to 9 latest active announcements.
+        setAnnouncements(activeAnnouncements.slice(0, 9))
       } catch (error) {
         if (error?.code !== "permission-denied") {
           console.error("Error fetching announcements:", error)
@@ -104,52 +99,12 @@ export default function AnnouncementsSection() {
     }
   }, [])
 
-  // Auto-slide functionality
   useEffect(() => {
-    if (announcements.length <= 3) return
-
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => {
-        // Calculate next index, wrapping around
-        const nextIndex = prev + 3
-        if (nextIndex >= announcements.length) {
-          // If we've reached the end, go back to center
-          const centerStart = Math.floor((announcements.length - 3) / 2)
-          return centerStart
-        }
-        return nextIndex
-      })
-    }, 5000) // Auto-scroll every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [announcements.length])
-
-  const nextSlide = () => {
-    if (announcements.length <= 3) return
-    setCurrentIndex((prev) => {
-      const nextIndex = prev + 3
-      if (nextIndex >= announcements.length) {
-        const centerStart = Math.floor((announcements.length - 3) / 2)
-        return centerStart
-      }
-      return nextIndex
-    })
-  }
-
-  const prevSlide = () => {
-    if (announcements.length <= 3) return
-    setCurrentIndex((prev) => {
-      const prevIndex = prev - 3
-      if (prevIndex < 0) {
-        // If we've reached the beginning, go to the last possible position
-        const lastStart = announcements.length - 3
-        return lastStart
-      }
-      return prevIndex
-    })
-  }
-
-  const visibleAnnouncements = announcements.slice(currentIndex, currentIndex + 3)
+    const totalPages = Math.max(1, Math.ceil(announcements.length / 3))
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(0)
+    }
+  }, [announcements.length, currentPage])
 
   const formatDate = (date) => {
     if (!date) return ""
@@ -163,6 +118,38 @@ export default function AnnouncementsSection() {
     } catch (e) {
       return ""
     }
+  }
+
+  const openGallery = (images, index = 0) => {
+    setGalleryImages(images || [])
+    setGalleryIndex(index)
+  }
+
+  const closeGallery = () => {
+    setGalleryImages([])
+    setGalleryIndex(0)
+  }
+
+  const prevImage = () => {
+    setGalleryIndex((prev) => (prev <= 0 ? galleryImages.length - 1 : prev - 1))
+  }
+
+  const nextImage = () => {
+    setGalleryIndex((prev) => (prev >= galleryImages.length - 1 ? 0 : prev + 1))
+  }
+
+  const totalPages = Math.max(1, Math.ceil(announcements.length / 3))
+  const currentStart = currentPage * 3
+  const visibleAnnouncements = announcements.length > 3 ? announcements.slice(currentStart, currentStart + 3) : announcements
+
+  const nextPage = () => {
+    if (announcements.length <= 3) return
+    setCurrentPage((prev) => (prev >= totalPages - 1 ? 0 : prev + 1))
+  }
+
+  const prevPage = () => {
+    if (announcements.length <= 3) return
+    setCurrentPage((prev) => (prev <= 0 ? totalPages - 1 : prev - 1))
   }
 
   if (loading) {
@@ -214,14 +201,65 @@ export default function AnnouncementsSection() {
 
         {announcements.length > 0 ? (
           <div className="relative">
-            {/* Announcements Carousel */}
-            <div className={`flex flex-wrap justify-center md:grid md:grid-cols-3 gap-6 overflow-hidden`}>
+            {announcements.length > 3 ? (
+              <>
+                <button
+                  onClick={prevPage}
+                  className="absolute -left-3 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/25 bg-white/90 p-2 text-emerald-800 shadow-lg transition hover:scale-105 hover:bg-white md:-left-5"
+                  aria-label="Previous announcements"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={nextPage}
+                  className="absolute -right-3 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/25 bg-white/90 p-2 text-emerald-800 shadow-lg transition hover:scale-105 hover:bg-white md:-right-5"
+                  aria-label="Next announcements"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
+
+            <div className={`overflow-hidden gap-6 ${visibleAnnouncements.length >= 3 ? "grid md:grid-cols-3" : "flex flex-wrap justify-center"}`}>
               {visibleAnnouncements.map((announcement, index) => (
               <div
                 key={announcement.id}
-                className="group w-full max-w-sm animate-in slide-in-from-right fade-in rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-white/35 hover:bg-white/15 md:max-w-none"
+                className={`group animate-in slide-in-from-right fade-in rounded-2xl border border-white/20 bg-white/10 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-white/35 hover:bg-white/15 ${
+                  visibleAnnouncements.length >= 3 ? "w-full" : "w-full max-w-4xl"
+                }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
+                {Array.isArray(announcement.images) && announcement.images.length > 0 ? (
+                  <div className="mb-5 overflow-hidden rounded-xl border border-white/20 bg-black/20">
+                    {announcement.images.length === 1 ? (
+                      <button type="button" className="block w-full" onClick={() => openGallery(announcement.images, 0)}>
+                        <img src={announcement.images[0]} alt={announcement.title} className="h-64 w-full object-cover" />
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1">
+                        {announcement.images.slice(0, 4).map((img, imageIndex) => {
+                          const hiddenCount = announcement.images.length - 4
+                          const isLastVisible = imageIndex === 3 && hiddenCount > 0
+                          return (
+                            <button
+                              key={`${announcement.id}-img-${imageIndex}`}
+                              type="button"
+                              className="relative block"
+                              onClick={() => openGallery(announcement.images, imageIndex)}
+                            >
+                              <img src={img} alt={`${announcement.title} ${imageIndex + 1}`} className="h-44 w-full object-cover" />
+                              {isLastVisible ? (
+                                <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-xl font-semibold text-white">
+                                  +{hiddenCount}
+                                </span>
+                              ) : null}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/20">
                     <Bell className="w-5 h-5 text-emerald-100" />
@@ -243,7 +281,7 @@ export default function AnnouncementsSection() {
                   {announcement.endDate && (
                     <div className="flex items-center gap-2 text-xs text-emerald-50/80">
                       <Calendar className="w-4 h-4 flex-shrink-0" />
-                      <span>Starts: {formatDate(announcement.endDate)}</span>
+                      <span>Visible until: {formatDate(announcement.endDate)}</span>
                     </div>
                   )}
                   {announcement.venue && (
@@ -261,43 +299,20 @@ export default function AnnouncementsSection() {
               ))}
             </div>
 
-            {/* Navigation Buttons */}
-            {announcements.length > 3 && (
-              <>
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-0 top-1/2 z-10 -translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:-translate-x-6"
-                  aria-label="Previous announcements"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-0 top-1/2 z-10 translate-x-4 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:bg-muted hover:shadow-md md:translate-x-6"
-                  aria-label="Next announcements"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            )}
-
-            {/* Dots Indicator */}
-            {announcements.length > 3 && (
-              <div className="flex justify-center gap-2 mt-10">
-                {Array.from({ length: Math.ceil(announcements.length / 3) }).map((_, index) => (
+            {announcements.length > 3 ? (
+              <div className="mt-5 flex justify-center gap-1.5">
+                {Array.from({ length: totalPages }).map((_, pageIndex) => (
                   <button
-                    key={index}
-                    onClick={() => setCurrentIndex(index * 3)}
-                    className={`h-1.5 rounded-full transition-all duration-200 ${
-                      Math.floor(currentIndex / 3) === index
-                        ? "bg-primary w-8"
-                        : "bg-border w-1.5 hover:bg-primary/40"
+                    key={`page-dot-${pageIndex}`}
+                    onClick={() => setCurrentPage(pageIndex)}
+                    className={`h-2 rounded-full transition-all ${
+                      pageIndex === currentPage ? "w-6 bg-emerald-300" : "w-2 bg-white/50 hover:bg-white/80"
                     }`}
-                    aria-label={`Go to slide ${index + 1}`}
+                    aria-label={`Go to page ${pageIndex + 1}`}
                   />
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="rounded-2xl border-2 border-white/20 bg-white/10 p-12 text-center shadow-lg backdrop-blur-sm">
@@ -311,6 +326,65 @@ export default function AnnouncementsSection() {
           </div>
         )}
       </div>
+
+      {galleryImages.length > 0 ? (
+        <div className="fixed inset-0 z-[250] bg-black/90 backdrop-blur-sm p-4">
+          <button
+            type="button"
+            onClick={closeGallery}
+            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/20 bg-black/45 text-white hover:bg-black/70"
+            aria-label="Close gallery"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex h-full items-center justify-center">
+            <div className="w-full max-w-5xl">
+              <div className="mx-auto overflow-hidden rounded-2xl border border-white/15 bg-black/20 shadow-2xl">
+                <img src={galleryImages[galleryIndex]} alt={`Announcement image ${galleryIndex + 1}`} className="max-h-[78vh] w-full object-contain" />
+              </div>
+            </div>
+          </div>
+          {galleryImages.length > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white hover:bg-black/70"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white hover:bg-black/70"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          ) : null}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-xs text-white">
+            {galleryIndex + 1} / {galleryImages.length}
+          </div>
+          {galleryImages.length > 1 ? (
+            <div className="absolute bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+              {galleryImages.map((_, idx) => (
+                <button
+                  key={`landing-dot-${idx}`}
+                  type="button"
+                  onClick={() => setGalleryIndex(idx)}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === galleryIndex ? "w-6 bg-white" : "w-2 bg-white/45 hover:bg-white/70"
+                  }`}
+                  aria-label={`Go to image ${idx + 1}`}
+                />
+              ))}
+            </div>
+          ) : null}
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_55%)]" />
+        </div>
+      ) : null}
     </section>
   )
 }

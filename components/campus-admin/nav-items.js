@@ -2,7 +2,7 @@ import { LayoutDashboard, Users, FileText, Award, MessageSquare, Video, FileChec
 
 export const campusAdminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/campus-admin" },
-  { icon: Users, label: "User Management", href: "/campus-admin/users" },
+  { icon: Users, label: "Students", href: "/campus-admin/users" },
   { icon: FileText, label: "Applications", href: "/campus-admin/applications" },
   { icon: GraduationCap, label: "Scholars", href: "/campus-admin/scholars" },
   { icon: FileCheck, label: "Requirements", href: "/campus-admin/requirements" },

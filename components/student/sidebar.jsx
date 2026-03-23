@@ -10,7 +10,6 @@ import {
   MessageSquare,
   LogOut,
   ClipboardCheck,
-  FilePenLine,
   Video,
   UserRound,
 } from "lucide-react"
@@ -23,7 +22,6 @@ import LogoutModal from "./logout-modal"
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/student" },
   { icon: FileText, label: "Apply Scholarship", href: "/student/apply" },
-  { icon: FilePenLine, label: "PDF Forms", href: "/student/pdf-forms" },
   { icon: History, label: "Application History", href: "/student/applications" },
   { icon: Video, label: "Consultation", href: "/student/consultations" },
   { icon: ClipboardCheck, label: "Requirements", href: "/student/requirements" },

@@ -9,26 +9,6 @@ import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, runT
 import { useAuth } from "@/contexts/AuthContext"
 import { generateScholarshipCode } from "@/lib/scholarship-tracker"
 
-// Static scholarship data fallback
-const STATIC_SCHOLARSHIP_DATA = {
-  "Merit Scholarship": {
-    benefit: "Full Tuition + Stipend + Allowance",
-    benefitAmount: "Up to ₱80,000/year (SUC)",
-  },
-  "Needs-Based Grant": {
-    benefit: "Tuition support based on family income",
-    benefitAmount: "Up to 50% Tuition Coverage",
-  },
-  "Tertiary Education Subsidy (TES)": {
-    benefit: "Annual educational subsidy",
-    benefitAmount: "₱20,000/year (SUC)",
-  },
-  "Teacher Development Program (TDP)": {
-    benefit: "Financial support every semester",
-    benefitAmount: "₱7,500 per semester (₱15,000/year)",
-  },
-}
-
 export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, userData, onApplicationSubmitted }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [documentRequirements, setDocumentRequirements] = useState([])
@@ -264,13 +244,10 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
       const trackerCode = await generateScholarshipCode(scholarship.name)
 
       // Get benefit data
-      const staticData = STATIC_SCHOLARSHIP_DATA[scholarship.name] || {}
       const benefitAmount = scholarship.benefitAmount || 
                            scholarship.amount || 
-                           staticData.benefitAmount || 
                            "N/A"
       const benefit = scholarship.benefit || 
-                     staticData.benefit || 
                      "N/A"
 
       // Note: Slots are now decremented when admin approves the application, not when student applies
@@ -302,15 +279,15 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
         if (userDoc.exists()) {
           const userData = userDoc.data()
           const studentName = userData.fullName || userData.displayName || "Student"
-          const secondaryEmail = userData.secondaryEmail
+          const accountEmail = userData.email
           
-          // Send email to student (if secondary email exists)
-          if (secondaryEmail) {
+          // Send email to student account email
+          if (accountEmail) {
             await fetch('/api/send-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                to: secondaryEmail,
+                to: accountEmail,
                 subject: 'Application Submitted Successfully - MOCAS',
                 html: `
                   <!DOCTYPE html>

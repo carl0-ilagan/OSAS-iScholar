@@ -155,16 +155,16 @@ export default function VerificationForm({ step, setStep, userData, verification
           if (userDoc.exists()) {
             const userData = userDoc.data()
             const studentName = userData.fullName || userData.displayName || "Student"
-            const secondaryEmail = userData.secondaryEmail
+            const accountEmail = userData.email
             const ADMIN_EMAIL = "contact.ischolar@gmail.com"
             
             // Send email to student
-            if (secondaryEmail) {
+            if (accountEmail) {
               await fetch('/api/send-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  to: secondaryEmail,
+                  to: accountEmail,
                   subject: 'Verification Request Submitted - MOCAS',
                   html: `
                     <!DOCTYPE html>

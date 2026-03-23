@@ -55,6 +55,16 @@ export default function Footer() {
                   Features
                 </a>
               </li>
+              <li>
+                <a
+                  href="https://xianhost.cloud/officials"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors"
+                >
+                  University Officials
+                </a>
+              </li>
             </ul>
           </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore"
-import { ChevronDown, Filter, Search } from "lucide-react"
+import { ChevronDown, Filter, Search, Sparkles, Award } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import { normalizeCampus } from "@/lib/campus-admin-config"
@@ -156,10 +156,16 @@ export default function CampusAdminScholarsPage() {
     setCurrentPage(1)
   }, [searchQuery, filterScholarship, filterCourse])
 
-  const totalPages = Math.ceil(filteredScholars.length / ITEMS_PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(filteredScholars.length / ITEMS_PER_PAGE))
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
   const paginatedScholars = filteredScholars.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -181,7 +187,27 @@ export default function CampusAdminScholarsPage() {
 
   return (
     <CampusAdminLayoutWrapper>
-      <div className="relative p-4 md:p-6 lg:p-8">
+      <div className="w-full space-y-4 px-3 pb-4 pt-2 md:space-y-5 md:px-4 md:pb-6 md:pt-3 lg:px-6 lg:pb-8">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-5 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 dark:ring-emerald-500/10">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
+          <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-teal-400/10 blur-2xl" />
+          <div className="relative flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20">
+              <Award className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+            </span>
+            <div>
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                Scholars Directory
+              </span>
+              <h1 className="text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 md:text-2xl">Campus Scholars</h1>
+              <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-200/85">
+                Approved scholarship recipients for <span className="font-semibold">{activeCampus || "your campus"}</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
           <div className="relative flex-1 md:w-64 md:flex-initial">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -254,95 +280,32 @@ export default function CampusAdminScholarsPage() {
               <ScholarsTable scholars={paginatedScholars} />
             </div>
 
-            <div className="animate-in fade-in mt-6 space-y-4 duration-300">
-              <div className="text-center text-sm text-muted-foreground md:text-left">
-                Showing {filteredScholars.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredScholars.length)} of{" "}
-                {filteredScholars.length} record{filteredScholars.length !== 1 ? "s" : ""}
-              </div>
-
-              {totalPages > 1 ? (
-                <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-                  <div className="flex w-full items-center justify-center gap-2 md:hidden">
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-3 text-sm font-medium text-foreground">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-
-                  <div className="hidden items-center gap-2 md:flex">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      First
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`rounded-lg border border-border px-3 py-2 text-sm transition-all duration-200 active:scale-95 ${
-                                currentPage === page
-                                  ? "bg-primary text-primary-foreground shadow-md"
-                                  : "bg-background text-foreground hover:bg-muted"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          )
-                        }
-                        if (page === currentPage - 2 || page === currentPage + 2) {
-                          return (
-                            <span key={page} className="px-2 text-muted-foreground">
-                              ...
-                            </span>
-                          )
-                        }
-                        return null
-                      })}
-                    </div>
-
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Last
-                    </button>
-                  </div>
+            <div className="animate-in fade-in mt-6 duration-300">
+              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border pt-4 text-center md:justify-between md:text-left">
+                <p className="w-full text-sm text-muted-foreground md:w-auto">
+                  Showing {filteredScholars.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredScholars.length)} of{" "}
+                  {filteredScholars.length} record{filteredScholars.length !== 1 ? "s" : ""}
+                </p>
+                <div className="flex w-full items-center justify-center gap-2 md:w-auto md:justify-end">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-2 text-sm font-medium text-foreground">
+                    Page {Math.max(1, currentPage)} of {Math.max(1, totalPages)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(Math.max(1, totalPages), prev + 1))}
+                    disabled={currentPage >= Math.max(1, totalPages)}
+                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
                 </div>
-              ) : null}
+              </div>
             </div>
           </>
         )}

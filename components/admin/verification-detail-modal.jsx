@@ -107,14 +107,14 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
             if (userDoc.exists()) {
               const userData = userDoc.data()
               const studentName = userData.fullName || userData.displayName || "Student"
-              const secondaryEmail = userData.secondaryEmail
+              const accountEmail = userData.email
               
-              if (secondaryEmail) {
+              if (accountEmail) {
                 await fetch('/api/send-email', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    to: secondaryEmail,
+                    to: accountEmail,
                     subject: 'Account Verification Approved - MOCAS',
                     html: `
                       <!DOCTYPE html>
@@ -215,14 +215,14 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
           if (userDoc.exists()) {
             const userData = userDoc.data()
             const studentName = userData.fullName || userData.displayName || "Student"
-            const secondaryEmail = userData.secondaryEmail
+            const accountEmail = userData.email
             
-            if (secondaryEmail) {
+            if (accountEmail) {
               await fetch('/api/send-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  to: secondaryEmail,
+                  to: accountEmail,
                   subject: 'Account Verification Update - MOCAS',
                   html: `
                     <!DOCTYPE html>

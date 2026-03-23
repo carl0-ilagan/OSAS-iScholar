@@ -7,6 +7,14 @@ const ADMIN_EMAIL = 'contact.ischolar@gmail.com'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Temporarily disable PDF form builder routes for admin and student.
+  if (pathname.startsWith('/admin/pdf-forms')) {
+    return NextResponse.redirect(new URL('/admin', request.url))
+  }
+  if (pathname.startsWith('/student/pdf-forms')) {
+    return NextResponse.redirect(new URL('/student', request.url))
+  }
+
   // Get user from cookies (Firebase Auth stores token in cookies)
   // Note: This is a basic check. For production, you should verify the token properly
   const authToken = request.cookies.get('__session') || request.cookies.get('firebase-auth-token')

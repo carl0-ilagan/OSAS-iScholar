@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { addDoc, collection, doc, getDoc, onSnapshot, query, runTransaction, updateDoc, where } from "firebase/firestore"
+import { addDoc, collection, doc, getDoc, onSnapshot, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore"
 import { Camera, CameraOff, Clock3, Mic, MicOff, Phone, PhoneOff, Video } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
@@ -25,6 +25,28 @@ function formatRemainingTime(expiresAt) {
   return `${mins}:${String(secs).padStart(2, "0")} left`
 }
 
+function getMediaConstraints(lowBandwidth) {
+  return {
+    video: lowBandwidth
+      ? {
+          width: { ideal: 640, max: 960 },
+          height: { ideal: 360, max: 540 },
+          frameRate: { ideal: 15, max: 24 },
+        }
+      : {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 24, max: 30 },
+        },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      channelCount: 1,
+    },
+  }
+}
+
 export default function WebRtcRoom({
   roomId,
   role = "student",
@@ -44,6 +66,8 @@ export default function WebRtcRoom({
   const [micOn, setMicOn] = useState(true)
   const [mediaError, setMediaError] = useState("")
   const [remainingLabel, setRemainingLabel] = useState("No timer")
+  const [lowBandwidth, setLowBandwidth] = useState(false)
+  const [joinRequestStatus, setJoinRequestStatus] = useState("none")
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -57,8 +81,10 @@ export default function WebRtcRoom({
   const networkChangeHandlerRef = useRef(null)
   const slowInternetTimerRef = useRef(null)
   const stateUpdateRef = useRef({ last: "", at: 0 })
+  const autoStartAttemptedRef = useRef(false)
 
   const roomRef = useMemo(() => doc(db, "consultation_rooms", roomId), [roomId])
+  const joinRequestRef = useMemo(() => doc(db, "consultation_rooms", roomId, "join_requests", user?.uid || "unknown"), [roomId, user?.uid])
 
   const cleanupPeer = ({ keepLocalMedia = false } = {}) => {
     if (answerUnsubRef.current) {
@@ -120,8 +146,11 @@ export default function WebRtcRoom({
     }
   }
 
-  const setupLocalMedia = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+  const setupLocalMedia = async (lowBandwidthMode = lowBandwidth) => {
+    const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidthMode))
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+    }
     localStreamRef.current = stream
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = stream
@@ -329,6 +358,25 @@ export default function WebRtcRoom({
     return () => clearInterval(timer)
   }, [room?.expiresAt])
 
+  useEffect(() => {
+    if (role !== "student" || !user?.uid || !roomId) {
+      setJoinRequestStatus("none")
+      return
+    }
+    const unsubscribe = onSnapshot(
+      joinRequestRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setJoinRequestStatus("none")
+          return
+        }
+        setJoinRequestStatus(String(snapshot.data()?.status || "none"))
+      },
+      () => setJoinRequestStatus("none"),
+    )
+    return () => unsubscribe()
+  }, [role, user?.uid, roomId, joinRequestRef])
+
   const claimSeatForStudent = async () => {
     if (role !== "student") return true
     try {
@@ -346,6 +394,14 @@ export default function WebRtcRoom({
         }
         if (data.invitedStudentId && data.invitedStudentId !== user.uid) {
           throw new Error("This room is reserved for another invited student.")
+        }
+        const invitedDirectly = data.invitedStudentId && data.invitedStudentId === user.uid
+        if (!invitedDirectly) {
+          const joinRequestSnap = await tx.get(doc(db, "consultation_rooms", roomId, "join_requests", user.uid))
+          const requestStatus = joinRequestSnap.exists() ? String(joinRequestSnap.data()?.status || "") : ""
+          if (requestStatus !== "approved") {
+            throw new Error("Waiting for admin approval.")
+          }
         }
         if (data.joinedStudentId && data.joinedStudentId !== user.uid) {
           throw new Error("This room is already joined by another student.")
@@ -435,6 +491,23 @@ export default function WebRtcRoom({
     }
   }
 
+  useEffect(() => {
+    if (!roomId) return
+    autoStartAttemptedRef.current = false
+  }, [roomId])
+
+  useEffect(() => {
+    if (role !== "campus_admin") return
+    if (loading || error || connecting || !room) return
+    if (autoStartAttemptedRef.current) return
+    if (String(room.status || "active") !== "active") return
+    if (room.expiresAt && new Date(room.expiresAt).getTime() <= Date.now()) return
+    if (room.offer && room.activeSessionId) return
+
+    autoStartAttemptedRef.current = true
+    startCall()
+  }, [role, loading, error, connecting, room, room?.offer, room?.activeSessionId])
+
   const joinCall = async () => {
     if (!room?.offer || !room?.activeSessionId) {
       toast.error("No active call offer yet.")
@@ -504,11 +577,13 @@ export default function WebRtcRoom({
           updatedAt: nowIso(),
         })
       } else {
+        const nextCallState = room?.offer && room?.activeSessionId ? "calling" : "waiting"
         await updateDoc(roomRef, {
-          callState: "waiting",
+          callState: nextCallState,
           answer: null,
           joinedStudentId: null,
           joinedStudentName: null,
+          leftByStudentAt: nowIso(),
           updatedAt: nowIso(),
         })
       }
@@ -545,15 +620,53 @@ export default function WebRtcRoom({
     setCameraOn(next)
   }
 
+  const toggleBandwidthMode = async () => {
+    const next = !lowBandwidth
+    setLowBandwidth(next)
+    if (!localStreamRef.current) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(next))
+      const previousStream = localStreamRef.current
+      localStreamRef.current = stream
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+      }
+      if (pcRef.current) {
+        const nextVideoTrack = stream.getVideoTracks()[0] || null
+        const nextAudioTrack = stream.getAudioTracks()[0] || null
+        const replaceTasks = pcRef.current.getSenders().map(async (sender) => {
+          if (sender.track?.kind === "video") {
+            await sender.replaceTrack(nextVideoTrack)
+          }
+          if (sender.track?.kind === "audio") {
+            await sender.replaceTrack(nextAudioTrack)
+          }
+        })
+        await Promise.all(replaceTasks)
+      }
+      previousStream?.getTracks().forEach((track) => track.stop())
+      setCameraOn(Boolean(stream.getVideoTracks()[0]?.enabled))
+      setMicOn(Boolean(stream.getAudioTracks()[0]?.enabled))
+      toast.success(next ? "Low bandwidth mode enabled." : "HD mode enabled.")
+    } catch (modeError) {
+      console.error("Failed to switch bandwidth mode:", modeError)
+      setLowBandwidth(!next)
+      toast.error("Failed to switch bandwidth mode.")
+    }
+  }
+
   const isExpired = room?.expiresAt ? new Date(room.expiresAt).getTime() <= Date.now() : false
+  const isInvitedStudent = role === "student" && room?.invitedStudentId && room.invitedStudentId === user?.uid
+  const requiresApproval = role === "student" && room && !isInvitedStudent
+  const hasApproval = isInvitedStudent || joinRequestStatus === "approved"
+  const isPendingApproval = requiresApproval && joinRequestStatus === "pending"
+  const isRejectedApproval = requiresApproval && joinRequestStatus === "rejected"
   const roomTakenByAnother =
     role === "student" &&
     room?.joinedStudentId &&
     room.joinedStudentId !== user?.uid &&
     String(room?.status || "active") === "active"
 
-  const canStart =
-    role === "campus_admin" && room && String(room.status || "active") === "active" && !isExpired
   const canJoin =
     role === "student" &&
     room &&
@@ -561,8 +674,30 @@ export default function WebRtcRoom({
     room.offer &&
     room.activeSessionId &&
     !isExpired &&
-    (!room.invitedStudentId || room.invitedStudentId === user?.uid) &&
+    hasApproval &&
     !roomTakenByAnother
+  const submitJoinRequest = async () => {
+    if (role !== "student" || !user?.uid || !roomId || isInvitedStudent) return
+    try {
+      await setDoc(
+        joinRequestRef,
+        {
+          userId: user.uid,
+          userName: user?.fullName || user?.displayName || user?.email || "Student",
+          userPhotoURL: user?.photoURL || null,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      )
+      setJoinRequestStatus("pending")
+      toast.success("Join request sent. Waiting for admin approval.")
+    } catch (requestError) {
+      console.error("Failed to submit join request:", requestError)
+      toast.error("Failed to send join request.")
+    }
+  }
   const rawCallState = String(room?.callState || "").toLowerCase()
   const isConnectedState = callLive || rawCallState === "in_call"
   const stateLabelMap = {
@@ -587,6 +722,21 @@ export default function WebRtcRoom({
         <Link href={backHref} className="inline-flex rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
           Back
         </Link>
+      </div>
+    )
+  }
+
+  if (String(room?.status || "active") === "ended") {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-200">
+          This consultation has ended and is now available in history only.
+        </div>
+        {showBackButton ? (
+          <Link href={backHref} className="inline-flex rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
+            Back
+          </Link>
+        ) : null}
       </div>
     )
   }
@@ -653,17 +803,24 @@ export default function WebRtcRoom({
                 >
                   {cameraOn ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
                 </button>
+                <button
+                  onClick={toggleBandwidthMode}
+                  disabled={!canToggleLocalMedia}
+                  className="inline-flex h-9 items-center rounded-full border border-slate-600 bg-slate-800 px-3 text-[11px] font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={lowBandwidth ? "Switch to HD mode" : "Switch to low bandwidth mode"}
+                >
+                  {lowBandwidth ? "Low" : "HD"}
+                </button>
 
-                {canStart && (
+                {role === "student" && requiresApproval && !hasApproval ? (
                   <button
-                    onClick={startCall}
-                    disabled={connecting}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+                    onClick={submitJoinRequest}
+                    disabled={connecting || isPendingApproval}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-400 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-300 disabled:opacity-50"
                   >
-                    <Phone className="h-3.5 w-3.5" />
-                    {connecting ? "Starting..." : "Start"}
+                    {isPendingApproval ? "Waiting Approval" : isRejectedApproval ? "Request Again" : "Request to Join"}
                   </button>
-                )}
+                ) : null}
 
                 {canJoin && (
                   <button
@@ -697,6 +854,12 @@ export default function WebRtcRoom({
                 )}
               </div>
             </div>
+
+            {role === "student" && requiresApproval && isPendingApproval ? (
+              <div className="absolute left-1/2 top-14 z-20 -translate-x-1/2 rounded-full border border-amber-300 bg-amber-100/95 px-3 py-1 text-xs font-medium text-amber-800">
+                Waiting for campus admin approval...
+              </div>
+            ) : null}
           </div>
         </div>
 

@@ -8,39 +8,6 @@ import { db } from "@/lib/firebase"
 import { useAuth } from "@/contexts/AuthContext"
 import { normalizeCampus } from "@/lib/campus-admin-config"
 
-const DUMMY_SCHOLARSHIPS = [
-  {
-    id: "dummy-1",
-    name: "Academic Excellence Grant",
-    description: "Scholarship for high-performing students with strong academic standing.",
-    campus: "Bongabong Campus",
-    slots: 40,
-    active: true,
-    temporarilyClosed: false,
-    batchName: "AY 2026-2027",
-  },
-  {
-    id: "dummy-2",
-    name: "Financial Assistance Program",
-    description: "Need-based scholarship support for qualified students.",
-    campus: "Calapan Campus",
-    slots: 25,
-    active: true,
-    temporarilyClosed: true,
-    batchName: "AY 2026-2027",
-  },
-  {
-    id: "dummy-3",
-    name: "STEM Priority Scholarship",
-    description: "Targeted support for STEM students with research potential.",
-    campus: "Naujan Campus",
-    slots: 30,
-    active: false,
-    temporarilyClosed: false,
-    batchName: "AY 2025-2026",
-  },
-]
-
 const ITEMS_PER_PAGE = 8
 
 export default function ScholarshipsMonitoringPage() {
@@ -110,8 +77,7 @@ export default function ScholarshipsMonitoringPage() {
     })
   }, [scholarships, search, campusFilter])
 
-  const tableRows = filteredScholarships.length > 0 ? filteredScholarships : DUMMY_SCHOLARSHIPS
-  const isUsingDummy = filteredScholarships.length === 0
+  const tableRows = filteredScholarships
   const totalPages = Math.max(1, Math.ceil(tableRows.length / ITEMS_PER_PAGE))
 
   const paginatedRows = useMemo(() => {

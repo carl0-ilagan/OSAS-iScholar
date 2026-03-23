@@ -19,7 +19,6 @@ export default function ProfilePage() {
     yearLevel: "",
     campus: "",
     email: "",
-    secondaryEmail: "",
   })
   const [profilePicture, setProfilePicture] = useState(null)
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
@@ -45,7 +44,6 @@ export default function ProfilePage() {
             yearLevel: data.yearLevel || "",
             campus: data.campus || "",
             email: user.email || "",
-            secondaryEmail: data.secondaryEmail || "",
           })
           setProfilePicturePreview(data.photoURL || user.photoURL || null)
           setUserStatus(data.status || "offline")
@@ -151,7 +149,6 @@ export default function ProfilePage() {
         course: userData.course,
         yearLevel: userData.yearLevel,
         campus: userData.campus,
-        secondaryEmail: userData.secondaryEmail,
         updatedAt: new Date().toISOString(),
       }
 
@@ -405,24 +402,11 @@ export default function ProfilePage() {
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-primary" />
-                    Secondary Email
-                  </label>
-                  <input
-                    type="email"
-                    value={userData.secondaryEmail}
-                    onChange={(e) => handleInputChange("secondaryEmail", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                    placeholder="Enter secondary email (optional)"
-                  />
-                  <div className="bg-gradient-to-r from-muted/40 to-muted/20 border border-border/50 rounded-lg p-4">
-                    <p className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
-                      Optional: Add a secondary email for notifications and backup purposes
-                    </p>
-                  </div>
+                <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/60 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    Email notifications are sent to your account email above.
+                  </p>
                 </div>
               </div>
             </div>

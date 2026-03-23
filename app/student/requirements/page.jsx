@@ -8,6 +8,7 @@ import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, query, orderBy, wh
 import { ClipboardCheck, Upload, FileText, CheckCircle, X, Download, Eye, AlertCircle, ChevronLeft, ChevronRight, Calendar, Sparkles, FolderOpen, Trash2, Edit, Save, FileEdit } from "lucide-react"
 import { toast } from "sonner"
 import DocumentPreviewModal from "@/components/admin/document-preview-modal"
+import { normalizeCampus } from "@/lib/campus-admin-config"
 
 function FileUploadField({ label, name, onChange, files, className = "", required = false, sampleFile = null, sampleFileName = "", maxImageUploads = null, isPdfSample = false, onViewSample = null, onDownloadSample = null }) {
   const fileArray = Array.isArray(files) ? files : (files ? [files] : [])
@@ -176,6 +177,7 @@ export default function StudentRequirementsPage() {
   const [previewFile, setPreviewFile] = useState(null)
   const [previewFileName, setPreviewFileName] = useState(null)
   const [previewFileType, setPreviewFileType] = useState(null)
+  const [userCampus, setUserCampus] = useState(null)
   const ITEMS_PER_PAGE = 10
 
   // Fetch requirements and student documents
@@ -191,6 +193,8 @@ export default function StudentRequirementsPage() {
         const userDoc = await getDoc(doc(db, "users", user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data()
+          const resolvedCampus = normalizeCampus(data.campus || user?.campus || null)
+          setUserCampus(resolvedCampus)
 
           // Check form completion status (same as scholarship apply modal)
           setApplicationFormFilled(data.applicationFormCompleted || false)
@@ -227,18 +231,29 @@ export default function StudentRequirementsPage() {
             }
           }
         } else {
+          setUserCampus(normalizeCampus(user?.campus || null))
           setApplicationFormFilled(false)
           setProfileFormFilled(false)
         }
 
         // Fetch requirements
+        const studentCampus = normalizeCampus((userDoc.exists() ? userDoc.data()?.campus : user?.campus) || userCampus || null)
         let requirementsSnapshot
-        try {
-          requirementsSnapshot = await getDocs(
-            query(collection(db, "documentRequirements"), orderBy("createdAt", "desc"))
-          )
-        } catch (error) {
-          requirementsSnapshot = await getDocs(collection(db, "documentRequirements"))
+        if (!studentCampus) {
+          requirementsSnapshot = { docs: [] }
+        } else {
+          try {
+            requirementsSnapshot = await getDocs(query(
+              collection(db, "documentRequirements"),
+              where("campus", "==", studentCampus),
+              orderBy("createdAt", "desc"),
+            ))
+          } catch (error) {
+            requirementsSnapshot = await getDocs(query(
+              collection(db, "documentRequirements"),
+              where("campus", "==", studentCampus),
+            ))
+          }
         }
 
         // Reconstruct chunked sample files
@@ -444,12 +459,17 @@ export default function StudentRequirementsPage() {
     }
   }
 
-  // Compress image if it's an image file - more aggressive compression for Firestore 1MB limit
+  // Compress image if needed; keep uploads fast for already-small files.
   const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.6) => {
     return new Promise((resolve) => {
       // If not an image, return original file (PDFs will be handled separately)
       if (!file.type.startsWith('image/')) {
         // For PDFs, we can't compress them, so we'll need to check size
+        resolve(file)
+        return
+      }
+      // Small images are already fine; skip expensive canvas pipeline.
+      if (file.size <= 350000) {
         resolve(file)
         return
       }
@@ -483,8 +503,8 @@ export default function StudentRequirementsPage() {
           const ctx = canvas.getContext('2d')
           ctx.drawImage(img, 0, 0, width, height)
 
-          // Try to compress with decreasing quality until under 800KB (leaving room for base64 overhead)
-          const tryCompress = (currentQuality) => {
+          // Keep attempts limited so large images don't stall uploads.
+          const tryCompress = (currentQuality, attemptsLeft = 2) => {
             canvas.toBlob(
               (blob) => {
                 if (blob && blob.size < 800000) {
@@ -494,9 +514,9 @@ export default function StudentRequirementsPage() {
                     lastModified: Date.now(),
                   })
                   resolve(compressedFile)
-                } else if (currentQuality > 0.3 && blob && blob.size >= 800000) {
+                } else if (attemptsLeft > 0 && currentQuality > 0.3 && blob && blob.size >= 800000) {
                   // Still too large, reduce quality further
-                  tryCompress(currentQuality - 0.1)
+                  tryCompress(currentQuality - 0.12, attemptsLeft - 1)
                 } else if (blob) {
                   // Accept what we have
                   const compressedFile = new File([blob], file.name, {
@@ -621,6 +641,7 @@ export default function StudentRequirementsPage() {
       
       const documentData = {
         userId: user.uid,
+        campus: normalizeCampus(userCampus || user?.campus || null),
         requirementId: requirementId,
         fileUrl: fileUrl,
         fileName: file.name,
@@ -629,23 +650,23 @@ export default function StudentRequirementsPage() {
         isChunked: needsChunking,
       }
 
-        // For single file, update existing if it exists. For multiple files, always create new
-        if (filesToUpload.length === 1 && studentDocuments[requirementId]) {
-        // Update existing document
-        await setDoc(doc(db, "studentDocuments", docId), documentData, { merge: true })
-        
-        // Delete old chunks if they exist
-          if (studentDocuments[requirementId].isChunked) {
+        // For single-file requirements, always clear previous chunk docs to avoid stale/invalid reconstruction.
+        if (filesToUpload.length === 1) {
           const chunksQuery = query(collection(db, "studentDocuments", docId, "chunks"))
           const chunksSnapshot = await getDocs(chunksQuery)
-          for (const chunkDoc of chunksSnapshot.docs) {
-            await deleteDoc(doc(db, "studentDocuments", docId, "chunks", chunkDoc.id))
-          }
-        }
-      } else {
+          await Promise.all(
+            chunksSnapshot.docs.map((chunkDoc) =>
+              deleteDoc(doc(db, "studentDocuments", docId, "chunks", chunkDoc.id)),
+            ),
+          )
+          await setDoc(doc(db, "studentDocuments", docId), documentData, { merge: true })
+        } else {
         // Create new document
         await setDoc(doc(collection(db, "studentDocuments"), docId), documentData)
       }
+      // Document metadata saved; continue with chunk writes/finalization.
+      const afterDocProgress = baseProgress + (fileProgressRange * 0.92)
+      setUploadProgress(prev => ({ ...prev, [requirementId]: afterDocProgress }))
       
       // Store remaining chunks in subcollection if needed
       if (needsChunking) {
@@ -656,14 +677,35 @@ export default function StudentRequirementsPage() {
             data: base64File.slice(i, i + CHUNK_SIZE)
           })
         }
-        
-        // Store each chunk as a separate document
-        for (const chunk of chunks) {
-          await setDoc(
-            doc(collection(db, "studentDocuments", docId, "chunks"), `chunk_${chunk.index}`),
-            { index: chunk.index, data: chunk.data }
-          )
+
+        if (chunks.length > 0) {
+          // Upload chunks in small parallel batches and keep progress moving (90 -> 99).
+          const chunkProgressStart = baseProgress + (fileProgressRange * 0.92)
+          const chunkProgressEnd = baseProgress + (fileProgressRange * 0.99)
+          const concurrency = 4
+          let completedChunks = 0
+
+          for (let i = 0; i < chunks.length; i += concurrency) {
+            const batch = chunks.slice(i, i + concurrency)
+            await Promise.all(
+              batch.map(async (chunk) => {
+                await setDoc(
+                  doc(collection(db, "studentDocuments", docId, "chunks"), `chunk_${chunk.index}`),
+                  { index: chunk.index, data: chunk.data },
+                )
+                completedChunks += 1
+                const chunkProgress =
+                  chunkProgressStart +
+                  Math.round((completedChunks / chunks.length) * (chunkProgressEnd - chunkProgressStart))
+                setUploadProgress(prev => ({ ...prev, [requirementId]: chunkProgress }))
+              }),
+            )
+          }
         }
+      } else {
+        // Non-chunked files should quickly show near-complete before final state updates.
+        const finalizeProgress = baseProgress + (fileProgressRange * 0.99)
+        setUploadProgress(prev => ({ ...prev, [requirementId]: finalizeProgress }))
       }
 
       // Update local state - reconstruct full fileUrl for local use
@@ -719,6 +761,45 @@ export default function StudentRequirementsPage() {
       })
 
       setUploadProgress(prev => ({ ...prev, [requirementId]: 100 }))
+
+      // Best-effort email notification to account email (not secondary email).
+      try {
+        const requirement = requirements.find((r) => r.id === requirementId)
+        const accountEmail = String(user?.email || "").trim()
+        const studentName = user?.fullName || user?.displayName || accountEmail || "Student"
+        const campusLabel = normalizeCampus(userCampus || user?.campus || null) || "N/A"
+        if (accountEmail) {
+          fetch("/api/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: accountEmail,
+              subject: `Document Uploaded Successfully (${campusLabel}) - MOCAS`,
+              html: `
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="utf-8" /></head>
+                <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+                  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="margin: 0 0 12px;">Document upload confirmation</h2>
+                    <p>Hi ${studentName},</p>
+                    <p>Your document upload was received successfully.</p>
+                    <p><strong>Requirement:</strong> ${requirement?.name || "Required Document"}</p>
+                    <p><strong>Campus:</strong> ${campusLabel}</p>
+                    <p><strong>Files uploaded:</strong> ${filesToUpload.length}</p>
+                    <p>Best regards,<br/>MOCAS Team</p>
+                  </div>
+                </body>
+                </html>
+              `,
+            }),
+          }).catch((sendErr) => {
+            console.error("Failed to send upload confirmation email:", sendErr)
+          })
+        }
+      } catch (emailError) {
+        console.error("Failed to send upload confirmation email:", emailError)
+      }
       
       toast.success(filesToUpload.length > 1 
         ? `${filesToUpload.length} documents uploaded successfully!`

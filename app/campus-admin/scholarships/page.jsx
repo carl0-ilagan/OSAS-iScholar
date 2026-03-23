@@ -24,6 +24,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Sparkles,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -226,8 +227,8 @@ export default function CampusAdminScholarshipsPage() {
           usersSnapshot.forEach((userDoc) => {
             const userData = userDoc.data() || {}
             const role = String(userData.appRole || userData.role || "").toLowerCase()
-            const secondaryEmail = String(userData.secondaryEmail || "").trim()
-            if (role !== "student" || !secondaryEmail) return
+            const accountEmail = String(userData.email || "").trim()
+            if (role !== "student" || !accountEmail) return
 
             const studentName = userData.fullName || userData.displayName || "Student"
             emailPromises.push(
@@ -235,7 +236,7 @@ export default function CampusAdminScholarshipsPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  to: secondaryEmail,
+                  to: accountEmail,
                   subject: `🎓 New Scholarship Available (${activeCampus}) - MOCAS`,
                   html: `
                     <!DOCTYPE html>
@@ -274,7 +275,7 @@ export default function CampusAdminScholarshipsPage() {
                   `,
                 }),
               }).catch((error) => {
-                console.error(`Error sending scholarship email to ${secondaryEmail}:`, error)
+                console.error(`Error sending scholarship email to ${accountEmail}:`, error)
               }),
             )
           })
@@ -318,21 +319,42 @@ export default function CampusAdminScholarshipsPage() {
 
   return (
     <CampusAdminLayoutWrapper>
-      <div className="relative p-4 md:p-6 lg:p-8">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground md:text-3xl">Scholarships</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage scholarship programs for <span className="font-medium text-foreground">{activeCampus || "your campus"}</span>.
-            </p>
+      <div className="w-full space-y-4 px-3 pb-4 pt-2 md:space-y-5 md:px-4 md:pb-6 md:pt-3 lg:px-6 lg:pb-8">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-5 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 md:p-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
+          <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-teal-400/10 blur-2xl" />
+
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20">
+                <Award className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              </span>
+              <div>
+                <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Scholarships Overview
+                </span>
+                <h1 className="text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 md:text-2xl">
+                  Scholarships
+                </h1>
+                <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-200/85">
+                  Manage scholarship programs for{" "}
+                  <span className="font-medium text-emerald-950 dark:text-emerald-50">{activeCampus || "your campus"}</span>.
+                </p>
+              </div>
+            </div>
+
+            {/* Banner CTA (desktop top-right, mobile below) */}
+            <div className="flex md:justify-end">
+              <button
+                onClick={() => handleOpenModal()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700 hover:shadow-md md:w-auto md:min-w-[170px] md:px-5"
+              >
+                <Plus className="h-4 w-4" />
+                Add Scholarship
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 font-semibold text-white shadow-md transition-all hover:from-primary/90 hover:to-secondary/90 hover:shadow-lg"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Add Scholarship</span>
-          </button>
         </div>
 
         {loading ? (
@@ -346,9 +368,12 @@ export default function CampusAdminScholarshipsPage() {
             ))}
           </div>
         ) : scholarships.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card py-12 text-center">
-            <Award className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">No scholarships yet for this campus.</p>
+          <div className="rounded-2xl border border-emerald-200/40 bg-emerald-50/30 py-16 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-emerald-950/80">
+              <Award className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <p className="font-medium text-foreground">No scholarships yet for this campus.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Add one to show it here.</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -383,6 +408,9 @@ export default function CampusAdminScholarshipsPage() {
                 </div>
 
                 <div className="mb-4 space-y-2">
+                  <div className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-200">
+                    {scholarship.campus || "N/A"}
+                  </div>
                   {scholarship.benefit ? <p className="text-sm font-medium text-foreground">{scholarship.benefit}</p> : null}
                   {scholarship.benefitAmount ? <p className="text-sm font-semibold text-primary">{scholarship.benefitAmount}</p> : null}
                   {scholarship.batchName ? (
@@ -423,6 +451,7 @@ export default function CampusAdminScholarshipsPage() {
             ))}
           </div>
         )}
+
       </div>
 
       {isModalOpen ? (
@@ -431,11 +460,11 @@ export default function CampusAdminScholarshipsPage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto p-3">
             <div
               ref={modalRef}
-              className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl border-2 border-border/50 bg-card shadow-2xl"
+              className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl border-2 border-border/50 bg-card shadow-2xl md:overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex max-h-[92vh] flex-col md:flex-row">
-                <div className="w-full border-b border-border/40 bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/5 p-5 md:w-2/5 md:border-b-0 md:border-r">
+                <div className="flex min-h-0 w-full flex-col border-b border-border/40 bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/5 p-5 md:w-2/5 md:border-b-0 md:border-r">
                   <div className="mb-5 flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-md">
                       <Award className="h-5 w-5 text-white" />
@@ -445,10 +474,14 @@ export default function CampusAdminScholarshipsPage() {
                       <p className="text-xs text-muted-foreground">
                         {editingScholarship ? "Update scholarship details" : "Create a new scholarship program"}
                       </p>
+                      <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                        Campus: {activeCampus || "N/A"}
+                      </p>
                     </div>
           </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-3">
+                  <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             <input
                       value={formData.name}
                       onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
@@ -535,8 +568,9 @@ export default function CampusAdminScholarshipsPage() {
                         <span className="text-sm text-foreground">Temporarily closed</span>
                       </label>
                     </div>
+                    </div>
 
-                    <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-3">
+                    <div className="mt-3 flex items-center justify-end gap-2 border-t border-border/40 pt-3">
                       <button
                         type="button"
                         onClick={handleCloseModal}
@@ -549,7 +583,7 @@ export default function CampusAdminScholarshipsPage() {
                         className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white hover:from-primary/90 hover:to-secondary/90"
             >
                         <Save className="h-4 w-4" />
-                        {editingScholarship ? "Update" : "Create"}
+                        {editingScholarship ? "Update Scholarship" : "Add Scholarship"}
             </button>
                     </div>
           </form>

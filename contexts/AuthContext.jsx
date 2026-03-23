@@ -22,7 +22,8 @@ export const useAuth = () => useContext(AuthContext)
 function normalizePhotoURL(value) {
   const url = String(value || "").trim()
   if (!url) return null
-  return url.startsWith("http://") || url.startsWith("https://") ? url : null
+  // Support both hosted URLs and Firestore-stored data URLs.
+  return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image/") ? url : null
 }
 
 export const AuthProvider = ({ children }) => {
@@ -41,11 +42,16 @@ export const AuthProvider = ({ children }) => {
         const userDocRef = doc(db, "users", user.uid)
         const userDoc = await getDoc(userDocRef)
         const profile = userDoc.exists() ? userDoc.data() : {}
+        // Firestore profile photo should win so app-level updates persist after refresh.
         const resolvedPhotoURL =
+          normalizePhotoURL(profile?.photoURL) ||
           normalizePhotoURL(user.photoURL) ||
           normalizePhotoURL(user.providerData?.[0]?.photoURL) ||
-          normalizePhotoURL(profile?.photoURL) ||
           null
+        const resolvedDisplayName =
+          String(profile?.displayName || "").trim() ||
+          String(profile?.fullName || "").trim() ||
+          String(user.displayName || "").trim()
         const campusAdminProfile = getCampusAdminProfileByEmail(user.email)
         const normalizedRole = String(profile?.role || "").trim().toLowerCase()
         const appRole =
@@ -60,6 +66,7 @@ export const AuthProvider = ({ children }) => {
         setUser({
           ...user,
           photoURL: resolvedPhotoURL,
+          displayName: resolvedDisplayName,
           appRole,
           role: appRole,
           campus: resolvedCampus,
@@ -69,7 +76,7 @@ export const AuthProvider = ({ children }) => {
         const basePayload = {
           uid: user.uid,
           email: user.email || "",
-          displayName: user.displayName || profile?.displayName || "",
+          displayName: resolvedDisplayName,
           fullName: profile?.fullName || user.displayName || "",
           photoURL: resolvedPhotoURL,
           role: appRole,
@@ -85,6 +92,7 @@ export const AuthProvider = ({ children }) => {
             lastSeen: serverTimestamp(),
             updatedAt: new Date().toISOString(),
             photoURL: resolvedPhotoURL,
+            displayName: resolvedDisplayName,
             role: appRole,
             ...(resolvedCampus ? { campus: resolvedCampus } : {}),
           })

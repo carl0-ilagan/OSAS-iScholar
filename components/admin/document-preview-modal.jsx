@@ -11,6 +11,33 @@ export default function DocumentPreviewModal({ isOpen, onClose, fileUrl, fileNam
   const [blobUrl, setBlobUrl] = useState(null)
   const [debugInfo, setDebugInfo] = useState(null)
 
+  const parseBase64DataUrl = (value) => {
+    const match = String(value || "").match(/^data:([^;]+);base64,(.+)$/s)
+    if (!match) return null
+    const mimeType = match[1]
+    let rawBase64 = match[2] || ""
+    // Normalize possible formatting artifacts.
+    rawBase64 = rawBase64.replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/")
+    const pad = rawBase64.length % 4
+    if (pad) rawBase64 += "=".repeat(4 - pad)
+    return { mimeType, base64Data: rawBase64 }
+  }
+
+  const base64ToBlob = (base64Data, mimeType) => {
+    const byteCharacters = atob(base64Data)
+    const byteArrays = []
+    const sliceSize = 1024
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      const slice = byteCharacters.slice(offset, offset + sliceSize)
+      const byteNumbers = new Array(slice.length)
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i)
+      }
+      byteArrays.push(new Uint8Array(byteNumbers))
+    }
+    return new Blob(byteArrays, { type: mimeType })
+  }
+
   // Convert base64 to blob URL for PDFs (only for preview, not for images)
   useEffect(() => {
     let currentBlobUrl = null
@@ -64,10 +91,9 @@ export default function DocumentPreviewModal({ isOpen, onClose, fileUrl, fileNam
 
     // For PDFs, convert base64 to blob URL for iframe
     if (isPdfFile && fileUrl.startsWith('data:')) {
-      const matches = fileUrl.match(/^data:([^;]+);base64,(.+)$/)
-      if (matches) {
-        const mimeType = matches[1]
-        const base64Data = matches[2]
+      const parsedDataUrl = parseBase64DataUrl(fileUrl)
+      if (parsedDataUrl) {
+        const { mimeType, base64Data } = parsedDataUrl
         
         console.log('📄 PDF Base64 detected - converting to blob:', {
           mimeType,
@@ -88,13 +114,7 @@ export default function DocumentPreviewModal({ isOpen, onClose, fileUrl, fileNam
             throw new Error('Empty base64 data')
           }
           
-          const byteCharacters = atob(base64Data)
-          const byteNumbers = new Array(byteCharacters.length)
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i)
-          }
-          const byteArray = new Uint8Array(byteNumbers)
-          const blob = new Blob([byteArray], { type: mimeType })
+          const blob = base64ToBlob(base64Data, mimeType)
           currentBlobUrl = URL.createObjectURL(blob)
           
           console.log('✅ PDF Blob created successfully:', {
@@ -206,27 +226,19 @@ export default function DocumentPreviewModal({ isOpen, onClose, fileUrl, fileNam
     try {
       // Always convert base64 to blob for download (like student side)
       if (fileUrl.startsWith('data:')) {
-        const matches = fileUrl.match(/^data:([^;]+);base64,(.+)$/)
-        if (!matches) {
+        const parsedDataUrl = parseBase64DataUrl(fileUrl)
+        if (!parsedDataUrl) {
           console.error("❌ Invalid base64 format")
           setError("Invalid base64 data format")
           return
         }
         
-        const mimeType = matches[1]
-        const base64Data = matches[2]
+        const { mimeType, base64Data } = parsedDataUrl
         
         console.log('⬇️ Converting base64 for download:', { mimeType, base64Length: base64Data.length, fileName })
         
         try {
-          // Convert base64 to binary
-          const byteCharacters = atob(base64Data)
-          const byteNumbers = new Array(byteCharacters.length)
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i)
-          }
-          const byteArray = new Uint8Array(byteNumbers)
-          const blob = new Blob([byteArray], { type: mimeType })
+          const blob = base64ToBlob(base64Data, mimeType)
           const blobUrl = URL.createObjectURL(blob)
           
           console.log('✅ Blob created for download:', { 

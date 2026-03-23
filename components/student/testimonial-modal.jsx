@@ -184,14 +184,14 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
         if (userData.exists()) {
           const userDataObj = userData.data()
           const studentName = userDataObj.fullName || userDataObj.displayName || displayName
-          const secondaryEmail = userDataObj.secondaryEmail
+          const accountEmail = userDataObj.email
           
-          if (secondaryEmail) {
+          if (accountEmail) {
             await fetch('/api/send-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                to: secondaryEmail,
+                to: accountEmail,
                 subject: 'Testimonial Submitted - MOCAS',
                 html: `
                   <!DOCTYPE html>

@@ -396,8 +396,8 @@ export default function ApplicationDetailModal({
           if (userDoc.exists()) {
             const userData = userDoc.data()
             const studentName = userData.fullName || userData.displayName || application.studentName || "Student"
-            // Use secondaryEmail for sending emails
-            const userEmail = userData.secondaryEmail || userData.email
+            // Send to student account email
+            const userEmail = userData.email
             
             if (userEmail) {
               console.log('📧 Sending approval email to:', userEmail)
@@ -515,8 +515,8 @@ export default function ApplicationDetailModal({
           if (userDoc.exists()) {
             const userData = userDoc.data()
             const studentName = userData.fullName || userData.displayName || application.studentName || "Student"
-            // Use secondaryEmail for sending emails
-            const userEmail = userData.secondaryEmail || userData.email
+            // Send to student account email
+            const userEmail = userData.email
             
             if (userEmail) {
               console.log('📧 Sending decline email to:', userEmail)

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { collection, getDocs, query, where } from "firebase/firestore"
-import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Users, Sparkles, GraduationCap } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import CampusAdminLayoutWrapper from "../campus-admin-layout"
@@ -100,16 +100,36 @@ export default function CampusAdminUsersPage() {
     }
   }, [currentPage, totalPages])
 
-  const showPagination = !loading && filteredStudents.length > ITEMS_PER_PAGE
-
   return (
     <CampusAdminLayoutWrapper>
-      <div className="p-4 md:p-6 lg:p-8">
-        <div className="w-full space-y-5">
+      <div className="w-full px-3 pb-4 pt-2 md:px-4 md:pb-6 md:pt-3 lg:px-6 lg:pb-8">
+        <div className="w-full space-y-4 md:space-y-5">
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-5 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 dark:ring-emerald-500/10 md:p-6">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
+            <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-teal-400/10 blur-2xl" />
+            <div className="relative flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20">
+                <GraduationCap className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              </span>
+              <div>
+                <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Student Directory
+                </span>
+                <h1 className="text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 md:text-2xl">
+                  Campus Students
+                </h1>
+                <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-200/85">
+                  Manage and review student records for <span className="font-semibold">{activeCampus || "your campus"}</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-semibold text-foreground md:text-xl">User Management</h1>
+              <h2 className="text-lg font-semibold text-foreground md:text-xl">Student Management</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-12">
               <div className="relative md:col-span-6">
@@ -158,14 +178,9 @@ export default function CampusAdminUsersPage() {
             <div className="mb-3 flex items-center justify-between px-1">
               <p className="text-sm text-muted-foreground">
                 {loading
-                  ? "Loading users..."
+                  ? "Loading students..."
                   : `Showing ${paginatedStudents.length} of ${filteredStudents.length} student${filteredStudents.length === 1 ? "" : "s"}`}
               </p>
-              {!loading ? (
-                <p className="text-xs text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </p>
-              ) : null}
             </div>
 
             {loading ? (
@@ -178,47 +193,32 @@ export default function CampusAdminUsersPage() {
               <UsersTable users={paginatedStudents} />
             )}
 
-            {showPagination ? (
-              <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-3">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Prev
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                  .map((page, idx, arr) => {
-                    const prev = arr[idx - 1]
-                    const showEllipsis = prev && page - prev > 1
-                    return (
-                      <div key={`page-${page}`} className="flex items-center gap-2">
-                        {showEllipsis ? <span className="text-xs text-muted-foreground">...</span> : null}
-                        <button
-                          onClick={() => setCurrentPage(page)}
-                          className={`h-8 min-w-8 rounded-md border px-2 text-xs font-semibold ${
-                            currentPage === page
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border text-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      </div>
-                    )
-                  })}
-
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+            {!loading ? (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3 border-t border-border/70 pt-3 text-center md:justify-between md:text-left">
+                <p className="w-full text-sm text-muted-foreground md:w-auto">
+                  Showing {filteredStudents.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredStudents.length)} of {filteredStudents.length} record
+                  {filteredStudents.length === 1 ? "" : "s"}
+                </p>
+                <div className="flex w-full items-center justify-center gap-2 md:w-auto md:justify-end">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-2 text-sm font-medium text-foreground">
+                    Page {Math.max(1, currentPage)} of {Math.max(1, totalPages)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(Math.max(1, totalPages), prev + 1))}
+                    disabled={currentPage >= Math.max(1, totalPages)}
+                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>

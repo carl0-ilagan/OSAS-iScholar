@@ -6,42 +6,6 @@ import { collection, getDocs, query, orderBy, doc, getDoc, where } from "firebas
 import AdminLayoutWrapper from "../admin-layout"
 import { Award, Building2, Search, Users, User } from "lucide-react"
 
-const DUMMY_SCHOLARS = [
-  {
-    id: "dummy-scholar-1",
-    name: "Juan Dela Cruz",
-    photoURL: null,
-    scholarshipName: "Academic Excellence Grant",
-    studentNumber: "2024-00123",
-    course: "BS Information Technology",
-    yearLevel: "3rd Year",
-    campus: "Calapan Campus",
-    reviewedDate: "03/12/2026",
-  },
-  {
-    id: "dummy-scholar-2",
-    name: "Maria Santos",
-    photoURL: null,
-    scholarshipName: "Financial Assistance Program",
-    studentNumber: "2023-00421",
-    course: "BS Accountancy",
-    yearLevel: "2nd Year",
-    campus: "Bongabong Campus",
-    reviewedDate: "03/09/2026",
-  },
-  {
-    id: "dummy-scholar-3",
-    name: "Carlo Reyes",
-    photoURL: null,
-    scholarshipName: "STEM Priority Scholarship",
-    studentNumber: "2022-00789",
-    course: "BS Civil Engineering",
-    yearLevel: "4th Year",
-    campus: "Naujan Campus",
-    reviewedDate: "03/05/2026",
-  },
-]
-
 export default function ScholarsPage() {
   const [scholars, setScholars] = useState([])
   const [loading, setLoading] = useState(true)
@@ -172,7 +136,7 @@ export default function ScholarsPage() {
   }, [filterCampus, searchQuery])
 
   // Pagination
-  const tableRows = filteredScholars.length > 0 ? filteredScholars : DUMMY_SCHOLARS
+  const tableRows = filteredScholars
   const totalPages = Math.max(1, Math.ceil(tableRows.length / ITEMS_PER_PAGE))
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE

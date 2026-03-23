@@ -2,57 +2,39 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ChevronDown, FileCheck, FileText, GraduationCap, LogOut, MapPin, Moon, Sun, User, Users } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { LogOut, MapPin, Menu, Moon, Sun, User, X } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import { normalizeCampus } from "@/lib/campus-admin-config"
 import { Switch } from "@/components/ui/switch"
+import { campusAdminNavItems } from "./nav-items"
 
 export default function CampusAdminTopHeader({
   isDarkMode = false,
   onToggleTheme = () => {},
 }) {
+  const pathname = usePathname()
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { branding } = useBranding()
   const brandName = branding?.name || "MOCAS"
   const brandLogo = branding?.logo || "/MOCAS-removebg-preview.png"
-  const [isVisible, setIsVisible] = useState(true)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const lastScrollYRef = useRef(0)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
-  const frameRef = useRef(null)
+  const [profileImageError, setProfileImageError] = useState(false)
   const campus = normalizeCampus(user?.campus || "Campus")
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const lastScrollY = lastScrollYRef.current
-
-      if (currentScrollY < 24) {
-        setIsVisible(true)
-        lastScrollYRef.current = currentScrollY
-        return
-      }
-
-      const delta = Math.abs(currentScrollY - lastScrollY)
-      if (delta < 8) return
-      setIsVisible(currentScrollY < lastScrollY)
-      lastScrollYRef.current = currentScrollY
-    }
-
-    const onScroll = () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current)
-      frameRef.current = window.requestAnimationFrame(handleScroll)
-    }
-
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => {
-      window.removeEventListener("scroll", onScroll)
-      if (frameRef.current) cancelAnimationFrame(frameRef.current)
-    }
-  }, [])
+  const CORE_MOBILE_ROUTES = new Set([
+    "/campus-admin",
+    "/campus-admin/users",
+    "/campus-admin/applications",
+    "/campus-admin/scholars",
+  ])
+  const mobileMenuItems = campusAdminNavItems.filter((item) => !CORE_MOBILE_ROUTES.has(item.href))
+  const validProfilePhoto = Boolean(
+    user?.photoURL && (/^https?:\/\//i.test(user.photoURL) || /^data:image\//i.test(user.photoURL)) && !profileImageError,
+  )
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -72,6 +54,10 @@ export default function CampusAdminTopHeader({
     }
   }, [isProfileOpen])
 
+  useEffect(() => {
+    setProfileImageError(false)
+  }, [user?.photoURL])
+
   const handleLogout = async () => {
     try {
       await signOut()
@@ -80,48 +66,66 @@ export default function CampusAdminTopHeader({
     }
   }
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [pathname])
+
   return (
     <header
-      className={`fixed left-0 right-0 top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur transition-transform duration-300 ${
-        isVisible ? "translate-y-0" : "-translate-y-full"
-      }`}
+      className="fixed left-0 right-0 top-0 z-40 border-b border-emerald-800/50 bg-emerald-950 text-white shadow-[0_4px_24px_-4px_rgba(6,78,59,0.45)] backdrop-blur-md supports-[backdrop-filter]:bg-emerald-950/95 md:border-border/70 md:bg-background/95 md:text-foreground md:shadow-sm"
     >
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/campus-admin" className="flex items-center gap-2.5">
-          {brandLogo ? (
-            <img
-              src={brandLogo}
-              alt={brandName || "Logo"}
-              className="h-10 w-10 rounded-xl bg-muted/40 p-1.5 object-contain"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">
-              CA
+        <div className="flex items-center gap-2 md:pl-[var(--campus-admin-sidebar-width)]">
+          <Link href="/campus-admin" className="flex items-center gap-2.5 md:hidden">
+            {brandLogo ? (
+              <div className="h-11 w-11 overflow-hidden rounded-full border border-white/25 bg-white shadow-md">
+                <img src={brandLogo} alt={brandName || "Logo"} className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white text-base font-bold text-emerald-900">C</div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold leading-tight text-white">{brandName}</p>
+              <p className="truncate text-xs text-emerald-200/90">Campus Admin</p>
             </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">Campus Admin Control Panel</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {brandName} - {campus || "assigned campus"}
-            </p>
+          </Link>
+          <div className="hidden rounded-xl border border-emerald-200/70 bg-emerald-50 px-3 py-1.5 md:block">
+            <p className="text-xs font-semibold text-emerald-800">Campus Admin Panel</p>
           </div>
-        </Link>
+        </div>
 
-        <div className="relative" ref={dropdownRef}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setIsProfileOpen(false)
+              setIsMobileMenuOpen((prev) => !prev)
+            }}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsProfileOpen((prev) => !prev)}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-1.5 hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 text-white hover:bg-white/15 md:border-border md:bg-card md:text-foreground md:hover:bg-muted"
           >
-            <div className="h-8 w-8 overflow-hidden rounded-full bg-primary/10">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="h-full w-full object-cover" />
+            <div className="h-8 w-8 overflow-hidden rounded-full border border-white/25 bg-emerald-800 text-white md:border-emerald-200 md:bg-emerald-50 md:text-emerald-700">
+              {validProfilePhoto ? (
+                <img
+                  src={user.photoURL}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                  onError={() => setProfileImageError(true)}
+                />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-primary">
-                  {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "C"}
+                <div className="flex h-full w-full items-center justify-center">
+                  <User className="h-4 w-4" />
                 </div>
               )}
             </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
           </button>
 
           <div
@@ -140,47 +144,16 @@ export default function CampusAdminTopHeader({
               </div>
             </div>
             <div className="border-t border-border/70 px-2.5 pt-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Management</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Quick Menu</p>
             </div>
             <Link
-              href="/campus-admin/users"
-              onClick={() => setIsProfileOpen(false)}
-              className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              <Users className="h-4 w-4" />
-              <span>User Management</span>
-            </Link>
-            <Link
-              href="/campus-admin/applications"
-              onClick={() => setIsProfileOpen(false)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              <FileText className="h-4 w-4" />
-              <span>Applications</span>
-            </Link>
-            <Link
-              href="/campus-admin/scholars"
-              onClick={() => setIsProfileOpen(false)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              <GraduationCap className="h-4 w-4" />
-              <span>Scholars</span>
-            </Link>
-            <Link
-              href="/campus-admin/requirements"
-              onClick={() => setIsProfileOpen(false)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
-            >
-              <FileCheck className="h-4 w-4" />
-              <span>Requirements</span>
-            </Link>
-            <button
+              href="/campus-admin/profile"
               onClick={() => setIsProfileOpen(false)}
               className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-muted"
             >
               <User className="h-4 w-4" />
               <span>Profile</span>
-            </button>
+            </Link>
             <div className="mx-1 my-1 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm text-foreground">
@@ -205,6 +178,41 @@ export default function CampusAdminTopHeader({
             </button>
           </div>
         </div>
+        </div>
+      </div>
+
+      <div
+        className={`overflow-hidden border-t border-white/15 px-2 md:hidden transition-all duration-300 ease-out ${
+          isMobileMenuOpen ? "max-h-[520px] pb-4 pt-3 opacity-100" : "max-h-0 pb-0 pt-0 opacity-0"
+        }`}
+      >
+        {isMobileMenuOpen ? (
+          <>
+          <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-200/90">Menu</p>
+          <div
+            className={`flex max-h-[min(65vh,380px)] flex-col gap-0.5 overflow-y-auto rounded-xl border border-white/10 bg-black/15 px-1 py-1 transition-all duration-300 ease-out ${
+              isMobileMenuOpen ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+            }`}
+          >
+            {mobileMenuItems.map(({ icon: Icon, label, href }) => {
+              const active = pathname === href || pathname.startsWith(`${href}/`)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium ${
+                    active ? "bg-white/15 text-white" : "text-emerald-50 hover:bg-white/10"
+                  }`}
+                >
+                  <Icon className="h-5 w-5 shrink-0 opacity-95" />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+          </>
+        ) : null}
       </div>
     </header>
   )

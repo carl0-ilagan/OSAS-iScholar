@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc } from "firebase/firestore"
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc, where } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import CampusAdminLayoutWrapper from "@/app/campus-admin/campus-admin-layout"
 import { FolderCheck, Plus, Edit, Trash2, Save, Upload, FileText, CheckCircle, Sparkles, ChevronLeft, ChevronRight, Calendar, Eye, Download, Users, User, AlertCircle, Search, Filter, Loader2 } from "lucide-react"
@@ -11,8 +11,11 @@ import { toast } from "sonner"
 import { sendNewDocumentRequirementEmail } from "@/lib/email-service"
 import DocumentPreviewModal from "@/components/admin/document-preview-modal"
 import { isAdminEmail } from "@/lib/role-check"
+import { useAuth } from "@/contexts/AuthContext"
+import { normalizeCampus } from "@/lib/campus-admin-config"
 
 export default function DocumentRequirementsPage() {
+  const { user } = useAuth()
   const pathname = usePathname()
   const isCampusAdminRoute = pathname?.startsWith("/campus-admin")
   const isAdminMonitoringOnly = pathname?.startsWith("/admin")
@@ -39,6 +42,7 @@ export default function DocumentRequirementsPage() {
   const [recordsPage, setRecordsPage] = useState(1)
   const [recordsSearchQuery, setRecordsSearchQuery] = useState("")
   const [recordsFilterRequirement, setRecordsFilterRequirement] = useState("all")
+  const [userCampus, setUserCampus] = useState(null)
   const RECORDS_PER_PAGE = 10
 
   // Reset records page when filters change
@@ -52,6 +56,26 @@ export default function DocumentRequirementsPage() {
       setRecordsPage(1)
     }
   }, [activeTab])
+
+  useEffect(() => {
+    const fetchUserCampus = async () => {
+      if (!user?.uid) {
+        setUserCampus(null)
+        return
+      }
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid))
+        const data = userSnap.exists() ? userSnap.data() : {}
+        setUserCampus(normalizeCampus(data?.campus || null))
+      } catch (error) {
+        console.error("Error fetching user campus:", error)
+        setUserCampus(null)
+      }
+    }
+
+    fetchUserCampus()
+  }, [user?.uid])
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -67,17 +91,32 @@ export default function DocumentRequirementsPage() {
   // Fetch requirements
   useEffect(() => {
     const fetchRequirements = async () => {
+      if (isCampusAdminRoute && !userCampus) {
+        setRequirements([])
+        setLoading(false)
+        return
+      }
+
+      const campusFilter = normalizeCampus(userCampus)
+      const getRequirementsQuery = (withOrder = true) => {
+        if (isCampusAdminRoute) {
+          return withOrder
+            ? query(collection(db, "documentRequirements"), where("campus", "==", campusFilter), orderBy("createdAt", "desc"))
+            : query(collection(db, "documentRequirements"), where("campus", "==", campusFilter))
+        }
+        return withOrder
+          ? query(collection(db, "documentRequirements"), orderBy("createdAt", "desc"))
+          : collection(db, "documentRequirements")
+      }
+
       try {
         let snapshot
       try {
-        const requirementsQuery = query(
-          collection(db, "documentRequirements"),
-          orderBy("createdAt", "desc")
-        )
+        const requirementsQuery = getRequirementsQuery(true)
           snapshot = await getDocs(requirementsQuery)
         } catch (error) {
           // Fallback without orderBy
-          snapshot = await getDocs(collection(db, "documentRequirements"))
+          snapshot = await getDocs(getRequirementsQuery(false))
         }
         
         // Reconstruct chunked sample files
@@ -135,7 +174,7 @@ export default function DocumentRequirementsPage() {
         console.error("Error fetching requirements:", error)
         // Fallback without orderBy
         try {
-          const snapshot = await getDocs(collection(db, "documentRequirements"))
+          const snapshot = await getDocs(getRequirementsQuery(false))
           const requirementsData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
@@ -145,7 +184,7 @@ export default function DocumentRequirementsPage() {
           console.error("Error fetching requirements (fallback):", fallbackError)
           // Try to fetch with chunk reconstruction even on error
           try {
-            const snapshot = await getDocs(collection(db, "documentRequirements"))
+            const snapshot = await getDocs(getRequirementsQuery(false))
             const requirementsData = await Promise.all(snapshot.docs.map(async (docSnap) => {
               const data = docSnap.data()
               let sampleFile = data.sampleFile || ''
@@ -186,34 +225,59 @@ export default function DocumentRequirementsPage() {
     }
 
     fetchRequirements()
-  }, [])
+  }, [isCampusAdminRoute, userCampus])
 
   // Fetch student records
   useEffect(() => {
     const fetchStudentRecords = async () => {
       if (activeTab !== "records") return
+      if (isCampusAdminRoute && !userCampus) {
+        setStudentRecords([])
+        setRecordsLoading(false)
+        return
+      }
       
       setRecordsLoading(true)
       try {
-        // Fetch all student documents
-        const studentDocsSnapshot = await getDocs(collection(db, "studentDocuments"))
+        const campusFilter = normalizeCampus(userCampus)
+        const usersQuery = isCampusAdminRoute
+          ? query(collection(db, "users"), where("campus", "==", campusFilter))
+          : collection(db, "users")
+        const requirementsQuery = isCampusAdminRoute
+          ? query(collection(db, "documentRequirements"), where("campus", "==", campusFilter))
+          : collection(db, "documentRequirements")
         
-        // Fetch all users for names
-        const usersSnapshot = await getDocs(collection(db, "users"))
+        // Fetch users for names
+        const usersSnapshot = await getDocs(usersQuery)
         const usersMap = new Map()
         usersSnapshot.forEach((userDoc) => {
           usersMap.set(userDoc.id, userDoc.data())
         })
+
+        // Fetch student documents; campus-admin reads per-campus users only
+        let studentDocEntries = []
+        if (isCampusAdminRoute) {
+          const campusUserIds = usersSnapshot.docs.map((userDoc) => userDoc.id)
+          const perUserSnapshots = await Promise.all(
+            campusUserIds.map((uid) =>
+              getDocs(query(collection(db, "studentDocuments"), where("userId", "==", uid)))
+            )
+          )
+          studentDocEntries = perUserSnapshots.flatMap((snap) => snap.docs)
+        } else {
+          const studentDocsSnapshot = await getDocs(collection(db, "studentDocuments"))
+          studentDocEntries = studentDocsSnapshot.docs
+        }
         
-        // Fetch all requirements for names
-        const requirementsSnapshot = await getDocs(collection(db, "documentRequirements"))
+        // Fetch requirements for names
+        const requirementsSnapshot = await getDocs(requirementsQuery)
         const requirementsMap = new Map()
         requirementsSnapshot.forEach((reqDoc) => {
           requirementsMap.set(reqDoc.id, reqDoc.data())
         })
         
         // Reconstruct chunked documents and prepare records
-        const recordsData = await Promise.all(studentDocsSnapshot.docs.map(async (docSnap) => {
+        const recordsData = await Promise.all(studentDocEntries.map(async (docSnap) => {
           const data = docSnap.data()
           let fileUrl = data.fileUrl || ''
           
@@ -273,7 +337,7 @@ export default function DocumentRequirementsPage() {
     }
     
     fetchStudentRecords()
-  }, [activeTab])
+  }, [activeTab, isCampusAdminRoute, userCampus])
 
   // Convert file to base64
   const fileToBase64 = (file) => {
@@ -366,6 +430,10 @@ export default function DocumentRequirementsPage() {
       toast.error("Please enter a requirement name")
       return
     }
+    if (!normalizeCampus(userCampus)) {
+      toast.error("Campus context is missing. Please re-login and try again.")
+      return
+    }
 
     setIsSubmitting(true)
 
@@ -431,6 +499,8 @@ export default function DocumentRequirementsPage() {
         name: formData.name.trim(),
         description: formData.description.trim() || "",
         required: formData.required,
+        campus: normalizeCampus(userCampus),
+        createdBy: editingRequirement?.createdBy || user?.uid || null,
         sampleFile: sampleFileBase64,
         sampleFileName: formData.sampleFile ? formData.sampleFile.name : (editingRequirement?.sampleFileName || ""),
         maxImageUploads: formData.maxImageUploads || 1, // Limit for image uploads when PDF sample is provided
@@ -538,7 +608,9 @@ export default function DocumentRequirementsPage() {
         
         // Send email notifications to all students
         try {
-          const usersSnapshot = await getDocs(collection(db, "users"))
+          const usersSnapshot = await getDocs(
+            query(collection(db, "users"), where("campus", "==", normalizeCampus(userCampus)))
+          )
           const emailPromises = []
           
           usersSnapshot.docs.forEach(async (userDoc) => {
@@ -546,35 +618,19 @@ export default function DocumentRequirementsPage() {
             // Only send to students (not admin)
             if (userData.email && userData.email.endsWith("@minsu.edu.ph") && !isAdminEmail(userData.email)) {
               const studentName = userData.fullName || userData.displayName || "Student"
-              const microsoftEmail = userData.email
-              const secondaryEmail = userData.secondaryEmail
+              const accountEmail = userData.email
               
-              // Send to Microsoft email
-              if (microsoftEmail) {
+              // Send to account email only
+              if (accountEmail) {
                 emailPromises.push(
                   sendNewDocumentRequirementEmail(
-                    microsoftEmail,
+                    accountEmail,
                     studentName,
                     requirementData.name,
                     requirementData.description,
                     requirementData.required
                   ).catch(err => {
-                    console.error(`Error sending email to ${microsoftEmail}:`, err)
-                  })
-                )
-              }
-              
-              // Send to secondary email if available
-              if (secondaryEmail && secondaryEmail !== microsoftEmail) {
-                emailPromises.push(
-                  sendNewDocumentRequirementEmail(
-                    secondaryEmail,
-                    studentName,
-                    requirementData.name,
-                    requirementData.description,
-                    requirementData.required
-                  ).catch(err => {
-                    console.error(`Error sending email to ${secondaryEmail}:`, err)
+                    console.error(`Error sending email to ${accountEmail}:`, err)
                   })
                 )
               }
@@ -598,7 +654,13 @@ export default function DocumentRequirementsPage() {
       }
 
       // Refresh requirements with chunk reconstruction
-      const snapshot = await getDocs(query(collection(db, "documentRequirements"), orderBy("createdAt", "desc")))
+      const snapshot = await getDocs(
+        query(
+          collection(db, "documentRequirements"),
+          where("campus", "==", normalizeCampus(userCampus)),
+          orderBy("createdAt", "desc"),
+        )
+      )
       
       // Reconstruct chunked sample files
       const requirementsData = await Promise.all(snapshot.docs.map(async (docSnap) => {
@@ -701,7 +763,15 @@ export default function DocumentRequirementsPage() {
       })
       
       // Refresh requirements with chunk reconstruction
-      const snapshot = await getDocs(query(collection(db, "documentRequirements"), orderBy("createdAt", "desc")))
+      const snapshot = await getDocs(
+        isCampusAdminRoute
+          ? query(
+              collection(db, "documentRequirements"),
+              where("campus", "==", normalizeCampus(userCampus)),
+              orderBy("createdAt", "desc"),
+            )
+          : query(collection(db, "documentRequirements"), orderBy("createdAt", "desc"))
+      )
       
       // Reconstruct chunked sample files
       const requirementsData = await Promise.all(snapshot.docs.map(async (docSnap) => {
@@ -968,16 +1038,50 @@ export default function DocumentRequirementsPage() {
   return (
     <LayoutWrapper>
       <div className="relative">
-        <div className="p-3 md:p-4 lg:p-5">
+        <div className="w-full px-3 pb-4 pt-2 md:px-4 md:pb-6 md:pt-3 lg:px-6 lg:pb-8">
+          <div className="relative mb-5 overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-6 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 dark:ring-emerald-500/10">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
+            <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-teal-400/10 blur-2xl" />
+
+            <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+                  {activeTab === "requirements" ? <FolderCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+                  {activeTab === "requirements" ? "Document requirements" : "Student records"}
+                </span>
+                <h1 className="text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 md:text-3xl">
+                  {activeTab === "requirements" ? "Document requirements" : "Student records"}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-900/75 dark:text-emerald-200/85">
+                  {activeTab === "requirements"
+                    ? (isAdminMonitoringOnly
+                        ? "Monitoring view only for admin."
+                        : "Add and manage the document requirements students must submit.")
+                    : "Review uploaded records from students in your campus."}
+                </p>
+              </div>
+
+              {canManageRequirements && activeTab === "requirements" && (
+                <button
+                  onClick={() => handleOpenModal()}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Requirement
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Tab Controls */}
           <div className="relative mb-6">
-            <div className="flex gap-1 border-b border-border relative bg-card/60 rounded-lg p-1 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1 rounded-2xl border border-emerald-200/50 bg-emerald-50/40 p-1.5 shadow-sm ring-1 ring-black/[0.03] dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:ring-white/5 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab("requirements")}
-                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
+                className={`relative z-10 flex-1 min-w-[160px] rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 md:px-4 group whitespace-nowrap ${
                   activeTab === "requirements"
-                    ? "text-primary bg-primary/10 border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "bg-white text-emerald-900 shadow-md dark:bg-emerald-900/80 dark:text-emerald-50"
+                    : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-emerald-950/50"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -1002,10 +1106,10 @@ export default function DocumentRequirementsPage() {
               </button>
               <button
                 onClick={() => setActiveTab("records")}
-                className={`px-3 md:px-4 py-2 font-medium transition-all duration-200 relative z-10 rounded-md whitespace-nowrap flex-shrink-0 group ${
+                className={`relative z-10 flex-1 min-w-[160px] rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 md:px-4 group whitespace-nowrap ${
                   activeTab === "records"
-                    ? "text-primary bg-primary/10 border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "bg-white text-emerald-900 shadow-md dark:bg-emerald-900/80 dark:text-emerald-50"
+                    : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-emerald-950/50"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -1034,26 +1138,6 @@ export default function DocumentRequirementsPage() {
           {/* Requirements Tab Content */}
           {activeTab === "requirements" && (
             <>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Document Requirements</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                {isAdminMonitoringOnly
-                  ? "Monitoring view only for admin."
-                  : "Add and manage document requirements for students"}
-              </p>
-            </div>
-            {canManageRequirements && (
-              <button
-                onClick={() => handleOpenModal()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors w-full sm:w-auto justify-center"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Requirement</span>
-              </button>
-            )}
-          </div>
-
           {loading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
@@ -1067,15 +1151,6 @@ export default function DocumentRequirementsPage() {
             <div className="bg-card border border-border rounded-lg p-12 text-center">
               <FolderCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No requirements added yet</p>
-              {canManageRequirements && (
-                <button
-                  onClick={() => handleOpenModal()}
-                  className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors mx-auto"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add First Requirement</span>
-                </button>
-              )}
             </div>
           ) : (
             <>

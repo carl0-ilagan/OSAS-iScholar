@@ -85,6 +85,7 @@ export default function AnnouncementsPage() {
             targetYearLevel: data.targetYearLevel || "all",
             endDate: data.endDate ? (data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate)) : null,
             venue: data.venue || "",
+            images: Array.isArray(data.images) ? data.images : [],
             createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date(),
             updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)) : null,
             status: data.status || null, // Manual status override
@@ -208,6 +209,7 @@ export default function AnnouncementsPage() {
           targetYearLevel: announcementData.targetYearLevel || "all",
           endDate: announcementData.endDate,
           venue: announcementData.venue || "",
+          images: Array.isArray(announcementData.images) ? announcementData.images : [],
           updatedAt: serverTimestamp(),
           status: initialStatus,
         })
@@ -220,6 +222,7 @@ export default function AnnouncementsPage() {
           targetYearLevel: announcementData.targetYearLevel || "all",
           endDate: announcementData.endDate,
           venue: announcementData.venue || "",
+          images: Array.isArray(announcementData.images) ? announcementData.images : [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           status: initialStatus,
@@ -258,7 +261,7 @@ export default function AnnouncementsPage() {
           usersSnapshot.forEach((userDoc) => {
             const userData = userDoc.data()
             const userId = userDoc.id
-            const secondaryEmail = userData.secondaryEmail || userData.email
+            const accountEmail = userData.email
             const studentName = userData.fullName || userData.displayName || "Student"
             const userYearLevel = userData.yearLevel || null
             
@@ -290,13 +293,13 @@ export default function AnnouncementsPage() {
               }
             }
             
-            if (shouldReceive && secondaryEmail) {
+            if (shouldReceive && accountEmail) {
               emailPromises.push(
                 fetch('/api/send-email', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    to: secondaryEmail,
+                    to: accountEmail,
                     subject: '📢 New Announcement - MOCAS',
                     html: `
                       <!DOCTYPE html>
@@ -332,7 +335,7 @@ export default function AnnouncementsPage() {
                       </html>
                     `
                   })
-                }).catch(err => console.error(`Error sending email to ${secondaryEmail}:`, err))
+                }).catch(err => console.error(`Error sending email to ${accountEmail}:`, err))
               )
             }
           })
@@ -370,6 +373,7 @@ export default function AnnouncementsPage() {
           targetYearLevel: data.targetYearLevel || "all",
           endDate: data.endDate ? (data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate)) : null,
           venue: data.venue || "",
+          images: Array.isArray(data.images) ? data.images : [],
           createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date(),
           updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)) : null,
           status: data.status || null,

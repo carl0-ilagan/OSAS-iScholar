@@ -10,13 +10,11 @@ import {
   MessageSquare,
   LogOut,
   ClipboardCheck,
-  FilePenLine,
   Video,
   UserRound,
   Menu,
   X,
   User,
-  ChevronDown,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
@@ -35,7 +33,6 @@ const primaryNavItems = [
 
 /** User menu — records, forms, feedback */
 const userMenuLinks = [
-  { icon: FilePenLine, label: "PDF Forms", href: "/student/pdf-forms" },
   { icon: History, label: "Application History", href: "/student/applications" },
   { icon: MessageSquare, label: "Testimonials", href: "/student/feedback" },
 ]
@@ -190,10 +187,11 @@ export default function StudentHeader() {
                   type="button"
                   onClick={() => setProfileOpen((p) => !p)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-xl border py-1 pl-1 pr-2 transition sm:gap-2 sm:pl-1.5 sm:pr-3",
+                    "flex items-center transition",
+                    "h-10 w-10 justify-center rounded-full border border-white/25 bg-transparent p-0 hover:bg-white/10 md:h-auto md:w-auto md:justify-start md:gap-1.5 md:rounded-xl md:border md:py-1 md:pl-1 md:pr-2 md:sm:gap-2 md:sm:pl-1.5 md:sm:pr-3",
                     profileOpen || anyUserLinkActive
-                      ? "border-white/40 bg-white/20"
-                      : "border-white/20 bg-white/10 hover:bg-white/15"
+                      ? "md:border-white/40 md:bg-white/20"
+                      : "md:border-white/20 md:bg-white/10 md:hover:bg-white/15"
                   )}
                   aria-expanded={profileOpen}
                   aria-haspopup="menu"
@@ -220,12 +218,6 @@ export default function StudentHeader() {
                   <span className="hidden max-w-[100px] truncate text-sm font-medium text-white sm:max-w-[140px] md:inline">
                     {profileLabel}
                   </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 shrink-0 text-emerald-100 transition-transform",
-                      profileOpen ? "rotate-180" : ""
-                    )}
-                  />
                 </button>
 
                 {profileOpen ? (
@@ -237,29 +229,6 @@ export default function StudentHeader() {
                       <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">{profileLabel}</p>
                       <p className="text-xs text-emerald-700/80 dark:text-emerald-400/90">Student</p>
                     </div>
-
-                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Forms & records
-                    </p>
-                    {userMenuLinks.map(({ icon: Icon, label, href }) => {
-                      const active = isActivePath(pathname, href)
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          role="menuitem"
-                          className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
-                            active
-                              ? "bg-emerald-50 font-medium text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-100"
-                              : "text-zinc-800 hover:bg-emerald-50/80 dark:text-zinc-200 dark:hover:bg-emerald-950/50"
-                          }`}
-                          onClick={() => setProfileOpen(false)}
-                        >
-                          <Icon className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                          {label}
-                        </Link>
-                      )
-                    })}
 
                     <div className="my-1 border-t border-emerald-100 dark:border-emerald-900" />
 
@@ -290,8 +259,16 @@ export default function StudentHeader() {
             </div>
           </div>
 
-          {mobileOpen ? (
-            <div className="border-t border-white/15 px-2 pb-4 pt-3 md:hidden">
+          <div
+            className={`overflow-hidden border-t border-white/15 px-2 md:hidden transition-all duration-300 ease-out ${
+              mobileOpen ? "max-h-[520px] pb-4 pt-3 opacity-100" : "max-h-0 pb-0 pt-0 opacity-0"
+            }`}
+          >
+            <div
+              className={`transition-all duration-300 ease-out ${
+                mobileOpen ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+              }`}
+            >
               <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-200/90">Menu</p>
               <div className="flex max-h-[min(65vh,380px)] flex-col gap-0.5 overflow-y-auto rounded-xl border border-white/10 bg-black/15 px-1 py-1">
                 {primaryNavItems.map(({ icon: Icon, label, href }) => {
@@ -329,30 +306,9 @@ export default function StudentHeader() {
                     </Link>
                   )
                 })}
-                <div className="mt-2 border-t border-white/15 px-1 pt-2">
-                  <Link
-                    href="/student/profile"
-                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-emerald-50 hover:bg-white/10"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    <UserRound className="h-5 w-5" />
-                    Profile
-                  </Link>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-red-200 hover:bg-red-500/20"
-                    onClick={() => {
-                      setMobileOpen(false)
-                      setLogoutOpen(true)
-                    }}
-                  >
-                    <LogOut className="h-5 w-5" />
-                    Logout
-                  </button>
-                </div>
               </div>
             </div>
-          ) : null}
+          </div>
         </div>
       </header>
 

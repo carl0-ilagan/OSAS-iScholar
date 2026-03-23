@@ -8,90 +8,6 @@ import ApplicationsTable from "@/components/student/applications-table"
 import ApplicationsTableSkeleton from "@/components/student/applications-table-skeleton"
 import { Search, Activity, FileText, Clock3, CheckCircle2 } from "lucide-react"
 
-// Static scholarship data fallback (from apply page)
-const STATIC_SCHOLARSHIP_DATA = {
-  "Merit Scholarship": {
-    benefit: "Full Tuition + Stipend + Allowance",
-    benefitAmount: "Up to ₱80,000/year (SUC)",
-  },
-  "Needs-Based Grant": {
-    benefit: "Tuition support based on family income",
-    benefitAmount: "Up to 50% Tuition Coverage",
-  },
-  "Tertiary Education Subsidy (TES)": {
-    benefit: "Annual educational subsidy",
-    benefitAmount: "₱20,000/year (SUC)",
-  },
-  "Teacher Development Program (TDP)": {
-    benefit: "Financial support every semester",
-    benefitAmount: "₱7,500 per semester (₱15,000/year)",
-  },
-}
-
-// Temporary UI demo rows when user has no real submissions yet.
-const STATIC_APPLICATION_ROWS = [
-  {
-    id: "demo-1",
-    program: "Merit Scholarship",
-    scholarshipName: "Merit Scholarship",
-    trackerCode: "TRK-2026-0001",
-    dateSubmitted: "03/15/2026",
-    submittedDate: "03/15/2026",
-    status: "under-review",
-    amount: "Up to ₱80,000/year (SUC)",
-    benefit: "Full Tuition + Stipend + Allowance",
-    course: "BSIT",
-    yearLevel: "4th Year",
-    campus: "Main Campus",
-    submittedAt: "2026-03-15T08:30:00.000Z",
-    scholarshipId: "demo-merit",
-    formData: { Semester: "2nd", AcademicYear: "2025-2026" },
-    files: {},
-    adminRemarks: null,
-    reviewedAt: null,
-  },
-  {
-    id: "demo-2",
-    program: "Tertiary Education Subsidy (TES)",
-    scholarshipName: "Tertiary Education Subsidy (TES)",
-    trackerCode: "TRK-2026-0002",
-    dateSubmitted: "03/02/2026",
-    submittedDate: "03/02/2026",
-    status: "approved",
-    amount: "₱20,000/year (SUC)",
-    benefit: "Annual educational subsidy",
-    course: "BSIT",
-    yearLevel: "4th Year",
-    campus: "Main Campus",
-    submittedAt: "2026-03-02T10:10:00.000Z",
-    scholarshipId: "demo-tes",
-    formData: { Semester: "2nd", AcademicYear: "2025-2026" },
-    files: {},
-    adminRemarks: "Approved for the current academic year.",
-    reviewedAt: "2026-03-10T09:12:00.000Z",
-  },
-  {
-    id: "demo-3",
-    program: "Needs-Based Grant",
-    scholarshipName: "Needs-Based Grant",
-    trackerCode: "TRK-2026-0003",
-    dateSubmitted: "02/25/2026",
-    submittedDate: "02/25/2026",
-    status: "pending",
-    amount: "Up to 50% Tuition Coverage",
-    benefit: "Tuition support based on family income",
-    course: "BSIT",
-    yearLevel: "4th Year",
-    campus: "Main Campus",
-    submittedAt: "2026-02-25T14:40:00.000Z",
-    scholarshipId: "demo-needs",
-    formData: { Semester: "2nd", AcademicYear: "2025-2026" },
-    files: {},
-    adminRemarks: null,
-    reviewedAt: null,
-  },
-]
-
 export default function ApplicationsPage() {
   const { user } = useAuth()
   const [applications, setApplications] = useState([])
@@ -130,16 +46,11 @@ export default function ApplicationsPage() {
           
           scholarshipsSnapshot.docs.forEach(doc => {
             const data = doc.data()
-            const scholarshipName = data.name || ""
-            const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-            
-            // Use Firestore data if available, otherwise use static fallback
+
             const benefitAmount = data.benefitAmount || 
                                  data.amount || 
-                                 staticData.benefitAmount || 
                                  "N/A"
             const benefit = data.benefit || 
-                           staticData.benefit || 
                            "N/A"
             
             // Map by document ID (both string and number)
@@ -166,21 +77,16 @@ export default function ApplicationsPage() {
         
         const applicationsData = snapshot.docs.map((docSnap) => {
           const data = docSnap.data()
-          const scholarshipName = data.scholarshipName || ""
-          const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-          
-          // Get scholarship benefit amount - prefer stored data, then fetch from scholarships, then static fallback
+          // Get scholarship benefit amount from application/scholarship records.
           const benefitAmount = data.benefitAmount || 
                                scholarships[String(data.scholarshipId)]?.benefitAmount ||
                                scholarships[data.scholarshipId]?.benefitAmount ||
                                scholarships[data.scholarshipName]?.benefitAmount ||
-                               staticData.benefitAmount ||
                                "N/A"
           const benefit = data.benefit ||
                          scholarships[String(data.scholarshipId)]?.benefit ||
                          scholarships[data.scholarshipId]?.benefit ||
                          scholarships[data.scholarshipName]?.benefit ||
-                         staticData.benefit ||
                          "N/A"
           
           return {
@@ -205,9 +111,8 @@ export default function ApplicationsPage() {
           }
         })
         
-        const rowsToUse = applicationsData.length > 0 ? applicationsData : STATIC_APPLICATION_ROWS
-        setApplications(rowsToUse)
-        setFilteredApplications(rowsToUse)
+        setApplications(applicationsData)
+        setFilteredApplications(applicationsData)
       } catch (error) {
         console.error("Error fetching applications:", error)
         // If orderBy fails, try without it
@@ -227,16 +132,10 @@ export default function ApplicationsPage() {
               scholarships = {}
               scholarshipsSnapshot.docs.forEach(doc => {
                 const data = doc.data()
-                const scholarshipName = data.name || ""
-                const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-                
-                // Use Firestore data if available, otherwise use static fallback
                 const benefitAmount = data.benefitAmount || 
                                      data.amount || 
-                                     staticData.benefitAmount || 
                                      "N/A"
                 const benefit = data.benefit || 
-                               staticData.benefit || 
                                "N/A"
                 
                 scholarships[doc.id] = { benefitAmount, benefit }
@@ -254,21 +153,16 @@ export default function ApplicationsPage() {
           
           const applicationsData = snapshot.docs.map((docSnap) => {
             const data = docSnap.data()
-            const scholarshipName = data.scholarshipName || ""
-            const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-            
-            // Get scholarship benefit amount - prefer stored data, then fetch from scholarships, then static fallback
+            // Get scholarship benefit amount from application/scholarship records.
             const benefitAmount = data.benefitAmount || 
                                  scholarships[String(data.scholarshipId)]?.benefitAmount ||
                                  scholarships[data.scholarshipId]?.benefitAmount ||
                                  scholarships[data.scholarshipName]?.benefitAmount ||
-                                 staticData.benefitAmount ||
                                  "N/A"
             const benefit = data.benefit ||
                            scholarships[String(data.scholarshipId)]?.benefit ||
                            scholarships[data.scholarshipId]?.benefit ||
                            scholarships[data.scholarshipName]?.benefit ||
-                           staticData.benefit ||
                            "N/A"
             
             return {
@@ -298,13 +192,12 @@ export default function ApplicationsPage() {
             if (!b.submittedAt) return -1
             return new Date(b.submittedAt) - new Date(a.submittedAt)
           })
-          const rowsToUse = applicationsData.length > 0 ? applicationsData : STATIC_APPLICATION_ROWS
-          setApplications(rowsToUse)
-          setFilteredApplications(rowsToUse)
+          setApplications(applicationsData)
+          setFilteredApplications(applicationsData)
         } catch (simpleError) {
           console.error("Error fetching applications (simple):", simpleError)
-          setApplications(STATIC_APPLICATION_ROWS)
-          setFilteredApplications(STATIC_APPLICATION_ROWS)
+          setApplications([])
+          setFilteredApplications([])
         }
       } finally {
         setLoading(false)
@@ -432,16 +325,10 @@ export default function ApplicationsPage() {
                       const scholarshipsSnapshot = await getDocs(scholarshipsQuery)
                       scholarshipsSnapshot.docs.forEach(doc => {
                         const data = doc.data()
-                        const scholarshipName = data.name || ""
-                        const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-                        
-                        // Use Firestore data if available, otherwise use static fallback
                         const benefitAmount = data.benefitAmount || 
                                              data.amount || 
-                                             staticData.benefitAmount || 
                                              "N/A"
                         const benefit = data.benefit || 
-                                       staticData.benefit || 
                                        "N/A"
                         
                         scholarships[doc.id] = { benefitAmount, benefit }
@@ -455,21 +342,16 @@ export default function ApplicationsPage() {
                     
                     const applicationsData = snapshot.docs.map((docSnap) => {
                       const data = docSnap.data()
-                      const scholarshipName = data.scholarshipName || ""
-                      const staticData = STATIC_SCHOLARSHIP_DATA[scholarshipName] || {}
-                      
-                      // Get scholarship benefit amount - prefer stored data, then fetch from scholarships, then static fallback
+
                       const benefitAmount = data.benefitAmount || 
                                            scholarships[String(data.scholarshipId)]?.benefitAmount ||
                                            scholarships[data.scholarshipId]?.benefitAmount ||
                                            scholarships[data.scholarshipName]?.benefitAmount ||
-                                           staticData.benefitAmount ||
                                            "N/A"
                       const benefit = data.benefit ||
                                      scholarships[String(data.scholarshipId)]?.benefit ||
                                      scholarships[data.scholarshipId]?.benefit ||
                                      scholarships[data.scholarshipName]?.benefit ||
-                                     staticData.benefit ||
                                      "N/A"
                       
                       return {

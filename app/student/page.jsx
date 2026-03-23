@@ -10,6 +10,12 @@ import { Clock, Bell, FileText, Megaphone, CheckCircle, AlertCircle, Calendar, T
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createPortal } from "react-dom"
+import { normalizeCampus } from "@/lib/campus-admin-config"
+
+function isExpectedQueryFallbackError(error) {
+  const code = String(error?.code || "").toLowerCase()
+  return code.includes("permission-denied") || code.includes("failed-precondition")
+}
 
 export default function StudentDashboard() {
   const { user } = useAuth()
@@ -40,6 +46,7 @@ export default function StudentDashboard() {
         // Fetch user data
         const userDoc = await getDoc(doc(db, "users", user.uid))
         let userYearLevel = null
+        let userCampus = null
         if (userDoc.exists()) {
           const data = userDoc.data()
           setUserName(data.fullName || data.displayName || "Student")
@@ -47,6 +54,7 @@ export default function StudentDashboard() {
           setDeletedNotificationIds(data.deletedNotificationIds || [])
           // Get user's year level
           userYearLevel = data.yearLevel || null
+          userCampus = data.campus || null
         }
 
         // Get user's applications
@@ -94,9 +102,25 @@ export default function StudentDashboard() {
 
         // Fetch requirements to check pending and add to notifications
         try {
-          const requirementsSnapshot = await getDocs(
-            query(collection(db, "documentRequirements"), orderBy("createdAt", "desc"))
-          )
+          const activeCampus = normalizeCampus(userCampus)
+          let requirementsSnapshot
+          if (!activeCampus) {
+            requirementsSnapshot = { docs: [] }
+          } else {
+            try {
+              requirementsSnapshot = await getDocs(
+                query(
+                  collection(db, "documentRequirements"),
+                  where("campus", "==", activeCampus),
+                  orderBy("createdAt", "desc"),
+                ),
+              )
+            } catch (orderedError) {
+              requirementsSnapshot = await getDocs(
+                query(collection(db, "documentRequirements"), where("campus", "==", activeCampus)),
+              )
+            }
+          }
           const studentDocsSnapshot = await getDocs(
             query(
               collection(db, "studentDocuments"),
@@ -140,6 +164,60 @@ export default function StudentDashboard() {
           })
           
           setPendingRequirements(pendingCount)
+
+          // Consultation notifications (invited / joined)
+          const consultationNotifications = []
+          if (userCampus && user?.uid) {
+            const activeCampus = normalizeCampus(userCampus)
+            if (activeCampus) {
+              const nowMs = Date.now()
+              const roomsSnapshot = await getDocs(
+                query(
+                  collection(db, "consultation_rooms"),
+                  where("campus", "==", activeCampus),
+                ),
+              )
+
+              const toDateValue = (value) => {
+                if (!value) return new Date()
+                if (value.toDate) return value.toDate()
+                return new Date(value)
+              }
+
+              roomsSnapshot.docs.forEach((docSnap) => {
+                const room = docSnap.data() || {}
+                const status = String(room.status || "active")
+                if (status !== "active") return
+
+                const expiresMs = room.expiresAt ? new Date(room.expiresAt).getTime() : null
+                if (expiresMs && expiresMs <= nowMs) return
+
+                const roomName = room.roomName || "Consultation Room"
+                const durationText = room.durationMinutes ? `${room.durationMinutes} min` : ""
+
+                if (room.joinedStudentId && String(room.joinedStudentId) === user.uid) {
+                  consultationNotifications.push({
+                    id: `consultation-joined-${docSnap.id}`,
+                    type: "consultation",
+                    title: "Consultation is now active",
+                    description: `${roomName}${durationText ? ` • ${durationText}` : ""}`,
+                    createdAt: toDateValue(room.createdAt || room.updatedAt || room.invitedAt),
+                  })
+                  return
+                }
+
+                if (room.invitedStudentId && String(room.invitedStudentId) === user.uid) {
+                  consultationNotifications.push({
+                    id: `consultation-invited-${docSnap.id}`,
+                    type: "consultation",
+                    title: "Consultation is now available",
+                    description: `${roomName}${durationText ? ` • ${durationText}` : ""}`,
+                    createdAt: toDateValue(room.invitedAt || room.createdAt),
+                  })
+                }
+              })
+            }
+          }
           
           // Combine announcements and requirements for notifications
           const allNotifications = [
@@ -148,6 +226,7 @@ export default function StudentDashboard() {
               type: "announcement",
             })),
             ...requirementNotifications,
+            ...consultationNotifications,
           ].sort((a, b) => {
             const dateA = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
             const dateB = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
@@ -162,7 +241,9 @@ export default function StudentDashboard() {
           setNotifications(filteredNotifications)
           setDeletedNotificationIds(deletedIds)
         } catch (error) {
-          console.error("Error fetching requirements:", error)
+          if (!isExpectedQueryFallbackError(error)) {
+            console.error("Error fetching requirements:", error)
+          }
           // Fallback: just use announcements as notifications
           const userDoc = await getDoc(doc(db, "users", user.uid))
           const deletedIds = userDoc.exists() ? (userDoc.data().deletedNotificationIds || []) : []
@@ -237,6 +318,7 @@ export default function StudentDashboard() {
             id: docSnap.id,
             title: data.title || "Untitled",
             description: data.description || "",
+            images: Array.isArray(data.images) ? data.images : [],
             createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date(),
             endDate: endDate,
             venue: data.venue || "",
@@ -511,6 +593,50 @@ export default function StudentDashboard() {
                         </div>
                       )
                     }
+
+                    if (notification.type === "consultation") {
+                      return (
+                        <div
+                          key={notification.id}
+                          className="group relative rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 transition-all hover:border-emerald-500/45"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="flex-1 min-w-0 cursor-pointer"
+                              onClick={() => router.push("/student/consultations")}
+                            >
+                              <div className="mb-2 inline-flex rounded-md p-1.5 bg-emerald-500/15">
+                                <Megaphone className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                              </div>
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
+                                  {notification.title}
+                                </h3>
+                              </div>
+                              <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">
+                                {notification.description || "New consultation update"}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{formatTimeAgo(notification.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteNotification(notification.id)
+                              }}
+                              className="p-1.5 hover:bg-destructive/10 rounded-lg transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                              title="Delete notification"
+                            >
+                              <X className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
                     
                     // Announcement notification
                     const announcement = notification
@@ -646,35 +772,74 @@ export default function StudentDashboard() {
                   return (
                     <div 
                       key={announcement.id}
-                        className={`cursor-pointer rounded-lg border-l-4 p-3 transition-all hover:shadow-sm ${
-                          isIncoming 
-                            ? 'border-emerald-500 bg-emerald-500/[0.04] hover:bg-emerald-500/10' 
-                            : 'bg-muted/30 border-emerald-600/40 hover:bg-muted/50'
-                        }`}
+                        className="group cursor-pointer overflow-hidden rounded-2xl border border-emerald-300/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 text-emerald-50 shadow-lg shadow-emerald-950/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-950/30"
                       onClick={() => {
                         setSelectedAnnouncement(announcement)
                         setIsAnnouncementModalOpen(true)
                       }}
                     >
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="flex-1 text-sm font-semibold text-foreground">
-                            {announcement.title}
-                          </h3>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatTimeAgo(announcement.createdAt)}
-                          </span>
-                        </div>
-                        <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">
-                        {announcement.description}
-                      </p>
-                      {endDate && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            <span>
-                          {isIncoming ? 'Starts' : 'Ends'}: {formatDate(endDate)}
+                        {Array.isArray(announcement.images) && announcement.images.length > 0 ? (
+                          <div className="border-b border-white/10 bg-black/15 p-2">
+                            {announcement.images.length === 1 ? (
+                              <img
+                                src={announcement.images[0]}
+                                alt={announcement.title}
+                                className="h-44 w-full rounded-xl object-cover"
+                              />
+                            ) : (
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {announcement.images.slice(0, 4).map((img, idx) => {
+                                  const hiddenCount = announcement.images.length - 4
+                                  const isLastVisible = idx === 3 && hiddenCount > 0
+                                  return (
+                                    <div key={`${announcement.id}-img-${idx}`} className="relative">
+                                      <img
+                                        src={img}
+                                        alt={`${announcement.title} ${idx + 1}`}
+                                        className="h-24 w-full rounded-lg object-cover"
+                                      />
+                                      {isLastVisible ? (
+                                        <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-sm font-semibold text-white">
+                                          +{hiddenCount}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+
+                        <div className="p-4">
+                          <div className="mb-2 flex items-start justify-between gap-3">
+                            <h3 className="flex-1 text-sm font-semibold text-white">
+                              {announcement.title}
+                            </h3>
+                            <span className="whitespace-nowrap text-xs text-emerald-100/85">
+                              {formatTimeAgo(announcement.createdAt)}
                             </span>
                           </div>
-                      )}
+                          <p className="mb-3 line-clamp-2 text-xs text-emerald-50/90">
+                            {announcement.description}
+                          </p>
+                          <div className="space-y-1.5 border-t border-white/10 pt-3">
+                            {endDate && (
+                              <div className="flex items-center gap-2 text-xs text-emerald-100/90">
+                                <Calendar className="w-3 h-3 shrink-0" />
+                                <span>
+                                  {isIncoming ? 'Starts' : 'Ends'}: {formatDate(endDate)}
+                                </span>
+                              </div>
+                            )}
+                            {announcement.venue ? (
+                              <div className="flex items-center gap-2 text-xs text-emerald-100/90">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="line-clamp-1">{announcement.venue}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
                     </div>
                   )
                 })}
@@ -759,6 +924,20 @@ export default function StudentDashboard() {
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0 text-amber-700/50 transition group-hover:translate-x-0.5 dark:text-amber-500/50" />
+                </button>
+
+                <button
+                  onClick={() => router.push("/student/consultations")}
+                  className="group flex w-full items-center gap-4 rounded-xl border border-teal-200/50 bg-gradient-to-r from-white to-teal-50/40 p-4 text-left shadow-sm transition hover:border-teal-300/70 hover:shadow-md dark:from-card dark:to-teal-950/20 dark:border-teal-900/40"
+                >
+                  <div className="rounded-xl bg-teal-500/12 p-2.5 ring-1 ring-teal-500/20">
+                    <Bell className="h-5 w-5 text-teal-800 dark:text-teal-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground">Consultations</p>
+                    <p className="text-xs text-muted-foreground">Join active rooms or check invitations</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-teal-700/50 transition group-hover:translate-x-0.5 dark:text-teal-500/50" />
                 </button>
                 
                 {userScholarships.length > 0 && (

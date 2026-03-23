@@ -174,13 +174,8 @@
 
         // Testimonials collection
         match /testimonials/{testimonialId} {
-          // Keep landing page public access, but scope authenticated campus admins to their campus only.
-          allow read: if request.auth == null || (
-            isSuperAdmin() ||
-            !isCampusAdmin() ||
-            sameCampus(resource.data.campus) ||
-            sameCampusByUserId(resource.data.userId)
-          );
+          // Keep landing page public and allow authenticated users (including campus admins) to read all testimonials.
+          allow read: if true;
           
           // Allow create for authenticated users
           allow create: if request.auth != null && 
@@ -196,21 +191,48 @@
 
         // Document Requirements collection - requirements set by admin
         match /documentRequirements/{requirementId} {
-          // Allow read for all authenticated users (students can see requirements)
-          allow read: if request.auth != null;
+          // Campus-scoped read access
+          allow read: if request.auth != null && (
+            isSuperAdmin() ||
+            sameUserCampus(resource.data.campus) ||
+            sameCampusByUserId(resource.data.createdBy)
+          );
           
-          // Allow write only for admin
-          allow write: if request.auth != null && 
-                      isSuperAdmin();
+          // Campus admin creates requirements for own campus; super admin can create globally
+          allow create: if request.auth != null && (
+            isSuperAdmin() ||
+            (
+              request.resource.data.createdBy == request.auth.uid &&
+              sameCampus(request.resource.data.campus)
+            )
+          );
+
+          // Updates/deletes are campus-scoped to the owning campus
+          allow update: if request.auth != null && (
+            isSuperAdmin() ||
+            (
+              sameCampus(resource.data.campus) &&
+              request.resource.data.campus == resource.data.campus
+            )
+          );
+          allow delete: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampus(resource.data.campus)
+          );
           
           // Sample chunks subcollection for large PDF files
           match /sampleChunks/{chunkId} {
-            // Allow read for all authenticated users (students need to download PDF samples)
-            allow read: if request.auth != null;
+            // Inherit campus scoping via parent requirement
+            allow read: if request.auth != null && (
+              isSuperAdmin() ||
+              sameUserCampus(get(/databases/$(database)/documents/documentRequirements/$(requirementId)).data.campus) ||
+              sameCampusByUserId(get(/databases/$(database)/documents/documentRequirements/$(requirementId)).data.createdBy)
+            );
             
-            // Allow write only for admin
-            allow write: if request.auth != null && 
-                        isSuperAdmin();
+            allow write: if request.auth != null && (
+              isSuperAdmin() ||
+              sameCampus(get(/databases/$(database)/documents/documentRequirements/$(requirementId)).data.campus)
+            );
           }
         }
 
@@ -484,6 +506,30 @@
               sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
               sameRoomCreatorCampus(roomId) ||
               resource.data.senderId == request.auth.uid
+            );
+          }
+
+          // Student join approval requests
+          match /join_requests/{requestId} {
+            allow read: if request.auth != null && (
+              isSuperAdmin() ||
+              request.auth.uid == requestId ||
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
+            );
+            allow create: if request.auth != null &&
+              request.auth.uid == requestId &&
+              request.resource.data.userId == request.auth.uid &&
+              request.resource.data.status == "pending" &&
+              (
+                isSuperAdmin() ||
+                sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+                sameRoomCreatorCampus(roomId)
+              );
+            allow update, delete: if request.auth != null && (
+              isSuperAdmin() ||
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              sameRoomCreatorCampus(roomId)
             );
           }
         }

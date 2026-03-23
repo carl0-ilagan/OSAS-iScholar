@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileText, Megaphone, FilePenLine } from "lucide-react"
+import { LayoutDashboard, FileText, Megaphone } from "lucide-react"
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
   { icon: FileText, label: "Applications", href: "/admin/applications" },
-  { icon: FilePenLine, label: "PDF Forms", href: "/admin/pdf-forms" },
   { icon: Megaphone, label: "Announce", href: "/admin/announcements" },
 ]
 

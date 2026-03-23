@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
-import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award, FolderCheck, BookOpen, FilePenLine, FileText, LayoutDashboard, Moon, Sun } from "lucide-react"
+import { ChevronDown, User, LogOut, MessageSquare, Users, Palette, Award, FolderCheck, BookOpen, FileText, LayoutDashboard, Moon, Sun } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LogoutModal from "./logout-modal"
@@ -12,7 +12,6 @@ import { Switch } from "@/components/ui/switch"
 const quickLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/applications", label: "Applications", icon: FileText },
-  { href: "/admin/pdf-forms", label: "PDF Builder", icon: FilePenLine },
   { href: "/admin/requirements", label: "Requirements", icon: FolderCheck },
   { href: "/admin/scholarships", label: "Scholarships", icon: BookOpen },
   { href: "/admin/scholars", label: "Scholars", icon: Award },

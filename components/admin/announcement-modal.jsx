@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { Save, Loader2, Megaphone } from "lucide-react"
+import { Save, Loader2, Megaphone, ImagePlus, X } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
 import { collection, getDocs } from "firebase/firestore"
@@ -15,7 +15,64 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
   const [targetYearLevel, setTargetYearLevel] = useState("all") // "all", "1st", "2nd", "3rd", "4th"
   const [endDate, setEndDate] = useState("")
   const [venue, setVenue] = useState("")
+  const [images, setImages] = useState([])
   const [saving, setSaving] = useState(false)
+
+  const MAX_IMAGES = 10
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+    })
+
+  const compressImage = (file, quality = 0.7, maxWidth = 1600, maxHeight = 1600) =>
+    new Promise((resolve) => {
+      if (!file.type.startsWith("image/")) {
+        resolve(file)
+        return
+      }
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new Image()
+        img.src = event.target?.result || ""
+        img.onload = () => {
+          let { width, height } = img
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height)
+            width = Math.round(width * ratio)
+            height = Math.round(height * ratio)
+          }
+          const canvas = document.createElement("canvas")
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            resolve(file)
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                resolve(file)
+                return
+              }
+              const compressed = new File([blob], file.name, { type: "image/jpeg", lastModified: Date.now() })
+              resolve(compressed)
+            },
+            "image/jpeg",
+            quality,
+          )
+        }
+        img.onerror = () => resolve(file)
+      }
+      reader.onerror = () => resolve(file)
+    })
 
   useEffect(() => {
     if (isOpen) {
@@ -23,6 +80,7 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
         setTitle(announcement.title || "")
         setDescription(announcement.description || "")
         setVenue(announcement.venue || "")
+        setImages(Array.isArray(announcement.images) ? announcement.images : [])
         setTargetYearLevel(announcement.targetYearLevel || "all")
         const targetSchols = announcement.targetScholarships || ["all"]
         if (targetSchols.includes("allScholarships")) {
@@ -48,6 +106,7 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
         setTitle("")
         setDescription("")
         setVenue("")
+        setImages([])
         setTargetYearLevel("all")
         setTargetType("all")
         setTargetScholarships([])
@@ -64,13 +123,6 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
     
     if (!title.trim()) {
       toast.error("Title is required", {
-        duration: 3000,
-      })
-      return
-    }
-
-    if (!description.trim()) {
-      toast.error("Description is required", {
         duration: 3000,
       })
       return
@@ -107,6 +159,7 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
         targetYearLevel: targetYearLevel,
         endDate: endDateObj.toISOString(),
         venue: venue.trim(),
+        images,
       })
       
       toast.success(announcement ? "Announcement updated successfully!" : "Announcement created successfully!", {
@@ -127,6 +180,38 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
   }
 
   if (!isOpen) return null
+
+  const handleImagesSelected = async (event) => {
+    const selected = Array.from(event.target.files || [])
+    if (!selected.length) return
+    const remainingSlots = MAX_IMAGES - images.length
+    if (remainingSlots <= 0) {
+      toast.error(`Maximum of ${MAX_IMAGES} images only.`)
+      return
+    }
+    const toProcess = selected.slice(0, remainingSlots)
+    try {
+      const processed = []
+      for (const file of toProcess) {
+        if (!file.type.startsWith("image/")) continue
+        if (file.size > MAX_IMAGE_SIZE) {
+          toast.error(`${file.name} is too large (max 5MB).`)
+          continue
+        }
+        const compressed = await compressImage(file)
+        const base64 = await fileToBase64(compressed)
+        processed.push(base64)
+      }
+      if (processed.length > 0) {
+        setImages((prev) => [...prev, ...processed].slice(0, MAX_IMAGES))
+      }
+    } catch (error) {
+      console.error("Error processing announcement images:", error)
+      toast.error("Failed to process selected images.")
+    } finally {
+      event.target.value = ""
+    }
+  }
 
   return createPortal(
     <>
@@ -185,7 +270,7 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
                   {/* Description */}
                   <div>
                     <label htmlFor="description" className="block text-sm font-semibold text-foreground mb-2">
-                      Description <span className="text-red-500">*</span>
+                      Description <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
                     </label>
                     <textarea
                       id="description"
@@ -194,8 +279,34 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
                       placeholder="Enter announcement description..."
                       rows={8}
                       className="w-full px-4 py-2.5 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none transition-all duration-200"
-                      required
                     />
+                  </div>
+
+                  {/* Multiple Images */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">Images (Optional, up to 10)</label>
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-foreground hover:bg-muted/50 transition-colors">
+                      <ImagePlus className="w-4 h-4" />
+                      <span>Add Images</span>
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleImagesSelected} />
+                    </label>
+                    {images.length > 0 ? (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {images.map((imgSrc, idx) => (
+                          <div key={`${idx}-${imgSrc.slice(0, 30)}`} className="relative overflow-hidden rounded-lg border border-border">
+                            <img src={imgSrc} alt={`Announcement ${idx + 1}`} className="h-20 w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                              className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                              aria-label="Remove image"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -361,7 +472,7 @@ export default function AnnouncementModal({ isOpen, onClose, onSave, announcemen
               <button
                 type="submit"
                 form="announcement-form"
-                disabled={saving || !title.trim() || !description.trim()}
+                disabled={saving || !title.trim()}
                 className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? (

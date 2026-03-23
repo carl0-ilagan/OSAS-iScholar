@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle, Eye, User, Award, GraduationCap, MapPin, Calendar, Hash } from "lucide-react"
+import { CheckCircle, Eye, User, Award, GraduationCap, Calendar, Hash } from "lucide-react"
 import ApplicationDetailModal from "./application-detail-modal"
 
 export default function ScholarsTable({ scholars }) {
@@ -25,18 +25,17 @@ export default function ScholarsTable({ scholars }) {
     <>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full">
             <thead>
-              <tr className="bg-gradient-to-r from-primary to-secondary">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Scholar</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Scholarship</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Student Number</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Course</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Year</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Campus</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Approved Date</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-white">Action</th>
+              <tr className="bg-muted/60 border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Scholar</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Scholarship</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Student Number</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Course</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Year</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Approved Date</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -47,7 +46,7 @@ export default function ScholarsTable({ scholars }) {
                     index % 2 === 0 ? 'bg-card' : 'bg-muted/30'
                   }`}
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {scholar.photoURL ? (
                         <img
@@ -76,40 +75,34 @@ export default function ScholarsTable({ scholars }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Award className="w-4 h-4 text-primary" />
                       <p className="text-sm font-medium text-foreground">{scholar.scholarshipName}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Hash className="w-4 h-4 text-muted-foreground" />
                       <p className="text-sm font-mono text-foreground">{scholar.studentNumber}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-muted-foreground" />
                       <p className="text-sm text-foreground">{scholar.course}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <p className="text-sm text-foreground">{scholar.yearLevel}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <p className="text-sm text-foreground">{scholar.campus}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       <p className="text-sm text-foreground">{scholar.reviewedDate}</p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <button
                       onClick={() => handleView(scholar)}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors mx-auto"
@@ -178,10 +171,6 @@ export default function ScholarsTable({ scholars }) {
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Year:</span>
                 <span className="text-foreground">{scholar.yearLevel}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-foreground">{scholar.campus}</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t border-border/50">
                 <Calendar className="w-3 h-3" />

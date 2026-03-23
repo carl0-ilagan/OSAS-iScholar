@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { addDoc, collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore"
-import { Clock3, MessageCircle, PanelRightClose, PanelRightOpen, Video } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock3, MessageCircle, Video } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
@@ -37,8 +37,9 @@ export default function StudentConsultationsPage() {
   const [loading, setLoading] = useState(true)
   const [rooms, setRooms] = useState([])
   const [activeRoomId, setActiveRoomId] = useState(null)
-  const [isRoomListOpen, setIsRoomListOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [sidebarTab, setSidebarTab] = useState("rooms")
+  const [statusFilter, setStatusFilter] = useState("active")
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
   const [sendingChat, setSendingChat] = useState(false)
@@ -64,11 +65,6 @@ export default function StudentConsultationsPage() {
       (snapshot) => {
         const rows = snapshot.docs
           .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((row) => String(row.status || "active") === "active")
-          .filter((row) => {
-            if (!row.expiresAt) return true
-            return new Date(row.expiresAt).getTime() > Date.now()
-          })
           .sort((a, b) => {
             const aInvited = a.invitedStudentId && a.invitedStudentId === user.uid ? 1 : 0
             const bInvited = b.invitedStudentId && b.invitedStudentId === user.uid ? 1 : 0
@@ -125,15 +121,18 @@ export default function StudentConsultationsPage() {
   }, [])
 
   useEffect(() => {
-    if (!rooms.length) {
+    const activeRooms = rooms
+      .filter((room) => String(room.status || "active") === "active")
+      .filter((room) => !room.expiresAt || new Date(room.expiresAt).getTime() > Date.now())
+    if (!activeRooms.length) {
       setActiveRoomId(null)
       return
     }
-    if (activeRoomId && rooms.some((room) => room.id === activeRoomId)) {
+    if (activeRoomId && activeRooms.some((room) => room.id === activeRoomId)) {
       return
     }
-    const invited = rooms.find((room) => room.invitedStudentId && room.invitedStudentId === user?.uid)
-    setActiveRoomId(invited?.id || rooms[0]?.id || null)
+    const invited = activeRooms.find((room) => room.invitedStudentId && room.invitedStudentId === user?.uid)
+    setActiveRoomId(invited?.id || activeRooms[0]?.id || null)
   }, [rooms, activeRoomId, user?.uid])
 
   useEffect(() => {
@@ -213,6 +212,16 @@ export default function StudentConsultationsPage() {
     () => rooms.find((room) => room.id === activeRoomId) || null,
     [rooms, activeRoomId],
   )
+  const filteredRooms = useMemo(() => {
+    if (statusFilter === "history") {
+      return rooms
+        .filter((room) => String(room.status || "active") === "ended")
+        .filter((room) => room.joinedStudentId === user?.uid)
+    }
+    return rooms
+      .filter((room) => String(room.status || "active") === "active")
+      .filter((room) => !room.expiresAt || new Date(room.expiresAt).getTime() > Date.now())
+  }, [rooms, statusFilter, user?.uid])
 
   const setTypingState = async (nextTyping) => {
     if (!activeRoomId || !user?.uid) return
@@ -261,9 +270,10 @@ export default function StudentConsultationsPage() {
   }
 
   return (
-    <div className="h-[100dvh] w-full bg-slate-950">
+    <div className="h-[100dvh] w-full bg-slate-950 p-1 md:p-2">
       <div className="h-full w-full">
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden border border-slate-800/80 bg-slate-950 text-slate-100 shadow-2xl">
+        <div className="relative flex h-full min-h-0 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950 text-slate-100 shadow-2xl">
+          <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3">
             <div className="flex items-start gap-2">
               <Link
@@ -328,23 +338,24 @@ export default function StudentConsultationsPage() {
               )}
             </div>
           </div>
+          </div>
 
-          {!isRoomListOpen ? (
-            <button
-              onClick={() => setIsRoomListOpen(true)}
-              className="absolute right-3 top-14 z-30 inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900/90 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800 md:top-16"
-            >
-              <PanelRightOpen className="h-3.5 w-3.5" />
-              Room List
-            </button>
-          ) : null}
+          <button
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className={`absolute top-1/2 z-30 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-700 bg-slate-900/95 text-slate-200 shadow-lg transition-all hover:bg-slate-800 ${
+              isSidebarOpen ? "right-[330px] translate-x-1/2" : "right-2"
+            }`}
+            aria-label={isSidebarOpen ? "Hide sidebar panels" : "Show sidebar panels"}
+          >
+            {isSidebarOpen ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          </button>
 
           <aside
-            className={`absolute inset-y-0 right-0 z-20 w-[330px] border-l border-slate-800 bg-slate-900/95 backdrop-blur transition-transform duration-300 ${
-              isRoomListOpen ? "translate-x-0" : "translate-x-full"
+            className={`absolute inset-y-0 right-0 z-20 flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-800 bg-slate-900/95 backdrop-blur transition-all duration-300 ${
+              isSidebarOpen ? "w-[330px] translate-x-0 opacity-100" : "w-0 translate-x-full opacity-0 pointer-events-none"
             }`}
           >
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-h-0 flex-col">
               <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
                 <div className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1">
                   <button
@@ -365,22 +376,30 @@ export default function StudentConsultationsPage() {
                     Chat
                   </button>
                 </div>
-                <button
-                  onClick={() => setIsRoomListOpen(false)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
-                >
-                  <PanelRightClose className="h-3.5 w-3.5" />
-                </button>
+                {sidebarTab === "rooms" ? (
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                  >
+                    <option value="active">Active</option>
+                    <option value="history">History</option>
+                  </select>
+                ) : null}
               </div>
 
               {sidebarTab === "rooms" ? (
                 <div className="flex-1 overflow-y-auto">
                   {loading ? (
                     <p className="px-4 py-3 text-sm text-slate-400">Loading consultation rooms...</p>
-                  ) : rooms.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-slate-400">No active consultation room available right now.</p>
+                  ) : filteredRooms.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-slate-400">
+                      {statusFilter === "history"
+                        ? "No consultation history yet."
+                        : "No active consultation room available right now."}
+                    </p>
                   ) : (
-                    rooms.map((room) => (
+                    filteredRooms.map((room) => (
                       <div key={room.id} className="border-b border-slate-800 px-4 py-3 text-sm">
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium text-slate-100">{room.roomName || "Consultation Room"}</p>
@@ -398,13 +417,17 @@ export default function StudentConsultationsPage() {
                           </span>
                         </div>
                         <div className="mt-2">
-                          <button
-                            onClick={() => setActiveRoomId(room.id)}
-                            disabled={!!room.invitedStudentId && room.invitedStudentId !== user?.uid}
-                            className="rounded-md border border-slate-600 px-2 py-1 text-xs text-emerald-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Open
-                          </button>
+                          {statusFilter === "active" ? (
+                            <button
+                              onClick={() => setActiveRoomId(room.id)}
+                              disabled={!!room.invitedStudentId && room.invitedStudentId !== user?.uid}
+                              className="rounded-md border border-slate-600 px-2 py-1 text-xs text-emerald-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Join
+                            </button>
+                          ) : (
+                            <span className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400">Joined</span>
+                          )}
                         </div>
                       </div>
                     ))
