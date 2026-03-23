@@ -52,23 +52,44 @@ export default function TestimonialsSection() {
         limit(6)
       )
       const snapshot = await getDocs(testimonialsQuery)
-      
-      // Use data directly from testimonial document (name and photoURL are stored there)
-      const testimonialsData = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data()
-        return {
-          id: docSnap.id,
-          userId: data.userId,
-          name: data.name || "Anonymous",
-          photoURL: data.photoURL || null,
-          testimonial: data.testimonial || "",
-          rating: data.rating || 0,
-          scholarship: data.scholarship || "N/A",
-          course: data.course || "N/A",
-          campus: data.campus || "N/A",
-          createdAt: data.createdAt?.toDate() || new Date()
-        }
-      })
+
+      const userPhotoCache = new Map()
+      const testimonialsData = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data()
+          const userId = data.userId || null
+          let resolvedPhotoURL = data.photoURL || null
+
+          // Fallback for older testimonial records without stored photoURL.
+          if (!resolvedPhotoURL && userId) {
+            if (userPhotoCache.has(userId)) {
+              resolvedPhotoURL = userPhotoCache.get(userId)
+            } else {
+              try {
+                const userSnap = await getDoc(doc(db, "users", userId))
+                const userPhotoURL = userSnap.exists() ? userSnap.data()?.photoURL || null : null
+                userPhotoCache.set(userId, userPhotoURL)
+                resolvedPhotoURL = userPhotoURL
+              } catch {
+                userPhotoCache.set(userId, null)
+              }
+            }
+          }
+
+          return {
+            id: docSnap.id,
+            userId,
+            name: data.name || "Anonymous",
+            photoURL: resolvedPhotoURL,
+            testimonial: data.testimonial || "",
+            rating: data.rating || 0,
+            scholarship: data.scholarship || "N/A",
+            course: data.course || "N/A",
+            campus: data.campus || "N/A",
+            createdAt: data.createdAt?.toDate() || new Date(),
+          }
+        })
+      )
       
       setTestimonials(testimonialsData)
     } catch (error) {

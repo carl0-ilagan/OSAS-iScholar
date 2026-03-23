@@ -84,6 +84,7 @@ export default function WebRtcRoom({
   const networkChangeHandlerRef = useRef(null)
   const slowInternetTimerRef = useRef(null)
   const reconnectTimerRef = useRef(null)
+  const hasConnectedOnceRef = useRef(false)
   const stateUpdateRef = useRef({ last: "", at: 0 })
   const autoStartAttemptedRef = useRef(false)
 
@@ -133,6 +134,7 @@ export default function WebRtcRoom({
       navigator.connection.removeEventListener("change", networkChangeHandlerRef.current)
       networkChangeHandlerRef.current = null
     }
+    hasConnectedOnceRef.current = false
     setCallLive(false)
   }
 
@@ -207,6 +209,7 @@ export default function WebRtcRoom({
   const buildPeerConnection = async (activeSessionId, localStream) => {
     const pc = new RTCPeerConnection(RTC_CONFIG)
     pcRef.current = pc
+    hasConnectedOnceRef.current = false
 
     const remoteStream = new MediaStream()
     remoteStreamRef.current = remoteStream
@@ -233,6 +236,7 @@ export default function WebRtcRoom({
 
     const scheduleReconnecting = () => {
       // Ignore very short state flickers to avoid false reconnecting UI.
+      if (!hasConnectedOnceRef.current) return
       if (reconnectTimerRef.current) return
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null
@@ -262,6 +266,7 @@ export default function WebRtcRoom({
 
     const markConnected = () => {
       clearStateTimers()
+      hasConnectedOnceRef.current = true
       setCallLive(true)
       updateRoomCallState("in_call")
     }
@@ -280,7 +285,9 @@ export default function WebRtcRoom({
       if (state === "failed") {
         clearStateTimers()
         setCallLive(false)
-        updateRoomCallState("slow_internet")
+        if (hasConnectedOnceRef.current) {
+          updateRoomCallState("slow_internet")
+        }
       }
     }
 
@@ -298,7 +305,9 @@ export default function WebRtcRoom({
       if (state === "failed") {
         clearStateTimers()
         setCallLive(false)
-        updateRoomCallState("slow_internet")
+        if (hasConnectedOnceRef.current) {
+          updateRoomCallState("slow_internet")
+        }
       }
     }
 
@@ -310,6 +319,7 @@ export default function WebRtcRoom({
         const conn = String(pc.connectionState || "").toLowerCase()
         const ice = String(pc.iceConnectionState || "").toLowerCase()
         const unstable = conn !== "connected" && !["connected", "completed"].includes(ice)
+        if (!hasConnectedOnceRef.current) return
         if (downlink > 0 && downlink < 1) {
           if (unstable) updateRoomCallState("slow_internet")
           return
@@ -527,6 +537,7 @@ export default function WebRtcRoom({
         if (!data || !data.answer || data.activeSessionId !== activeSessionId || pc.currentRemoteDescription) return
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer))
+          hasConnectedOnceRef.current = true
           setCallLive(true)
           updateRoomCallState("in_call")
         } catch (remoteError) {
@@ -606,6 +617,7 @@ export default function WebRtcRoom({
         answeredBy: user.uid,
         updatedAt: nowIso(),
       })
+      hasConnectedOnceRef.current = true
       setCallLive(true)
       toast.success(`You joined ${room?.roomName || "the consultation room"}.`)
     } catch (joinError) {
@@ -885,14 +897,20 @@ export default function WebRtcRoom({
               className={`h-full min-h-[260px] w-full bg-black object-cover ${shouldMirrorRemote ? "[transform:scaleX(-1)]" : ""}`}
             />
 
-            <div className="absolute bottom-3 right-3 z-20 w-[120px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]">
+            <div
+              className={`absolute z-20 overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl ${
+                role === "student"
+                  ? "right-2 top-2 w-[88px] sm:right-3 sm:top-3 sm:w-[120px] md:bottom-4 md:right-4 md:top-auto md:w-[150px]"
+                  : "bottom-3 right-3 w-[120px] sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]"
+              }`}
+            >
               <p className="border-b border-slate-700 bg-black/70 px-2 py-1 text-[10px] text-slate-300">You</p>
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className={`h-[82px] w-full bg-black object-cover sm:h-[95px] md:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
+                className={`h-[64px] w-full bg-black object-cover sm:h-[82px] md:h-[95px] lg:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
               />
             </div>
 
