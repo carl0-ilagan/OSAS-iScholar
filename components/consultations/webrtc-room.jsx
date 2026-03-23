@@ -15,6 +15,20 @@ function nowIso() {
   return new Date().toISOString()
 }
 
+function detectDeviceType() {
+  if (typeof window === "undefined") return "unknown"
+  const ua = String(navigator.userAgent || "").toLowerCase()
+  const maxTouchPoints = Number(navigator.maxTouchPoints || 0)
+  const isMobileUa = /android|iphone|ipod|windows phone|blackberry|opera mini|mobile/i.test(ua)
+  const isTabletUa = /ipad|tablet|kindle|silk|playbook/i.test(ua) || (ua.includes("android") && !ua.includes("mobile"))
+  const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0)
+  const isTouch = maxTouchPoints > 0
+  const likelyLaptop = !isMobileUa && !isTabletUa && shortSide >= 700 && !isTouch
+  if (likelyLaptop) return "laptop"
+  if (isTabletUa || shortSide >= 700) return "tablet"
+  return "mobile"
+}
+
 function formatRemainingTime(expiresAt) {
   if (!expiresAt) return "No timer"
   const diffMs = new Date(expiresAt).getTime() - Date.now()
@@ -71,6 +85,7 @@ export default function WebRtcRoom({
   const [lowBandwidth, setLowBandwidth] = useState(false)
   const [joinRequestStatus, setJoinRequestStatus] = useState("none")
   const [cameraFacingMode, setCameraFacingMode] = useState("user")
+  const [deviceType, setDeviceType] = useState("unknown")
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -161,6 +176,18 @@ export default function WebRtcRoom({
       const key = role === "campus_admin" ? "adminFacingMode" : "studentFacingMode"
       await updateDoc(roomRef, {
         [key]: nextFacingMode,
+        updatedAt: nowIso(),
+      })
+    } catch {
+      // Non-blocking metadata sync only.
+    }
+  }
+
+  const syncDeviceTypeToRoom = async (nextDeviceType) => {
+    try {
+      const key = role === "campus_admin" ? "adminDeviceType" : "studentDeviceType"
+      await updateDoc(roomRef, {
+        [key]: nextDeviceType,
         updatedAt: nowIso(),
       })
     } catch {
@@ -403,6 +430,13 @@ export default function WebRtcRoom({
       ensureLocalMedia().catch(() => {})
     }
   }, [loading, error, room])
+
+  useEffect(() => {
+    if (!roomId || !user?.uid) return
+    const detected = detectDeviceType()
+    setDeviceType(detected)
+    syncDeviceTypeToRoom(detected)
+  }, [roomId, user?.uid])
 
   useEffect(() => {
     if (!room?.expiresAt) {
@@ -788,6 +822,8 @@ export default function WebRtcRoom({
   const shouldMirrorLocal = cameraFacingMode === "user"
   const remoteFacingMode = role === "campus_admin" ? room?.studentFacingMode : room?.adminFacingMode
   const shouldMirrorRemote = remoteFacingMode === "user"
+  const remoteDeviceType = role === "campus_admin" ? room?.studentDeviceType : room?.adminDeviceType
+  const shouldUseLaptopRemoteLayout = remoteDeviceType === "laptop"
 
   const canJoin =
     role === "student" &&
@@ -894,13 +930,13 @@ export default function WebRtcRoom({
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className={`h-full min-h-[260px] w-full bg-black object-cover ${shouldMirrorRemote ? "[transform:scaleX(-1)]" : ""}`}
+              className={`h-full min-h-[260px] w-full bg-black ${shouldUseLaptopRemoteLayout ? "object-contain" : "object-cover"} ${shouldMirrorRemote ? "[transform:scaleX(-1)]" : ""}`}
             />
 
             <div
               className={`absolute z-20 overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl ${
                 role === "student"
-                  ? "right-2 top-2 w-[88px] sm:right-3 sm:top-3 sm:w-[120px] md:bottom-4 md:right-4 md:top-auto md:w-[150px]"
+                  ? "right-2 top-2 w-[74px] sm:right-3 sm:top-3 sm:w-[104px] md:bottom-4 md:right-4 md:top-auto md:w-[140px]"
                   : "bottom-3 right-3 w-[120px] sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]"
               }`}
             >
@@ -910,8 +946,20 @@ export default function WebRtcRoom({
                 autoPlay
                 playsInline
                 muted
-                className={`h-[64px] w-full bg-black object-cover sm:h-[82px] md:h-[95px] lg:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
+                className={`h-[52px] w-full bg-black object-cover sm:h-[70px] md:h-[90px] lg:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
               />
+            </div>
+
+            <div className="absolute left-3 top-10 z-20 sm:top-12">
+              <button
+                onClick={switchCameraFacing}
+                disabled={!canToggleLocalMedia}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-black/70 text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Switch front/back camera"
+                aria-label="Switch camera"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
             </div>
 
             <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
@@ -940,16 +988,6 @@ export default function WebRtcRoom({
                 >
                   {lowBandwidth ? "Low" : "HD"}
                 </button>
-                <button
-                  onClick={switchCameraFacing}
-                  disabled={!canToggleLocalMedia}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800 px-3 text-[11px] font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Switch front/back camera"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Cam
-                </button>
-
                 {role === "student" && requiresApproval && !hasApproval ? (
                   <button
                     onClick={submitJoinRequest}
@@ -964,10 +1002,11 @@ export default function WebRtcRoom({
                   <button
                     onClick={joinCall}
                     disabled={connecting}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+                    title={connecting ? "Joining..." : "Join call"}
+                    aria-label={connecting ? "Joining call" : "Join call"}
                   >
                     <Phone className="h-3.5 w-3.5" />
-                    {connecting ? "Joining..." : "Join"}
                   </button>
                 )}
 
@@ -975,19 +1014,21 @@ export default function WebRtcRoom({
                   <button
                     onClick={leaveCall}
                     disabled={connecting}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
+                    title="End room"
+                    aria-label="End room"
                   >
                     <PhoneOff className="h-3.5 w-3.5" />
-                    End Room
                   </button>
                 ) : (
                   <button
                     onClick={leaveCall}
                     disabled={connecting}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
+                    title="Leave call"
+                    aria-label="Leave call"
                   >
                     <PhoneOff className="h-3.5 w-3.5" />
-                    Leave
                   </button>
                 )}
               </div>
@@ -1029,6 +1070,11 @@ export default function WebRtcRoom({
             Waiting for room creator to start the call...
           </div>
         )}
+        {remoteDeviceType === "laptop" ? (
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+            Remote device: laptop view
+          </div>
+        ) : null}
         {roomTakenByAnother && (
           <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
             This room is already occupied by another student.
@@ -1037,6 +1083,11 @@ export default function WebRtcRoom({
         {studentLeftCurrentSession ? (
           <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
             You already left this call session.
+          </div>
+        ) : null}
+        {role === "campus_admin" && room?.leftByStudentAt ? (
+          <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
+            Student has left the call.
           </div>
         ) : null}
         {rawCallState === "reconnecting" ? (

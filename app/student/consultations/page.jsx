@@ -274,38 +274,34 @@ export default function StudentConsultationsPage() {
       <div className="h-full w-full">
         <div className="relative flex h-full min-h-0 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950 text-slate-100 shadow-2xl">
           <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3">
-            <div className="flex items-start gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900/90 px-3 py-2">
+            <div className="flex items-center gap-2">
               <Link
                 href="/student"
-                className="inline-flex h-9 items-center rounded-md border border-slate-700 bg-slate-800 px-3 text-xs font-medium text-slate-100 hover:bg-slate-700"
+                className="inline-flex h-8 items-center rounded-md border border-slate-700 bg-slate-800 px-3 text-xs font-medium text-slate-100 hover:bg-slate-700"
               >
                 Back
               </Link>
               <div>
-                <p className="flex items-center gap-2 text-xl font-semibold">
-                  <Video className="h-4 w-4 text-emerald-400" />
+                <p className="flex items-center gap-1.5 text-base font-semibold sm:text-lg">
+                  <Video className="h-3.5 w-3.5 text-emerald-400" />
                   Student Consultation Room
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-xs text-slate-400">
                   {activeRoom ? String(activeRoom.callState || "waiting") : "Not connected"}
                 </p>
               </div>
           </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-right">
+            <div className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-right">
               <p className="text-[10px] uppercase tracking-wide text-slate-400">Remaining</p>
-              <p className="text-sm font-semibold text-slate-100">
+              <p className="text-xs font-semibold text-slate-100 sm:text-sm">
                 {activeRoom ? formatRemainingTime(activeRoom.expiresAt) : "No timer"}
               </p>
             </div>
         </div>
 
-          <div className="border-b border-slate-800 px-4 py-2">
-            <p className="text-xs text-slate-400">Room Creator View</p>
-          </div>
-
           <div className="relative min-h-0 flex-1">
-            <div className="h-full p-2 md:p-3">
+            <div className="h-full p-1.5 md:p-2">
               {activeRoomId ? (
                 <WebRtcRoom
                   roomId={activeRoomId}
@@ -319,14 +315,14 @@ export default function StudentConsultationsPage() {
               ) : (
                 <div className="relative h-full overflow-hidden rounded-xl border border-slate-800 bg-black">
                   <div className="h-full min-h-[260px] w-full bg-black" />
-                  <div className="absolute bottom-3 right-3 z-20 w-[120px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]">
+                  <div className="absolute right-2 top-2 z-20 w-[74px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:right-3 sm:top-3 sm:w-[104px] md:bottom-4 md:right-4 md:top-auto md:w-[140px]">
                     <p className="border-b border-slate-700 bg-black/70 px-2 py-1 text-[10px] text-slate-300">You</p>
                     <video
                       ref={localPreviewRef}
                       autoPlay
                       playsInline
                       muted
-                      className="h-[82px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[95px] md:h-[110px]"
+                      className="h-[52px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[70px] md:h-[90px]"
                     />
                   </div>
                   {previewError ? (
