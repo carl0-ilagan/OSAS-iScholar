@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { addDoc, collection, doc, getDoc, onSnapshot, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore"
-import { Camera, CameraOff, Clock3, Mic, MicOff, Phone, PhoneOff, Video } from "lucide-react"
+import { Camera, CameraOff, Clock3, Mic, MicOff, Phone, PhoneOff, RefreshCw, Video } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/contexts/AuthContext"
@@ -25,18 +25,20 @@ function formatRemainingTime(expiresAt) {
   return `${mins}:${String(secs).padStart(2, "0")} left`
 }
 
-function getMediaConstraints(lowBandwidth) {
+function getMediaConstraints(lowBandwidth, facingMode = "user") {
   return {
     video: lowBandwidth
       ? {
           width: { ideal: 640, max: 960 },
           height: { ideal: 360, max: 540 },
           frameRate: { ideal: 15, max: 24 },
+          facingMode,
         }
       : {
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
           frameRate: { ideal: 24, max: 30 },
+          facingMode,
         },
     audio: {
       echoCancellation: true,
@@ -68,6 +70,7 @@ export default function WebRtcRoom({
   const [remainingLabel, setRemainingLabel] = useState("No timer")
   const [lowBandwidth, setLowBandwidth] = useState(false)
   const [joinRequestStatus, setJoinRequestStatus] = useState("none")
+  const [cameraFacingMode, setCameraFacingMode] = useState("user")
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -80,6 +83,7 @@ export default function WebRtcRoom({
   const callStateUnsubRef = useRef(null)
   const networkChangeHandlerRef = useRef(null)
   const slowInternetTimerRef = useRef(null)
+  const reconnectTimerRef = useRef(null)
   const stateUpdateRef = useRef({ last: "", at: 0 })
   const autoStartAttemptedRef = useRef(false)
 
@@ -121,6 +125,10 @@ export default function WebRtcRoom({
       clearTimeout(slowInternetTimerRef.current)
       slowInternetTimerRef.current = null
     }
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
     if (typeof window !== "undefined" && networkChangeHandlerRef.current && navigator?.connection?.removeEventListener) {
       navigator.connection.removeEventListener("change", networkChangeHandlerRef.current)
       networkChangeHandlerRef.current = null
@@ -146,8 +154,20 @@ export default function WebRtcRoom({
     }
   }
 
-  const setupLocalMedia = async (lowBandwidthMode = lowBandwidth) => {
-    const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidthMode))
+  const syncFacingModeToRoom = async (nextFacingMode) => {
+    try {
+      const key = role === "campus_admin" ? "adminFacingMode" : "studentFacingMode"
+      await updateDoc(roomRef, {
+        [key]: nextFacingMode,
+        updatedAt: nowIso(),
+      })
+    } catch {
+      // Non-blocking metadata sync only.
+    }
+  }
+
+  const setupLocalMedia = async (lowBandwidthMode = lowBandwidth, facingMode = cameraFacingMode) => {
+    const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidthMode, facingMode))
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop())
     }
@@ -157,6 +177,8 @@ export default function WebRtcRoom({
     }
     setCameraOn(true)
     setMicOn(true)
+    setCameraFacingMode(facingMode)
+    syncFacingModeToRoom(facingMode)
     return stream
   }
 
@@ -198,39 +220,65 @@ export default function WebRtcRoom({
       event.streams[0].getTracks().forEach((track) => remoteStream.addTrack(track))
     }
 
-    const markReconnecting = () => {
-      setCallLive(false)
-      updateRoomCallState("reconnecting")
-      if (slowInternetTimerRef.current) {
-        clearTimeout(slowInternetTimerRef.current)
+    const clearStateTimers = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
       }
-      slowInternetTimerRef.current = setTimeout(() => {
-        updateRoomCallState("slow_internet")
-      }, 4500)
-    }
-
-    const clearSlowInternetTimer = () => {
       if (slowInternetTimerRef.current) {
         clearTimeout(slowInternetTimerRef.current)
         slowInternetTimerRef.current = null
       }
     }
 
+    const scheduleReconnecting = () => {
+      // Ignore very short state flickers to avoid false reconnecting UI.
+      if (reconnectTimerRef.current) return
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null
+        if (pcRef.current !== pc) return
+        const conn = String(pc.connectionState || "").toLowerCase()
+        const ice = String(pc.iceConnectionState || "").toLowerCase()
+        const stillUnstable =
+          conn === "connecting" ||
+          conn === "disconnected" ||
+          conn === "failed" ||
+          ice === "checking" ||
+          ice === "disconnected" ||
+          ice === "failed"
+        if (!stillUnstable) return
+        setCallLive(false)
+        updateRoomCallState("reconnecting")
+        if (slowInternetTimerRef.current) clearTimeout(slowInternetTimerRef.current)
+        slowInternetTimerRef.current = setTimeout(() => {
+          if (pcRef.current !== pc) return
+          const connNow = String(pc.connectionState || "").toLowerCase()
+          const iceNow = String(pc.iceConnectionState || "").toLowerCase()
+          if (connNow === "connected" || iceNow === "connected" || iceNow === "completed") return
+          updateRoomCallState("slow_internet")
+        }, 10000)
+      }, 1200)
+    }
+
+    const markConnected = () => {
+      clearStateTimers()
+      setCallLive(true)
+      updateRoomCallState("in_call")
+    }
+
     pc.onconnectionstatechange = () => {
       if (pcRef.current !== pc) return
       const state = String(pc.connectionState || "").toLowerCase()
       if (state === "connected") {
-        clearSlowInternetTimer()
-        setCallLive(true)
-        updateRoomCallState("in_call")
+        markConnected()
         return
       }
       if (state === "connecting" || state === "disconnected") {
-        markReconnecting()
+        scheduleReconnecting()
         return
       }
       if (state === "failed") {
-        clearSlowInternetTimer()
+        clearStateTimers()
         setCallLive(false)
         updateRoomCallState("slow_internet")
       }
@@ -240,17 +288,15 @@ export default function WebRtcRoom({
       if (pcRef.current !== pc) return
       const state = String(pc.iceConnectionState || "").toLowerCase()
       if (state === "connected" || state === "completed") {
-        clearSlowInternetTimer()
-        setCallLive(true)
-        updateRoomCallState("in_call")
+        markConnected()
         return
       }
       if (state === "disconnected") {
-        markReconnecting()
+        scheduleReconnecting()
         return
       }
       if (state === "failed") {
-        clearSlowInternetTimer()
+        clearStateTimers()
         setCallLive(false)
         updateRoomCallState("slow_internet")
       }
@@ -261,17 +307,18 @@ export default function WebRtcRoom({
         if (pcRef.current !== pc) return
         const downlink = Number(navigator.connection?.downlink || 0)
         const effectiveType = String(navigator.connection?.effectiveType || "").toLowerCase()
+        const conn = String(pc.connectionState || "").toLowerCase()
+        const ice = String(pc.iceConnectionState || "").toLowerCase()
+        const unstable = conn !== "connected" && !["connected", "completed"].includes(ice)
         if (downlink > 0 && downlink < 1) {
-          updateRoomCallState("slow_internet")
+          if (unstable) updateRoomCallState("slow_internet")
           return
         }
         if (effectiveType.includes("2g")) {
-          updateRoomCallState("slow_internet")
+          if (unstable) updateRoomCallState("slow_internet")
           return
         }
-        if (String(pc.connectionState || "").toLowerCase() === "connected") {
-          updateRoomCallState("in_call")
-        }
+        if (conn === "connected" || ["connected", "completed"].includes(ice)) markConnected()
       }
       navigator.connection.addEventListener("change", networkChangeHandlerRef.current)
     }
@@ -409,6 +456,10 @@ export default function WebRtcRoom({
         tx.update(roomRef, {
           joinedStudentId: user.uid,
           joinedStudentName: user.fullName || user.displayName || user.email || "Student",
+          leftByStudentId: null,
+          leftByStudentName: null,
+          leftSessionId: null,
+          leftByStudentAt: null,
           updatedAt: nowIso(),
         })
       })
@@ -556,6 +607,7 @@ export default function WebRtcRoom({
         updatedAt: nowIso(),
       })
       setCallLive(true)
+      toast.success(`You joined ${room?.roomName || "the consultation room"}.`)
     } catch (joinError) {
       console.error("Error joining call:", joinError)
       toast.error("Unable to join call. Check camera and microphone permissions.")
@@ -583,9 +635,13 @@ export default function WebRtcRoom({
           answer: null,
           joinedStudentId: null,
           joinedStudentName: null,
+          leftByStudentId: user?.uid || null,
+          leftByStudentName: user?.fullName || user?.displayName || user?.email || "Student",
+          leftSessionId: room?.activeSessionId || null,
           leftByStudentAt: nowIso(),
           updatedAt: nowIso(),
         })
+        toast.info("You already left this call session.")
       }
     } catch (leaveError) {
       console.error("Error leaving call:", leaveError)
@@ -625,7 +681,7 @@ export default function WebRtcRoom({
     setLowBandwidth(next)
     if (!localStreamRef.current) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(next))
+      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(next, cameraFacingMode))
       const previousStream = localStreamRef.current
       localStreamRef.current = stream
       if (localVideoRef.current) {
@@ -655,6 +711,51 @@ export default function WebRtcRoom({
     }
   }
 
+  const switchCameraFacing = async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      toast.error("Camera switch is not supported on this device.")
+      return
+    }
+    const nextFacing = cameraFacingMode === "user" ? "environment" : "user"
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidth, nextFacing))
+      const previousStream = localStreamRef.current
+      const nextVideoTrack = stream.getVideoTracks()[0] || null
+      const nextAudioTrack = stream.getAudioTracks()[0] || null
+      if (!nextVideoTrack) {
+        stream.getTracks().forEach((track) => track.stop())
+        toast.error("No camera source found.")
+        return
+      }
+
+      if (pcRef.current) {
+        const replaceTasks = pcRef.current.getSenders().map(async (sender) => {
+          if (sender.track?.kind === "video") {
+            await sender.replaceTrack(nextVideoTrack)
+          }
+          if (sender.track?.kind === "audio") {
+            await sender.replaceTrack(nextAudioTrack)
+          }
+        })
+        await Promise.all(replaceTasks)
+      }
+
+      localStreamRef.current = stream
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+      }
+      previousStream?.getTracks().forEach((track) => track.stop())
+      setCameraFacingMode(nextFacing)
+      syncFacingModeToRoom(nextFacing)
+      setCameraOn(Boolean(nextVideoTrack.enabled))
+      setMicOn(Boolean(nextAudioTrack?.enabled))
+      toast.success(nextFacing === "environment" ? "Back camera enabled." : "Front camera enabled.")
+    } catch (switchError) {
+      console.error("Failed to switch camera:", switchError)
+      toast.error("Unable to switch camera.")
+    }
+  }
+
   const isExpired = room?.expiresAt ? new Date(room.expiresAt).getTime() <= Date.now() : false
   const isInvitedStudent = role === "student" && room?.invitedStudentId && room.invitedStudentId === user?.uid
   const requiresApproval = role === "student" && room && !isInvitedStudent
@@ -666,6 +767,15 @@ export default function WebRtcRoom({
     room?.joinedStudentId &&
     room.joinedStudentId !== user?.uid &&
     String(room?.status || "active") === "active"
+  const studentLeftCurrentSession =
+    role === "student" &&
+    room?.leftByStudentId === user?.uid &&
+    room?.leftSessionId &&
+    room?.activeSessionId &&
+    room.leftSessionId === room.activeSessionId
+  const shouldMirrorLocal = cameraFacingMode === "user"
+  const remoteFacingMode = role === "campus_admin" ? room?.studentFacingMode : room?.adminFacingMode
+  const shouldMirrorRemote = remoteFacingMode === "user"
 
   const canJoin =
     role === "student" &&
@@ -675,7 +785,8 @@ export default function WebRtcRoom({
     room.activeSessionId &&
     !isExpired &&
     hasApproval &&
-    !roomTakenByAnother
+    !roomTakenByAnother &&
+    !studentLeftCurrentSession
   const submitJoinRequest = async () => {
     if (role !== "student" || !user?.uid || !roomId || isInvitedStudent) return
     try {
@@ -771,7 +882,7 @@ export default function WebRtcRoom({
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className="h-full min-h-[260px] w-full bg-black object-cover [transform:scaleX(-1)]"
+              className={`h-full min-h-[260px] w-full bg-black object-cover ${shouldMirrorRemote ? "[transform:scaleX(-1)]" : ""}`}
             />
 
             <div className="absolute bottom-3 right-3 z-20 w-[120px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]">
@@ -781,7 +892,7 @@ export default function WebRtcRoom({
                 autoPlay
                 playsInline
                 muted
-                className="h-[82px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[95px] md:h-[110px]"
+                className={`h-[82px] w-full bg-black object-cover sm:h-[95px] md:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
               />
             </div>
 
@@ -810,6 +921,15 @@ export default function WebRtcRoom({
                   title={lowBandwidth ? "Switch to HD mode" : "Switch to low bandwidth mode"}
                 >
                   {lowBandwidth ? "Low" : "HD"}
+                </button>
+                <button
+                  onClick={switchCameraFacing}
+                  disabled={!canToggleLocalMedia}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800 px-3 text-[11px] font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Switch front/back camera"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Cam
                 </button>
 
                 {role === "student" && requiresApproval && !hasApproval ? (
@@ -876,6 +996,16 @@ export default function WebRtcRoom({
 
       {showMeta ? (
         <div className="flex flex-wrap items-center gap-2">
+        {role === "campus_admin" && room?.joinedStudentName ? (
+          <div className="rounded-md border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs text-emerald-800">
+            Student in call: {room.joinedStudentName}
+          </div>
+        ) : null}
+        {role === "student" && room?.joinedStudentId === user?.uid ? (
+          <div className="rounded-md border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs text-emerald-800">
+            You joined {room?.roomName || "this consultation room"}.
+          </div>
+        ) : null}
         {role === "student" && !canJoin && String(room?.status || "active") === "active" && !isExpired && (
           <div className="rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
             Waiting for room creator to start the call...
@@ -886,6 +1016,11 @@ export default function WebRtcRoom({
             This room is already occupied by another student.
           </div>
         )}
+        {studentLeftCurrentSession ? (
+          <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
+            You already left this call session.
+          </div>
+        ) : null}
         {rawCallState === "reconnecting" ? (
           <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
             Reconnecting...
