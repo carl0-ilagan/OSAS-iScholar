@@ -315,14 +315,14 @@ export default function StudentConsultationsPage() {
               ) : (
                 <div className="relative h-full overflow-hidden rounded-xl border border-slate-800 bg-black">
                   <div className="h-full min-h-[260px] w-full bg-black" />
-                  <div className="absolute right-2 top-2 z-20 w-[74px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:right-3 sm:top-3 sm:w-[104px] md:bottom-4 md:right-4 md:top-auto md:w-[140px]">
+                  <div className="absolute bottom-16 right-2 z-20 w-[112px] overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl sm:bottom-18 sm:right-3 sm:w-[138px] md:bottom-4 md:right-4 md:w-[168px]">
                     <p className="border-b border-slate-700 bg-black/70 px-2 py-1 text-[10px] text-slate-300">You</p>
                     <video
                       ref={localPreviewRef}
                       autoPlay
                       playsInline
                       muted
-                      className="h-[52px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[70px] md:h-[90px]"
+                      className="h-[78px] w-full bg-black object-cover [transform:scaleX(-1)] sm:h-[95px] md:h-[112px]"
                     />
                   </div>
                   {previewError ? (

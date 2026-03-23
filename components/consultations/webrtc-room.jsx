@@ -9,7 +9,12 @@ import { db } from "@/lib/firebase"
 import { useAuth } from "@/contexts/AuthContext"
 import { normalizeCampus } from "@/lib/campus-admin-config"
 
-const RTC_CONFIG = { iceServers: [] }
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+}
 
 function nowIso() {
   return new Date().toISOString()
@@ -29,6 +34,18 @@ function detectDeviceType() {
   return "mobile"
 }
 
+function shouldPreferLowBandwidth(deviceType) {
+  if (typeof navigator === "undefined") return deviceType === "mobile"
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+  const effectiveType = String(connection?.effectiveType || "").toLowerCase()
+  const downlink = Number(connection?.downlink || 0)
+  const saveData = Boolean(connection?.saveData)
+  if (saveData) return true
+  if (effectiveType.includes("2g") || effectiveType.includes("3g")) return true
+  if (downlink > 0 && downlink < 1.2) return true
+  return deviceType === "mobile"
+}
+
 function formatRemainingTime(expiresAt) {
   if (!expiresAt) return "No timer"
   const diffMs = new Date(expiresAt).getTime() - Date.now()
@@ -43,15 +60,15 @@ function getMediaConstraints(lowBandwidth, facingMode = "user") {
   return {
     video: lowBandwidth
       ? {
-          width: { ideal: 640, max: 960 },
-          height: { ideal: 360, max: 540 },
-          frameRate: { ideal: 15, max: 24 },
+          width: { ideal: 480, max: 640 },
+          height: { ideal: 270, max: 360 },
+          frameRate: { ideal: 12, max: 15 },
           facingMode,
         }
       : {
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 24, max: 30 },
+          width: { ideal: 960, max: 1280 },
+          height: { ideal: 540, max: 720 },
+          frameRate: { ideal: 18, max: 24 },
           facingMode,
         },
     audio: {
@@ -195,6 +212,29 @@ export default function WebRtcRoom({
     }
   }
 
+  const applySenderQualityProfile = async (pc, lowMode) => {
+    if (!pc?.getSenders) return
+    const videoMaxBitrate = lowMode ? 300_000 : 900_000
+    const videoFramerate = lowMode ? 15 : 24
+    for (const sender of pc.getSenders()) {
+      if (sender.track?.kind !== "video") continue
+      try {
+        const params = sender.getParameters() || {}
+        const encodings = Array.isArray(params.encodings) && params.encodings.length > 0 ? params.encodings : [{}]
+        encodings[0] = {
+          ...encodings[0],
+          maxBitrate: videoMaxBitrate,
+          maxFramerate: videoFramerate,
+        }
+        params.encodings = encodings
+        params.degradationPreference = "balanced"
+        await sender.setParameters(params)
+      } catch {
+        // Some browsers may not fully support sender parameter updates.
+      }
+    }
+  }
+
   const setupLocalMedia = async (lowBandwidthMode = lowBandwidth, facingMode = cameraFacingMode) => {
     const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidthMode, facingMode))
     if (localStreamRef.current) {
@@ -245,6 +285,7 @@ export default function WebRtcRoom({
     }
 
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream))
+    await applySenderQualityProfile(pc, lowBandwidth)
 
     pc.ontrack = (event) => {
       event.streams[0].getTracks().forEach((track) => remoteStream.addTrack(track))
@@ -347,11 +388,11 @@ export default function WebRtcRoom({
         const ice = String(pc.iceConnectionState || "").toLowerCase()
         const unstable = conn !== "connected" && !["connected", "completed"].includes(ice)
         if (!hasConnectedOnceRef.current) return
-        if (downlink > 0 && downlink < 1) {
+        if (downlink > 0 && downlink < 0.35) {
           if (unstable) updateRoomCallState("slow_internet")
           return
         }
-        if (effectiveType.includes("2g")) {
+        if (effectiveType.includes("slow-2g")) {
           if (unstable) updateRoomCallState("slow_internet")
           return
         }
@@ -436,6 +477,9 @@ export default function WebRtcRoom({
     const detected = detectDeviceType()
     setDeviceType(detected)
     syncDeviceTypeToRoom(detected)
+    if (shouldPreferLowBandwidth(detected)) {
+      setLowBandwidth(true)
+    }
   }, [roomId, user?.uid])
 
   useEffect(() => {
@@ -745,6 +789,7 @@ export default function WebRtcRoom({
           }
         })
         await Promise.all(replaceTasks)
+        await applySenderQualityProfile(pcRef.current, next)
       }
       previousStream?.getTracks().forEach((track) => track.stop())
       setCameraOn(Boolean(stream.getVideoTracks()[0]?.enabled))
@@ -784,6 +829,7 @@ export default function WebRtcRoom({
           }
         })
         await Promise.all(replaceTasks)
+        await applySenderQualityProfile(pcRef.current, lowBandwidth)
       }
 
       localStreamRef.current = stream
@@ -936,7 +982,7 @@ export default function WebRtcRoom({
             <div
               className={`absolute z-20 overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl ${
                 role === "student"
-                  ? "right-2 top-2 w-[74px] sm:right-3 sm:top-3 sm:w-[104px] md:bottom-4 md:right-4 md:top-auto md:w-[140px]"
+                  ? "bottom-16 right-2 w-[112px] sm:bottom-18 sm:right-3 sm:w-[138px] md:bottom-4 md:right-4 md:w-[168px]"
                   : "bottom-3 right-3 w-[120px] sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]"
               }`}
             >
@@ -946,7 +992,7 @@ export default function WebRtcRoom({
                 autoPlay
                 playsInline
                 muted
-                className={`h-[52px] w-full bg-black object-cover sm:h-[70px] md:h-[90px] lg:h-[110px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
+                className={`h-[78px] w-full bg-black object-cover sm:h-[95px] md:h-[112px] ${shouldMirrorLocal ? "[transform:scaleX(-1)]" : ""}`}
               />
             </div>
 
