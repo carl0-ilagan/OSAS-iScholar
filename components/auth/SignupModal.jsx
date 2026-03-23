@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
+import { useBranding } from "@/contexts/BrandingContext"
 import { db } from "@/lib/firebase"
 import { collection, doc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
@@ -44,6 +45,7 @@ const coursesByCampus = {
 export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
   const router = useRouter()
   const { signUpWithEmail } = useAuth()
+  const { branding } = useBranding()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -384,28 +386,28 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] max-w-2xl md:max-w-4xl lg:max-w-5xl max-h-[95vh] overflow-hidden p-0" showCloseButton={false}>
-        <div className="grid md:grid-cols-2 max-h-[92vh]">
+      <DialogContent className="w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] overflow-hidden rounded-3xl border border-emerald-100/70 p-0 shadow-2xl shadow-emerald-950/30 sm:max-w-5xl" showCloseButton={false}>
+        <div className="grid max-h-[92vh] md:grid-cols-2">
           {/* Left Side - Form */}
-          <div className="overflow-y-auto p-4 md:p-6 flex flex-col min-h-0 scrollbar-hide">
-            <DialogHeader className="items-center text-center space-y-1 mb-4">
-              <DialogTitle className="w-full text-center text-2xl md:text-3xl font-light text-foreground tracking-tight">
+          <div className="scrollbar-hide flex min-h-0 flex-col overflow-y-auto bg-white p-6 md:p-10">
+            <DialogHeader className="mb-5 space-y-1 text-left">
+              <DialogTitle className="w-full text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">
                 Create Your Account
               </DialogTitle>
-              <DialogDescription className="w-full text-center text-sm text-muted-foreground font-light">
+              <DialogDescription className="w-full text-sm text-emerald-900/70">
                 Step {step} of 2
               </DialogDescription>
             </DialogHeader>
 
             {/* Simple Progress Bar */}
             <div className="flex gap-2 mb-4">
-              <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? "bg-primary" : "bg-border"}`}></div>
-              <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? "bg-primary" : "bg-border"}`}></div>
+              <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? "bg-emerald-600" : "bg-emerald-100"}`}></div>
+              <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? "bg-emerald-600" : "bg-emerald-100"}`}></div>
             </div>
 
             <div className="space-y-3 relative flex-1 flex flex-col min-h-0">
           {error && (
-            <div className="bg-destructive/5 text-destructive text-sm p-3 rounded-lg border border-destructive/20 animate-in fade-in slide-in-from-top-2 z-10 flex-shrink-0">
+            <div className="z-10 flex-shrink-0 animate-in slide-in-from-top-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 fade-in">
               {error}
             </div>
           )}
@@ -426,12 +428,12 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   value={formData.fullName}
                   onChange={handleChange}
                   placeholder="Enter your full name"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-light placeholder:text-muted-foreground/50"
+                  className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-foreground">
+                <label className="block text-sm font-medium text-emerald-950">
                   Email Address <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -440,7 +442,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="you@example.com"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-light placeholder:text-muted-foreground/50"
+                  className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                 />
                 {formData.email && !isValidEmail(formData.email.trim()) && (
                   <p className="text-xs text-destructive mt-1.5">Please enter a valid email address</p>
@@ -448,7 +450,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
               </div>
 
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-foreground">
+                <label className="block text-sm font-medium text-emerald-950">
                   Password <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -456,11 +458,11 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-foreground">
+                <label className="block text-sm font-medium text-emerald-950">
                   Confirm Password <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -468,17 +470,17 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
 
-              <div className="space-y-2 border border-border rounded-lg p-2.5 bg-muted/20">
-                <p className="text-xs text-muted-foreground">Step verification: enter 6-digit confirmation code sent to your email bago ka makapag-create ng account.</p>
+              <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
+                <p className="text-xs text-emerald-800/80">Enter the 6-digit verification code sent to your email before creating your account.</p>
                 <button
                   type="button"
                   onClick={handleSendCode}
                   disabled={sendingCode || !formData.email || !isValidEmail(formData.email.trim())}
-                  className="w-full bg-primary/10 text-primary py-1.5 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  className="w-full rounded-lg bg-emerald-700 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:opacity-50"
                 >
                   {sendingCode ? "Sending code..." : codeSent ? "Resend 6-digit code" : "Send 6-digit code"}
                 </button>
@@ -490,7 +492,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                       onChange={(e) => setInputCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="Enter 6-digit code"
                       disabled={verifyingCode || codeVerified}
-                      className="flex-1 px-3 py-1.5 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                      className="flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm text-emerald-950 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:opacity-60"
                     />
                     {verifyingCode && (
                       <div className="px-3 py-1.5 rounded-lg text-xs text-muted-foreground border border-border flex items-center">
@@ -517,7 +519,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
               <button
                 onClick={handleNext}
                 disabled={!validateStep1() || !codeVerified}
-                className="w-full bg-primary text-primary-foreground font-medium py-2.5 rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-3 shadow-sm hover:shadow-md"
+                className="mt-3 w-full rounded-xl bg-emerald-700 py-2.5 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Continue
               </button>
@@ -533,7 +535,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                         setTimeout(() => onSwitchToLogin(), 100)
                       }
                     }}
-                    className="text-primary hover:underline font-medium"
+                    className="font-medium text-emerald-700 hover:underline"
                   >
                     Login
                   </button>
@@ -547,7 +549,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
             >
               {/* Student Number - Full Width */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-emerald-950 mb-1.5">
                   Student Number <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -556,21 +558,21 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   value={formData.studentNumber}
                   onChange={handleChange}
                   placeholder="Enter your student number"
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-light placeholder:text-muted-foreground/50"
+                  className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
 
               {/* Campus and Year Level - Side by Side on Desktop */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                  <label className="block text-sm font-medium text-emerald-950 mb-1.5">
                     Campus <span className="text-destructive">*</span>
                   </label>
                   <Select
                     value={formData.campus}
                     onValueChange={(value) => handleSelectChange("campus", value)}
                   >
-                    <SelectTrigger className="w-full h-10 px-3 border border-border rounded-lg bg-input focus:ring-1 focus:ring-primary font-light text-sm">
+                    <SelectTrigger className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 focus:ring-2 focus:ring-emerald-200">
                       <SelectValue placeholder="Select campus" />
                     </SelectTrigger>
                     <SelectContent>
@@ -582,14 +584,14 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                  <label className="block text-sm font-medium text-emerald-950 mb-1.5">
                     Year Level <span className="text-destructive">*</span>
                   </label>
                   <Select
                     value={formData.yearLevel}
                     onValueChange={(value) => handleSelectChange("yearLevel", value)}
                   >
-                    <SelectTrigger className="w-full h-10 px-3 border border-border rounded-lg bg-input focus:ring-1 focus:ring-primary font-light text-sm">
+                    <SelectTrigger className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 focus:ring-2 focus:ring-emerald-200">
                       <SelectValue placeholder="Select year level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -604,7 +606,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
 
               {/* Course - Full Width */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-emerald-950 mb-1.5">
                   Course <span className="text-destructive">*</span>
                 </label>
                 <Select
@@ -612,7 +614,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   onValueChange={(value) => handleSelectChange("course", value)}
                   disabled={!formData.campus}
                 >
-                  <SelectTrigger className="w-full h-10 px-3 border border-border rounded-lg bg-input focus:ring-1 focus:ring-primary font-light text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectTrigger className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
                     <SelectValue placeholder={formData.campus ? "Select course" : "Select campus first"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -627,7 +629,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
 
               {/* Major - Always visible */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
+                <label className="block text-sm font-medium text-emerald-950 mb-1.5">
                   Major {availableMajors && availableMajors.length > 0 && <span className="text-destructive">*</span>}
                 </label>
                 <Select
@@ -635,7 +637,7 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                   onValueChange={(value) => handleSelectChange("major", value)}
                   disabled={!formData.course || !availableMajors || availableMajors.length === 0}
                 >
-                  <SelectTrigger className="w-full h-10 px-3 border border-border rounded-lg bg-input focus:ring-1 focus:ring-primary font-light text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectTrigger className="h-11 w-full rounded-xl border border-emerald-200 bg-white px-3 text-sm text-emerald-950 focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
                     <SelectValue placeholder="Select major" />
                   </SelectTrigger>
                   <SelectContent>
@@ -662,14 +664,14 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
                     setStep(1)
                     setError("")
                   }}
-                  className="w-full px-4 py-2 border border-border rounded-lg text-foreground font-medium hover:bg-muted transition-colors text-sm"
+                  className="w-full rounded-xl border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={!validateStep2() || loading}
-                  className="w-full bg-primary text-primary-foreground font-medium py-2.5 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md min-h-[42px]"
+                  className="flex min-h-[42px] w-full items-center justify-center rounded-xl bg-emerald-700 py-2.5 font-semibold text-white shadow-lg shadow-emerald-700/25 transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -685,37 +687,37 @@ export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
           </div>
 
           {/* Right Side - Visual/Info */}
-          <div className="hidden lg:flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 p-6 border-l border-border/50">
-            <div className="text-center space-y-6 max-w-sm">
-              {step === 1 ? (
-                <div key="step1" className="animate-in fade-in zoom-in-95 duration-300">
-                  <div className="w-24 h-24 mx-auto bg-accent/10 rounded-2xl flex items-center justify-center">
-                    <svg className="w-12 h-12 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-light text-foreground mb-2">Get Started</h3>
-                    <p className="text-sm text-muted-foreground font-light">
-                      Create your account in just a few simple steps
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div key="step2" className="animate-in fade-in zoom-in-95 duration-300">
-                  <div className="w-24 h-24 mx-auto bg-primary/10 rounded-2xl flex items-center justify-center">
-                    <svg className="w-12 h-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 0 12 20.904a48.62 48.62 0 0 0 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.905 59.905 0 0 1 12 3.493a59.902 59.902 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443a55.381 55.381 0 0 1 5.25 2.882V15" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-light text-foreground mb-2">Complete Your Profile</h3>
-                    <p className="text-sm text-muted-foreground font-light">
-                      Provide your student information to finish registration
-                    </p>
-                  </div>
-                </div>
-              )}
+          <div
+            className="relative hidden flex-col items-center justify-center overflow-hidden border-l border-white/15 p-8 md:flex"
+            style={{
+              backgroundImage: "url('/BG.jpg')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            <div className="absolute inset-0 bg-emerald-950/55" />
+            <div className="absolute inset-x-10 inset-y-12 rounded-3xl border border-white/15 bg-white/10 backdrop-blur-sm" />
+            <div className="relative z-10 max-w-sm space-y-5 px-4 text-center text-white">
+              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white p-2.5 shadow-xl">
+                <img
+                  src={branding?.logo || "/MOCAS-removebg-preview.png"}
+                  alt={branding?.name || "MOCAS"}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/90">
+                  {branding?.name || "MOCAS"}
+                </p>
+                <h3 className="mt-2 text-3xl font-bold tracking-tight">
+                  {step === 1 ? "Get started" : "Almost there"}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-emerald-50/90">
+                  {step === 1
+                    ? "Create your account and verify your email in a few steps."
+                    : "Add your student details so we can match you to scholarships and requirements."}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -10,7 +10,6 @@ import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "
 export default function ScholarshipApplicationCards({ id, name, description, benefit, benefitAmount, requirements = [], documentRequirementIds = [], slots, batchName, logo, temporarilyClosed, active }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [userData, setUserData] = useState(null)
   const [hasApplied, setHasApplied] = useState(false)
@@ -133,57 +132,55 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
 
   return (
     <>
-      <div 
-        className="group relative overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:border-primary/40 hover:shadow-md"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
-        }}
+      <div
+        className="group relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-card/95 shadow-sm ring-1 ring-black/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/45 hover:shadow-lg hover:shadow-emerald-900/10 dark:border-emerald-900/40 dark:ring-white/[0.06]"
       >
+        <span
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500/90 via-teal-500/80 to-emerald-600/70"
+          aria-hidden
+        />
         {/* Header with Icon */}
-        <div className="border-b border-border/60 bg-muted/30 p-3.5 md:p-4">
+        <div className="border-b border-emerald-100/70 bg-gradient-to-r from-emerald-50/90 to-white p-4 dark:border-emerald-900/50 dark:from-emerald-950/40 dark:to-card md:p-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex flex-1 items-center gap-3">
               {logo ? (
-                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-border/40 bg-card transition-transform duration-300 group-hover:scale-105">
-                  <img src={logo} alt={name} className="w-full h-full object-contain p-1" />
+                <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl border border-emerald-200/60 bg-white shadow-sm transition-transform duration-300 group-hover:scale-[1.02] dark:border-emerald-800/60">
+                  <img src={logo} alt={name} className="h-full w-full object-contain p-1" />
                 </div>
               ) : (
-              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-primary/15 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-                <GraduationCap className="h-5 w-5 text-primary" />
-              </div>
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20 transition-transform duration-300 group-hover:scale-[1.02]">
+                  <GraduationCap className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-base md:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                  {name}
-                </h3>
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-emerald-800 dark:group-hover:text-emerald-300 md:text-lg">
+                    {name}
+                  </h3>
                   {temporarilyClosed && (
-                    <span className="px-2 py-0.5 text-xs font-semibold bg-orange-500/20 text-orange-600 rounded-md border border-orange-500/30">
+                    <span className="rounded-md border border-amber-500/35 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                       Closed
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {description}
-                </p>
+                <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-3.5 md:p-4">
-          {/* Benefit Section - Enhanced */}
-          <div className="mb-3.5 rounded-lg border border-border bg-muted/20 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">Benefit</p>
+        <div className="p-4 md:p-5">
+          {/* Benefit Section */}
+          <div className="mb-4 rounded-xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 to-white p-3.5 dark:border-emerald-800/40 dark:from-emerald-950/30 dark:to-card">
+            <div className="mb-2 flex items-center gap-2">
+              <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Benefit</p>
             </div>
-            <p className="mb-1 text-sm md:text-base font-semibold text-foreground">{benefit}</p>
-            <p className="mb-2 text-xs font-semibold text-primary">{formatBenefitAmount(benefitAmount)}</p>
+            <p className="mb-1 text-sm font-semibold text-foreground md:text-base">{benefit}</p>
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{formatBenefitAmount(benefitAmount)}</p>
             {(batchName || slots) && (
-              <div className="flex items-center gap-4 border-t border-border pt-2 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-4 border-t border-emerald-200/50 pt-2 text-xs dark:border-emerald-800/40">
                 {batchName && (
                   <span className="text-muted-foreground">
                     Batch: <span className="font-semibold text-foreground">{batchName}</span>
@@ -198,79 +195,76 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
             )}
           </div>
 
-          {/* Basic Requirements Preview */}
-          <div className="mb-3.5">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="w-4 h-4 text-primary" />
+          {/* Requirements preview */}
+          <div className="mb-4">
+            <div className="mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Requirements</p>
             </div>
             <div className="space-y-2">
               {defaultForms.map((form, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-start gap-2.5 text-xs"
-                >
-                  <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                <div key={index} className="flex items-start gap-2.5 text-xs">
+                  <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-500" />
                   <span className="text-foreground">{form}</span>
                 </div>
               ))}
               {documentRequirementIds && documentRequirementIds.length > 0 && (
-                <p className="text-xs text-muted-foreground italic mt-2">
-                  + {documentRequirementIds.length} document requirement{documentRequirementIds.length !== 1 ? 's' : ''}
+                <p className="mt-2 text-xs italic text-muted-foreground">
+                  + {documentRequirementIds.length} document requirement{documentRequirementIds.length !== 1 ? "s" : ""}
                 </p>
               )}
             </div>
           </div>
 
           {/* Buttons */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {hasApplied ? (
-              <button 
-                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
+              <button
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-emerald-200/50 bg-emerald-50/50 py-2.5 text-sm font-semibold text-emerald-800/70 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300/70"
                 disabled
               >
-                <CheckCircle className="w-4 h-4" />
-                <span>Already Applied</span>
+                <CheckCircle className="h-4 w-4" />
+                <span>Already applied</span>
               </button>
             ) : temporarilyClosed ? (
-              <button 
-                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
+              <button
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-amber-200/60 bg-amber-50/60 py-2.5 text-sm font-semibold text-amber-900/70 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200/80"
                 disabled
               >
-                <AlertCircle className="w-4 h-4" />
-                <span>Temporarily Closed</span>
+                <AlertCircle className="h-4 w-4" />
+                <span>Temporarily closed</span>
               </button>
             ) : !active ? (
-              <button 
-                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-muted py-2.5 text-sm font-semibold text-muted-foreground"
+              <button
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 py-2.5 text-sm font-semibold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400"
                 disabled
               >
-                <AlertCircle className="w-4 h-4" />
-                <span>Not Available</span>
+                <AlertCircle className="h-4 w-4" />
+                <span>Not available</span>
               </button>
             ) : (
-              <button 
-                className="group/btn flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+              <button
+                className="group/btn flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/15 transition hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60"
                 onClick={(e) => {
                   e.stopPropagation()
                   setIsApplyModalOpen(true)
                 }}
                 disabled={isCheckingApplication}
               >
-                <span>Apply Now</span>
-                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                <span>Apply now</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
               </button>
             )}
-            
+
             <button
               onClick={() => {
                 setIsClosing(false)
                 setIsModalOpen(true)
               }}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200/70 bg-white py-2.5 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-950/50"
             >
-              <Eye className="w-4 h-4" />
-              <span>View Full Requirements</span>
+              <Eye className="h-4 w-4" />
+              <span>View full requirements</span>
             </button>
           </div>
         </div>
@@ -291,22 +285,21 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
             <div
               ref={modalRef}
-              className={`bg-card border border-border rounded-xl sm:rounded-2xl shadow-lg w-full max-w-5xl max-h-[96vh] sm:max-h-[94vh] overflow-hidden flex flex-col md:flex-row transition-all duration-300 ${
-                isClosing 
-                  ? 'opacity-0 scale-95 translate-y-4' 
-                  : 'opacity-100 scale-100 translate-y-0 animate-in zoom-in-95 slide-in-from-bottom-4'
+              className={`flex w-full max-w-5xl max-h-[96vh] flex-col overflow-hidden rounded-2xl border border-emerald-200/60 bg-card shadow-2xl shadow-emerald-950/10 sm:max-h-[94vh] md:flex-row dark:border-emerald-800/50 ${
+                isClosing
+                  ? "translate-y-4 scale-95 opacity-0"
+                  : "translate-y-0 scale-100 opacity-100 animate-in zoom-in-95 slide-in-from-bottom-4"
               }`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Left Side - Scholarship Info (Desktop) / Top (Mobile) */}
-              <div className="w-full md:w-2/5 lg:w-1/3 bg-muted/25 p-4 sm:p-5 md:p-6 border-b md:border-b-0 md:border-r border-border/30 flex flex-col flex-shrink-0 relative overflow-hidden">
-                {/* Decorative Background Elements */}
-                <div className="hidden md:block absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+              <div className="relative flex w-full flex-shrink-0 flex-col overflow-hidden border-b border-emerald-200/40 bg-gradient-to-b from-emerald-50/80 to-white p-4 sm:p-5 md:w-2/5 md:border-b-0 md:border-r lg:w-1/3 dark:border-emerald-900/40 dark:from-emerald-950/50 dark:to-card">
+                <div className="absolute right-0 top-0 hidden h-48 w-48 -translate-y-1/2 translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl md:block dark:bg-emerald-500/10" />
                 
                 <div className="relative mb-4">
                   <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
                     {logo ? (
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-lg sm:rounded-xl bg-card border-2 border-border/30 flex items-center justify-center shadow-md ring-2 ring-primary/20 overflow-hidden flex-shrink-0">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-emerald-200/50 bg-card shadow-md ring-2 ring-emerald-500/15 sm:h-12 sm:w-12 md:h-14 md:w-14 sm:rounded-xl dark:border-emerald-800/50">
                         <img 
                           src={logo} 
                           alt={name} 
@@ -318,28 +311,28 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                         />
                       </div>
                     ) : (
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md ring-2 ring-primary/20 flex-shrink-0">
-                        <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-white" />
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 shadow-md ring-2 ring-emerald-500/25 sm:h-12 sm:w-12 md:h-14 md:w-14 sm:rounded-xl">
+                        <GraduationCap className="h-5 w-5 text-white sm:h-6 sm:w-6 md:h-7 md:w-7" />
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <h2 className="text-base sm:text-lg md:text-xl font-semibold text-foreground truncate flex-1">{name}</h2>
-                        <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+                        <Sparkles className="h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2">{description}</p>
                     </div>
                   </div>
 
-                  <div className="p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border shadow-sm">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                      <p className="text-xs font-semibold text-primary uppercase tracking-wider">Benefit</p>
+                  <div className="rounded-xl border border-emerald-200/50 bg-white/90 p-3 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-950/30 sm:rounded-xl sm:p-4">
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <Award className="h-3.5 w-3.5 text-emerald-600 sm:h-4 sm:w-4 dark:text-emerald-400" />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Benefit</p>
                     </div>
-                    <p className="text-sm sm:text-base font-semibold text-foreground mb-1">{benefit}</p>
-                    <p className="text-xs sm:text-sm font-semibold text-primary">{formatBenefitAmount(benefitAmount)}</p>
+                    <p className="mb-1 text-sm font-semibold text-foreground sm:text-base">{benefit}</p>
+                    <p className="text-xs font-semibold text-emerald-700 sm:text-sm dark:text-emerald-400">{formatBenefitAmount(benefitAmount)}</p>
                     {(batchName || slots) && (
-                      <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-primary/20 text-xs">
+                      <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-emerald-200/50 pt-2.5 text-xs dark:border-emerald-800/40">
                         {batchName && (
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3 text-muted-foreground" />
@@ -356,15 +349,13 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
               </div>
 
               {/* Right Side - Full Requirements List (Desktop) / Bottom (Mobile) */}
-              <div className="w-full md:w-3/5 lg:w-2/3 flex flex-col min-h-0 bg-card">
-                {/* Header - Enhanced */}
-                <div className="relative p-4 sm:p-5 md:p-6 border-b border-border/30 bg-muted/20 flex-shrink-0 overflow-hidden">
-                  {/* Decorative Elements */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                  
+              <div className="flex min-h-0 w-full flex-col bg-card md:w-3/5 lg:w-2/3">
+                <div className="relative flex-shrink-0 overflow-hidden border-b border-emerald-200/40 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/25 sm:p-5 md:p-6">
+                  <div className="absolute right-0 top-0 h-32 w-32 -translate-y-1/2 translate-x-1/2 rounded-full bg-emerald-400/10 blur-2xl dark:bg-emerald-500/10" />
+
                   <div className="relative flex items-center gap-2.5 sm:gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20 sm:h-10 sm:w-10">
+                      <FileText className="h-4 w-4 text-emerald-700 sm:h-5 sm:w-5 dark:text-emerald-400" />
                     </div>
                     <div>
                       <h3 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">Full Requirements</h3>
@@ -374,26 +365,25 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                 </div>
 
                 {/* Content - Scrollable, Enhanced */}
-                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4 custom-scrollbar bg-background">
-                  {/* Default Forms */}
+                <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-background p-4 sm:space-y-4 sm:p-5 md:p-6">
                   <div className="space-y-2.5">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="w-1 h-5 bg-green-600 rounded-full"></div>
-                      <p className="text-xs sm:text-sm font-bold text-foreground">Required Forms (2)</p>
+                    <div className="mb-2.5 flex items-center gap-2">
+                      <div className="h-5 w-1 rounded-full bg-emerald-600" />
+                      <p className="text-xs font-bold text-foreground sm:text-sm">Required forms (2)</p>
                     </div>
                     <div className="space-y-2">
                       {defaultForms.map((form, index) => (
-                        <div 
-                          key={index} 
-                          className="flex items-start gap-2.5 p-3 sm:p-4 rounded-lg sm:rounded-xl bg-muted/25 border border-border hover:border-primary/40 hover:shadow-sm transition-all duration-200 group"
+                        <div
+                          key={index}
+                          className="group flex items-start gap-2.5 rounded-xl border border-emerald-200/40 bg-muted/20 p-3 transition-all duration-200 hover:border-emerald-400/45 hover:shadow-sm sm:rounded-xl sm:p-4 dark:border-emerald-900/40"
                           style={{
                             animationDelay: `${index * 50}ms`,
                             animation: isClosing ? 'none' : 'fadeInUp 0.5s ease-out forwards',
                             opacity: isClosing ? 0 : 1
                           }}
                         >
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-green-500/30 transition-colors">
-                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 transition-colors group-hover:bg-emerald-500/25 sm:h-9 sm:w-9">
+                            <CheckCircle className="h-4 w-4 text-emerald-700 sm:h-5 sm:w-5 dark:text-emerald-500" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <span className="text-sm sm:text-base font-semibold text-foreground leading-relaxed block">{form}</span>
@@ -407,15 +397,15 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                   {/* Document Requirements */}
                   {documentRequirementIds && documentRequirementIds.length > 0 && (
                     <div className="space-y-2.5">
-                      <div className="flex items-center gap-2 mb-2.5">
-                        <div className="w-1 h-5 bg-primary rounded-full"></div>
-                        <p className="text-xs sm:text-sm font-bold text-foreground">
-                          Document Requirements ({documentRequirementIds.length})
+                      <div className="mb-2.5 flex items-center gap-2">
+                        <div className="h-5 w-1 rounded-full bg-teal-600" />
+                        <p className="text-xs font-bold text-foreground sm:text-sm">
+                          Document requirements ({documentRequirementIds.length})
                         </p>
                       </div>
-                      <div className="p-3 sm:p-4 bg-muted/25 border border-border rounded-lg sm:rounded-xl">
+                      <div className="rounded-xl border border-emerald-200/40 bg-muted/25 p-3 sm:rounded-xl sm:p-4 dark:border-emerald-900/40">
                         <div className="flex items-start gap-2.5">
-                          <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <FileText className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-700 sm:h-5 sm:w-5 dark:text-emerald-400" />
                           <div>
                             <p className="text-xs sm:text-sm font-semibold text-foreground mb-1">
                               View Full Details
@@ -429,16 +419,15 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                     </div>
                   )}
 
-                  {/* Info Box */}
-                  <div className="p-3 sm:p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg sm:rounded-xl">
+                  <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/[0.06] p-3 sm:rounded-xl sm:p-4 dark:border-emerald-700/40 dark:bg-emerald-950/40">
                     <div className="flex items-start gap-2.5">
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                        <Award className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 sm:h-9 sm:w-9">
+                        <Award className="h-4 w-4 text-emerald-700 sm:h-5 sm:w-5 dark:text-emerald-400" />
                       </div>
                       <div>
-                        <p className="text-xs sm:text-sm font-semibold text-foreground mb-1">Ready to Apply?</p>
+                        <p className="mb-1 text-xs font-semibold text-foreground sm:text-sm">Ready to apply?</p>
                         <p className="text-xs text-muted-foreground">
-                          Make sure you have completed all required forms and uploaded all necessary documents before submitting your application.
+                          Complete all required forms and upload documents before submitting your application.
                         </p>
                       </div>
                     </div>
@@ -446,10 +435,10 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                 </div>
 
                 {/* Footer - Enhanced */}
-                <div className="p-4 sm:p-5 md:p-6 border-t border-border/30 flex-shrink-0 bg-muted/20">
+                <div className="flex-shrink-0 border-t border-emerald-200/40 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30 sm:p-5 md:p-6">
                   <button
                     onClick={handleCloseModal}
-                    className="w-full rounded-lg bg-primary py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white transition-colors hover:bg-primary/90"
+                    className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700 sm:py-3 sm:text-base"
                   >
                     Close
                   </button>

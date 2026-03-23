@@ -510,49 +510,49 @@ export default function ApplicationsTable({ applications, onUpdate }) {
   return (
     <>
       {/* Desktop Table View - Enhanced */}
-      <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <table className="w-full">
           <thead>
-              <tr className="border-b border-border bg-gradient-to-r from-primary to-secondary">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Tracker Code</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Program</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Date Submitted</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-white">Benefit Amount</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-white">Action</th>
+              <tr className="bg-muted/60 border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Tracker Code</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Program</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Date Submitted</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground/80">Benefit Amount</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-foreground/80">Action</th>
             </tr>
           </thead>
           <tbody>
               {applications.map((app, index) => (
                 <tr
                   key={app.id}
-                  className={`border-b border-border/50 hover:bg-muted/40 transition-all duration-200 ${
+                  className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
                     index % 2 === 0 ? 'bg-card' : 'bg-muted/20'
                   }`}
                 >
-                  <td className="px-6 py-4">
-                    <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2.5 py-1.5 rounded-md border border-primary/20">
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20">
                       {app.trackerCode || "N/A"}
                   </span>
                 </td>
-                  <td className="px-6 py-4">
-                    <p className="text-foreground font-semibold">{app.program}</p>
+                  <td className="px-4 py-3">
+                    <p className="text-sm text-foreground font-medium">{app.program}</p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <p className="text-sm text-foreground">{app.dateSubmitted}</p>
                   </td>
-                  <td className="px-6 py-4">{getStatusBadge(app.status)}</td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-primary">{app.amount}</p>
+                  <td className="px-4 py-3">{getStatusBadge(app.status)}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-semibold text-primary">{app.amount}</p>
                     {app.benefit && app.benefit !== "N/A" && (
                       <p className="text-xs text-muted-foreground mt-0.5">{app.benefit}</p>
                     )}
                   </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                     <button
                       onClick={() => handleView(app)}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium transition-all duration-200 hover:shadow-md mx-auto text-sm"
+                      className="mx-auto flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                     >
                     <Eye className="w-4 h-4" />
                     View

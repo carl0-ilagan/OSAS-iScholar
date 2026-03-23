@@ -357,12 +357,20 @@
             resource.data.studentId == request.auth.uid
           );
 
-          // Only admin can edit/delete submission metadata
-          allow update, delete: if request.auth != null && (
-                                isSuperAdmin() ||
-                                sameCampusByUserId(resource.data.studentId) ||
-                                sameCampus(resource.data.campus)
-                              );
+          // Owner student may update own submission (e.g. valuesByFieldName after saving field values); admins as before
+          allow update: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.studentId) ||
+            sameCampus(resource.data.campus) ||
+            resource.data.studentId == request.auth.uid
+          );
+
+          allow delete: if request.auth != null && (
+            isSuperAdmin() ||
+            sameCampusByUserId(resource.data.studentId) ||
+            sameCampus(resource.data.campus) ||
+            resource.data.studentId == request.auth.uid
+          );
         }
 
         // Values for each field in a submission
@@ -383,12 +391,13 @@
             get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId == request.auth.uid
           );
 
-          // Editing values post-submit is admin-only in this flow
+          // Student owner may update/delete own submission field values; admins/campus as before
           allow update, delete: if request.auth != null && (
-                                isSuperAdmin() ||
-                                sameCampusByUserId(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId) ||
-                                sameCampus(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.campus)
-                              );
+            isSuperAdmin() ||
+            sameCampusByUserId(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId) ||
+            sameCampus(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.campus) ||
+            get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId == request.auth.uid
+          );
         }
 
         // Consultation rooms for campus-admin video consult scheduling

@@ -419,7 +419,7 @@ export default function CampusAdminScholarshipsPage() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
+            </div>
             ))}
           </div>
         )}
@@ -446,13 +446,13 @@ export default function CampusAdminScholarshipsPage() {
                         {editingScholarship ? "Update scholarship details" : "Create a new scholarship program"}
                       </p>
                     </div>
-                  </div>
+          </div>
 
                   <form onSubmit={handleSubmit} className="space-y-3">
-                    <input
+            <input
                       value={formData.name}
                       onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="Scholarship name"
+              placeholder="Scholarship name"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                       required
                     />
@@ -474,19 +474,19 @@ export default function CampusAdminScholarshipsPage() {
                       onChange={(e) => setFormData((prev) => ({ ...prev, benefitAmount: e.target.value }))}
                       placeholder="Benefit amount"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <input
+            />
+            <input
                       value={formData.batchName}
                       onChange={(e) => setFormData((prev) => ({ ...prev, batchName: e.target.value }))}
                       placeholder="Batch name"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <input
-                      type="number"
-                      min="0"
+            />
+            <input
+              type="number"
+              min="0"
                       value={formData.slots}
                       onChange={(e) => setFormData((prev) => ({ ...prev, slots: e.target.value }))}
-                      placeholder="Slots"
+              placeholder="Slots"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
 
@@ -544,15 +544,15 @@ export default function CampusAdminScholarshipsPage() {
                       >
                         Cancel
                       </button>
-                      <button
-                        type="submit"
+            <button
+              type="submit"
                         className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white hover:from-primary/90 hover:to-secondary/90"
-                      >
+            >
                         <Save className="h-4 w-4" />
                         {editingScholarship ? "Update" : "Create"}
-                      </button>
+            </button>
                     </div>
-                  </form>
+          </form>
                 </div>
 
                 <div className="flex min-h-0 w-full flex-col md:w-3/5">
@@ -568,7 +568,7 @@ export default function CampusAdminScholarshipsPage() {
                           {DEFAULT_FORM_REQUIREMENTS.length + (formData.documentRequirementIds?.length || 0) !== 1 ? "s" : ""}
                         </p>
                       </div>
-                    </div>
+            </div>
                   </div>
 
                   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
@@ -623,7 +623,7 @@ export default function CampusAdminScholarshipsPage() {
                               >
                                 <p className="text-sm font-medium text-foreground">{req.name || "Untitled Requirement"}</p>
                                 {req.description ? <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{req.description}</p> : null}
-                              </button>
+                    </button>
                             )
                           })}
                         </div>
@@ -647,7 +647,7 @@ export default function CampusAdminScholarshipsPage() {
                                   }
                                 >
                                   <X className="h-3 w-3" />
-                                </button>
+                    </button>
                               </span>
                             )
                           })}
@@ -697,9 +697,9 @@ export default function CampusAdminScholarshipsPage() {
                     Delete
                   </button>
                 </div>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
         </>
       ) : null}
     </CampusAdminLayoutWrapper>

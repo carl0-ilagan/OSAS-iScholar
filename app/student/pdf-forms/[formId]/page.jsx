@@ -1,14 +1,56 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore"
-import { Eraser, PenLine, UploadCloud, X } from "lucide-react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore"
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eraser,
+  FileText,
+  Loader2,
+  PenLine,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/contexts/AuthContext"
 import PdfOverlayStage from "@/components/pdf-forms/PdfOverlayStage"
-import { fileToDataUrl, loadProtectedPdfObjectUrl, normalizeFieldName, normalizeTableRatios, withFieldDefaults } from "@/lib/pdf-form-utils"
+import {
+  deserializeSubmissionValue,
+  fileToDataUrl,
+  loadProtectedPdfObjectUrl,
+  normalizeFieldName,
+  normalizeTableRatios,
+  serializeSubmissionValueForFirestore,
+  withFieldDefaults,
+} from "@/lib/pdf-form-utils"
+
+function formatSubmittedAt(ts) {
+  if (!ts) return ""
+  try {
+    const d = typeof ts.toDate === "function" ? ts.toDate() : new Date((ts.seconds || 0) * 1000)
+    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+  } catch {
+    return ""
+  }
+}
 
 function getCssFontFamily(value) {
   const family = String(value || "helvetica").toLowerCase()
@@ -56,6 +98,10 @@ function ensureTableValue(value, rows = 3, cols = 3) {
   )
 }
 
+/** Logical size (CSS px) — must match stroke coordinates; buffer is this × devicePixelRatio */
+const SIGNATURE_PAD_WIDTH = 900
+const SIGNATURE_PAD_HEIGHT = 280
+
 function resolveUniqueSubmissionKey(field, usedKeys) {
   const rawName = String(field?.name || "").trim()
   const base = rawName ? normalizeFieldName(rawName) : normalizeFieldName(field?.fieldId || "field")
@@ -69,9 +115,11 @@ function resolveUniqueSubmissionKey(field, usedKeys) {
   return key
 }
 
-export default function StudentPdfFormFillPage() {
+function StudentPdfFormFillPageContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const submissionIdParam = searchParams.get("submissionId")
   const { user } = useAuth()
   const formId = params?.formId
 
@@ -79,7 +127,13 @@ export default function StudentPdfFormFillPage() {
   const [fields, setFields] = useState([])
   const [pdfUrl, setPdfUrl] = useState("")
   const [values, setValues] = useState({})
+  /** When set, we are editing an existing submission (load/save updates docs). */
+  const [editingSubmissionId, setEditingSubmissionId] = useState(null)
+  /** fieldId -> submission_values document id */
+  const [submissionValueDocIds, setSubmissionValueDocIds] = useState({})
+  const [submittedAtLabel, setSubmittedAtLabel] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [deletingSubmission, setDeletingSubmission] = useState(false)
   const [loading, setLoading] = useState(true)
   const [printValueOnly, setPrintValueOnly] = useState(false)
   const PDF_MAX_SCALE = 1.3
@@ -97,8 +151,10 @@ export default function StudentPdfFormFillPage() {
     if (!context) return
     const rect = canvas.getBoundingClientRect()
     if (!rect.width || !rect.height) return
-    const x = ((clientX - rect.left) / rect.width) * canvas.width
-    const y = ((clientY - rect.top) / rect.height) * canvas.height
+    // Map pointer to *logical* coords (0…900 × 0…280). Context uses setTransform(dpr),
+    // so drawing must stay in this space — NOT in canvas.width buffer pixels.
+    const x = ((clientX - rect.left) / rect.width) * SIGNATURE_PAD_WIDTH
+    const y = ((clientY - rect.top) / rect.height) * SIGNATURE_PAD_HEIGHT
     if (mode === "start") {
       context.beginPath()
       context.moveTo(x, y)
@@ -113,7 +169,7 @@ export default function StudentPdfFormFillPage() {
     if (!canvas) return
     const context = canvas.getContext("2d")
     if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.clearRect(0, 0, SIGNATURE_PAD_WIDTH, SIGNATURE_PAD_HEIGHT)
   }
 
   useEffect(() => {
@@ -161,8 +217,8 @@ export default function StudentPdfFormFillPage() {
     const canvas = signatureCanvasRef.current
     if (!canvas) return
     const ratio = window.devicePixelRatio || 1
-    const width = 900
-    const height = 280
+    const width = SIGNATURE_PAD_WIDTH
+    const height = SIGNATURE_PAD_HEIGHT
     canvas.width = Math.round(width * ratio)
     canvas.height = Math.round(height * ratio)
     canvas.style.width = `${width}px`
@@ -187,13 +243,40 @@ export default function StudentPdfFormFillPage() {
   }, [activeSignatureFieldId, values])
 
   useEffect(() => {
+    if (!activeSignatureFieldId) return
+    function onKeyDown(e) {
+      if (e.key === "Escape") setActiveSignatureFieldId("")
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [activeSignatureFieldId])
+
+  useEffect(() => {
+    if (!activeSignatureFieldId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [activeSignatureFieldId])
+
+  useEffect(() => {
     if (!formId) return
     let cancelled = false
     let objectUrl = ""
 
     async function loadForm() {
       setLoading(true)
+      setEditingSubmissionId(null)
+      setSubmissionValueDocIds({})
+      setSubmittedAtLabel("")
       try {
+        if (submissionIdParam && !user?.uid) {
+          toast.error("Please sign in to view this submission.")
+          router.replace(`/student/pdf-forms/${formId}`)
+          return
+        }
+
         const formDoc = await getDoc(doc(db, "forms", formId))
         if (!formDoc.exists()) {
           toast.error("Form not found.")
@@ -202,12 +285,14 @@ export default function StudentPdfFormFillPage() {
         }
 
         const formData = { id: formDoc.id, ...formDoc.data() }
-        setForm(formData)
+        if (!cancelled) setForm(formData)
 
         const fieldsQuery = query(collection(db, "form_fields"), where("formId", "==", formId))
         const fieldsSnapshot = await getDocs(fieldsQuery)
         const nextFields = fieldsSnapshot.docs.map((entry) => withFieldDefaults(entry.data()))
-        setFields(nextFields)
+        if (!cancelled) setFields(nextFields)
+
+        const fieldById = new Map(nextFields.map((f) => [f.fieldId, f]))
 
         const initialValues = {}
         nextFields.forEach((field) => {
@@ -221,7 +306,48 @@ export default function StudentPdfFormFillPage() {
           }
           initialValues[field.fieldId] = ""
         })
-        setValues(initialValues)
+
+        let docIds = {}
+        if (submissionIdParam) {
+          const subDoc = await getDoc(doc(db, "submissions", submissionIdParam))
+          if (!subDoc.exists()) {
+            toast.error("Submission not found.")
+            router.replace(`/student/pdf-forms/${formId}`)
+            return
+          }
+          const subData = subDoc.data()
+          if (!user?.uid || subData.studentId !== user.uid || subData.formId !== formId) {
+            toast.error("You can’t open this submission.")
+            router.replace(`/student/pdf-forms/${formId}`)
+            return
+          }
+          if (!cancelled) {
+            setEditingSubmissionId(submissionIdParam)
+            setSubmittedAtLabel(formatSubmittedAt(subData.submittedAt))
+          }
+
+          const valSnap = await getDocs(
+            query(collection(db, "submission_values"), where("submissionId", "==", submissionIdParam)),
+          )
+          valSnap.docs.forEach((d) => {
+            const data = d.data()
+            const fid = data.fieldId
+            if (!fid || !fieldById.has(fid)) return
+            docIds[fid] = d.id
+            const field = fieldById.get(fid)
+            const raw = deserializeSubmissionValue(data.value)
+            if (field.type === "table") {
+              initialValues[fid] = ensureTableValue(raw, field.tableRows, field.tableCols)
+            } else if (field.type === "checkbox") {
+              initialValues[fid] = raw === true || raw === "true"
+            } else {
+              initialValues[fid] = raw ?? ""
+            }
+          })
+          if (!cancelled) setSubmissionValueDocIds(docIds)
+        }
+
+        if (!cancelled) setValues(initialValues)
 
         objectUrl = await loadProtectedPdfObjectUrl(formId)
         if (!cancelled) {
@@ -245,7 +371,7 @@ export default function StudentPdfFormFillPage() {
         URL.revokeObjectURL(objectUrl)
       }
     }
-  }, [formId, router])
+  }, [formId, router, user, submissionIdParam])
 
   const fieldsByPage = useMemo(() => {
     return fields.reduce((acc, field) => {
@@ -265,17 +391,59 @@ export default function StudentPdfFormFillPage() {
 
     setSubmitting(true)
     try {
+      const usedSubmissionKeys = new Set()
+
+      if (editingSubmissionId) {
+        const kvEntries = await Promise.all(
+          fields.map(async (field) => {
+            const key = resolveUniqueSubmissionKey(field, usedSubmissionKeys)
+            const firestoreValue = serializeSubmissionValueForFirestore(values[field.fieldId] ?? "")
+            const existingVid = submissionValueDocIds[field.fieldId]
+
+            if (existingVid) {
+              await updateDoc(doc(db, "submission_values", existingVid), {
+                value: firestoreValue,
+                fieldName: key,
+                type: field.type,
+                updatedAt: serverTimestamp(),
+              })
+            } else {
+              const newRef = await addDoc(collection(db, "submission_values"), {
+                submissionId: editingSubmissionId,
+                fieldId: field.fieldId,
+                fieldName: key,
+                formId,
+                type: field.type,
+                value: firestoreValue,
+                createdAt: serverTimestamp(),
+              })
+              setSubmissionValueDocIds((prev) => ({ ...prev, [field.fieldId]: newRef.id }))
+            }
+
+            return [key, firestoreValue]
+          }),
+        )
+
+        const valuesByFieldName = Object.fromEntries(kvEntries)
+        await updateDoc(doc(db, "submissions", editingSubmissionId), {
+          valuesByFieldName,
+          updatedAt: serverTimestamp(),
+        })
+
+        toast.success("Changes saved.")
+        return
+      }
+
       const submissionRef = await addDoc(collection(db, "submissions"), {
         formId,
         studentId: user.uid,
         submittedAt: serverTimestamp(),
       })
 
-      const usedSubmissionKeys = new Set()
       const kvEntries = await Promise.all(
         fields.map(async (field) => {
-          let value = values[field.fieldId]
           const key = resolveUniqueSubmissionKey(field, usedSubmissionKeys)
+          const firestoreValue = serializeSubmissionValueForFirestore(values[field.fieldId] ?? "")
 
           await addDoc(collection(db, "submission_values"), {
             submissionId: submissionRef.id,
@@ -283,11 +451,11 @@ export default function StudentPdfFormFillPage() {
             fieldName: key,
             formId,
             type: field.type,
-            value: value ?? "",
+            value: firestoreValue,
             createdAt: serverTimestamp(),
           })
 
-          return [key, value ?? ""]
+          return [key, firestoreValue]
         }),
       )
 
@@ -297,12 +465,42 @@ export default function StudentPdfFormFillPage() {
       })
 
       toast.success("Form submitted successfully.")
-      router.push("/student/pdf-forms")
+      router.push(`/student/pdf-forms/${formId}?submissionId=${submissionRef.id}`)
     } catch (error) {
       console.error("Failed to submit form:", error)
       toast.error("Submission failed.")
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleDeleteThisSubmission() {
+    if (!editingSubmissionId || !user?.uid || !formId) return
+    if (
+      !window.confirm(
+        "Delete this submission permanently? You can submit the form again later. This cannot be undone.",
+      )
+    ) {
+      return
+    }
+    setDeletingSubmission(true)
+    try {
+      const valSnap = await getDocs(
+        query(collection(db, "submission_values"), where("submissionId", "==", editingSubmissionId)),
+      )
+      for (let i = 0; i < valSnap.docs.length; i += 450) {
+        const batch = writeBatch(db)
+        valSnap.docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref))
+        await batch.commit()
+      }
+      await deleteDoc(doc(db, "submissions", editingSubmissionId))
+      toast.success("Submission deleted.")
+      router.push("/student/pdf-forms")
+    } catch (error) {
+      console.error("Failed to delete submission:", error)
+      toast.error("Could not delete. Try again.")
+    } finally {
+      setDeletingSubmission(false)
     }
   }
 
@@ -323,15 +521,78 @@ export default function StudentPdfFormFillPage() {
   }
 
   return (
-    <div className="p-2 sm:p-3 md:p-6 lg:p-8 space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h1 className="text-xl font-semibold">{form?.title || "PDF Form"}</h1>
-        <p className="text-sm text-muted-foreground">Complete all needed fields, then submit to admin.</p>
+    <div className="space-y-6 py-2 md:py-3">
+      <div className="flex flex-col gap-4">
+        <Link
+          href="/student/pdf-forms"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-3 py-2 text-sm font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          Back to PDF forms
+        </Link>
+
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-6 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 sm:p-8">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl" />
+          <div className="relative">
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+              <FileText className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              {editingSubmissionId ? "Your submission" : "Fillable PDF"}
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 sm:text-3xl">
+              {loading ? "Loading form…" : form?.title || "PDF Form"}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-900/75 dark:text-emerald-200/85 sm:text-base">
+              {editingSubmissionId ? (
+                <>
+                  Submitted{submittedAtLabel ? ` ${submittedAtLabel}` : ""}. You can edit your answers below, use{" "}
+                  <strong>Print (values only)</strong> for a clean copy, then <strong>Save changes</strong> when done.
+                </>
+              ) : (
+                <>
+                  Complete the fields on the document below. Use print if you need a clean copy, then submit when you&apos;re
+                  done.
+                </>
+              )}
+            </p>
+            {editingSubmissionId ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 print:hidden">
+                <button
+                  type="button"
+                  disabled={deletingSubmission || submitting}
+                  onClick={handleDeleteThisSubmission}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-300/80 bg-red-50/90 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+                >
+                  {deletingSubmission ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete submission
+                </button>
+                <span className="text-xs text-muted-foreground">Removes this copy from your list (you can submit again).</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <div ref={pdfViewportRef} className="rounded-xl border border-border bg-card p-3 md:p-4">
+      <div
+        ref={pdfViewportRef}
+        className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-card p-3 shadow-sm ring-1 ring-black/[0.03] dark:border-emerald-900/50 md:p-5"
+      >
+        <span
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
+          aria-hidden
+        />
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading form...</p>
+          <div className="space-y-4 py-10 pt-6">
+            <div className="animate-pulse space-y-3">
+              <div className="mx-auto h-4 w-48 max-w-full rounded-md bg-emerald-100/80 dark:bg-emerald-900/40" />
+              <div className="h-40 w-full rounded-xl bg-muted/70 dark:bg-muted/30" />
+              <div className="h-40 w-full rounded-xl bg-muted/50 dark:bg-muted/20" />
+            </div>
+            <p className="text-center text-sm text-muted-foreground">Preparing your form…</p>
+          </div>
         ) : (
           <>
             {pdfUrl ? (
@@ -463,8 +724,10 @@ export default function StudentPdfFormFillPage() {
                           <button
                             key={field.fieldId}
                             type="button"
-                            className={`pointer-events-auto absolute rounded ${
-                              field.borderless ? "border-0" : "border border-primary/60"
+                            className={`pointer-events-auto absolute rounded transition-[box-shadow,border-color] ${
+                              field.borderless
+                                ? "border-0"
+                                : "border border-emerald-300/70 shadow-sm ring-1 ring-emerald-500/10 hover:border-emerald-400 hover:shadow-md hover:ring-emerald-500/25 dark:border-emerald-500/45 dark:ring-emerald-400/10 dark:hover:border-emerald-400/80"
                             }`}
                             style={{
                               ...commonStyle,
@@ -482,8 +745,8 @@ export default function StudentPdfFormFillPage() {
                                 className="h-full w-full rounded object-contain"
                               />
                             ) : (
-                              <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] text-muted-foreground">
-                                <PenLine className="h-4 w-4" />
+                              <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[9px] font-medium leading-tight text-emerald-800/90 dark:text-emerald-200/90 sm:text-[10px]">
+                                <PenLine className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400 sm:h-4 sm:w-4" />
                                 <span>{field.label || "Tap to sign"}</span>
                               </span>
                             )}
@@ -709,85 +972,170 @@ export default function StudentPdfFormFillPage() {
                 )}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">No PDF attached to this form.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No PDF attached to this form.</p>
             )}
           </>
         )}
       </div>
 
       {activeSignatureFieldId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-4xl rounded-xl border border-border bg-card p-4 shadow-xl">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Draw Signature</h2>
-              <button
-                type="button"
-                onClick={() => setActiveSignatureFieldId("")}
-                className="rounded-md border border-input px-2 py-1 text-xs"
-                title="Close signature pad"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="rounded-md border border-input bg-background p-2">
-              <canvas
-                ref={signatureCanvasRef}
-                className="w-full touch-none rounded bg-white"
-                onPointerDown={(event) => {
-                  signatureDrawingRef.current = true
-                  drawLineOnSignatureCanvas(event.clientX, event.clientY, "start")
-                }}
-                onPointerMove={(event) => {
-                  if (!signatureDrawingRef.current) return
-                  drawLineOnSignatureCanvas(event.clientX, event.clientY, "draw")
-                }}
-                onPointerUp={() => {
-                  signatureDrawingRef.current = false
-                }}
-                onPointerLeave={() => {
-                  signatureDrawingRef.current = false
-                }}
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <button
+            type="button"
+            aria-label="Close signature dialog"
+            className="absolute inset-0 animate-in fade-in duration-200 bg-black/55 backdrop-blur-[3px]"
+            onClick={() => setActiveSignatureFieldId("")}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signature-modal-title"
+            className="relative z-[101] flex max-h-[min(92vh,720px)] w-full max-w-4xl animate-in slide-in-from-bottom-4 fade-in zoom-in-95 flex-col duration-200 sm:slide-in-from-bottom-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative flex max-h-full flex-col overflow-hidden rounded-t-3xl border border-emerald-200/60 bg-gradient-to-b from-white via-emerald-50/40 to-white shadow-2xl ring-1 ring-emerald-500/15 dark:from-card dark:via-emerald-950/35 dark:to-card dark:border-emerald-800/70 dark:ring-emerald-400/10 sm:rounded-3xl">
+              <span
+                className="h-1.5 w-full shrink-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
+                aria-hidden
               />
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={clearSignatureCanvas}
-                className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs"
-              >
-                <Eraser className="h-3.5 w-3.5" />
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveSignature}
-                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
-              >
-                <PenLine className="h-3.5 w-3.5" />
-                Save Signature
-              </button>
+              <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
+                <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/15 shadow-inner ring-1 ring-emerald-500/20 dark:from-emerald-400/20 dark:to-teal-900/30">
+                      <PenLine className="h-6 w-6 text-emerald-700 dark:text-emerald-300" strokeWidth={2.25} />
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <p className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700/90 dark:text-emerald-400/95">
+                        <Sparkles className="h-3 w-3" />
+                        E-signature
+                      </p>
+                      <h2 id="signature-modal-title" className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                        Sign in the box
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Use your finger, stylus, or mouse. Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">Esc</kbd> or tap outside to cancel.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSignatureFieldId("")}
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl border border-emerald-200/80 bg-white/90 px-3 py-2 text-sm font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/60 dark:text-emerald-100 dark:hover:bg-emerald-900/50"
+                  >
+                    <span className="hidden sm:inline">Cancel</span>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="relative mb-4 min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-2xl border-2 border-dashed border-emerald-300/70 bg-white shadow-[inset_0_2px_12px_rgba(16,185,129,0.06)] dark:border-emerald-600/50 dark:bg-emerald-950/20 dark:shadow-[inset_0_2px_12px_rgba(0,0,0,0.25)]">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.07] dark:opacity-[0.12]">
+                    <PenLine className="h-24 w-24 text-emerald-900 dark:text-emerald-100" strokeWidth={1} />
+                  </div>
+                  <canvas
+                    ref={signatureCanvasRef}
+                    className="relative z-[1] block touch-none bg-transparent"
+                    onPointerDown={(event) => {
+                      event.preventDefault()
+                      try {
+                        event.currentTarget.setPointerCapture(event.pointerId)
+                      } catch {
+                        /* ignore */
+                      }
+                      signatureDrawingRef.current = true
+                      drawLineOnSignatureCanvas(event.clientX, event.clientY, "start")
+                    }}
+                    onPointerMove={(event) => {
+                      if (!signatureDrawingRef.current) return
+                      event.preventDefault()
+                      drawLineOnSignatureCanvas(event.clientX, event.clientY, "draw")
+                    }}
+                    onPointerUp={(event) => {
+                      signatureDrawingRef.current = false
+                      try {
+                        event.currentTarget.releasePointerCapture(event.pointerId)
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onPointerCancel={(event) => {
+                      signatureDrawingRef.current = false
+                      try {
+                        event.currentTarget.releasePointerCapture(event.pointerId)
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      /* keep drawing if pointer captured */
+                    }}
+                  />
+                </div>
+
+                <div className="flex shrink-0 flex-col gap-3 border-t border-emerald-200/50 pt-4 dark:border-emerald-800/50 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground sm:max-w-[42%]">
+                    Your signature is saved only on this form until you submit it to OSAS.
+                  </p>
+                  <div className="flex flex-wrap items-stretch justify-end gap-2 sm:items-center">
+                    <button
+                      type="button"
+                      onClick={clearSignatureCanvas}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-50 sm:flex-initial dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
+                    >
+                      <Eraser className="h-4 w-4" />
+                      Clear pad
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveSignature}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl sm:flex-initial"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Apply signature
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
-      <div className="flex justify-end gap-2 print:hidden">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end print:hidden">
         <button
           type="button"
           onClick={handlePrintValueOnly}
           disabled={loading}
-          className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center rounded-xl border border-emerald-200/80 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60 sm:w-auto"
         >
-          Print (Values Only)
+          Print (values only)
         </button>
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={submitting || loading}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center rounded-xl border border-emerald-600/30 bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:from-emerald-700 hover:to-teal-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {submitting ? "Submitting..." : "Submit Form"}
+          {submitting ? (editingSubmissionId ? "Saving…" : "Submitting…") : editingSubmissionId ? "Save changes" : "Submit form"}
         </button>
       </div>
     </div>
+  )
+}
+
+export default function StudentPdfFormFillPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 py-2 md:py-3">
+          <div className="animate-pulse rounded-2xl border border-emerald-200/30 bg-white/60 p-8 dark:border-emerald-900/40">
+            <div className="mb-4 h-6 w-48 rounded bg-emerald-100/80 dark:bg-emerald-900/40" />
+            <div className="h-10 max-w-md rounded-lg bg-muted" />
+            <div className="mt-4 h-64 rounded-xl bg-muted/50" />
+          </div>
+        </div>
+      }
+    >
+      <StudentPdfFormFillPageContent />
+    </Suspense>
   )
 }

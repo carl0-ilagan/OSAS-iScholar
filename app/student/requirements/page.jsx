@@ -7,8 +7,9 @@ import { db } from "@/lib/firebase"
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, query, orderBy, where } from "firebase/firestore"
 import { ClipboardCheck, Upload, FileText, CheckCircle, X, Download, Eye, AlertCircle, ChevronLeft, ChevronRight, Calendar, Sparkles, FolderOpen, Trash2, Edit, Save, FileEdit } from "lucide-react"
 import { toast } from "sonner"
+import DocumentPreviewModal from "@/components/admin/document-preview-modal"
 
-function FileUploadField({ label, name, onChange, files, className = "", required = false, sampleFile = null, sampleFileName = "", maxImageUploads = null, isPdfSample = false, onDownloadSample = null }) {
+function FileUploadField({ label, name, onChange, files, className = "", required = false, sampleFile = null, sampleFileName = "", maxImageUploads = null, isPdfSample = false, onViewSample = null, onDownloadSample = null }) {
   const fileArray = Array.isArray(files) ? files : (files ? [files] : [])
   const maxFiles = maxImageUploads || 2 // Use maxImageUploads if provided, otherwise default to 2
   const acceptType = isPdfSample ? "image/*" : "image/*,.pdf" // Only images if PDF sample exists
@@ -24,28 +25,37 @@ function FileUploadField({ label, name, onChange, files, className = "", require
             </span>
           )}
           {isPdfSample && (
-            <span className="ml-2 text-xs text-blue-600 font-medium">
-              (Images only - PDF sample provided)
+            <span className="ml-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              (Images only — PDF sample provided)
             </span>
           )}
         </label>
         {sampleFile && (
           <button
+            type="button"
             onClick={(e) => {
               e.preventDefault()
-              if (onDownloadSample) {
+              if (onViewSample) {
+                onViewSample(sampleFile, sampleFileName)
+              } else if (onDownloadSample) {
                 onDownloadSample(sampleFile, sampleFileName)
               } else {
-                // Fallback: direct download
-                const link = document.createElement('a')
-                link.href = sampleFile
-                link.download = sampleFileName || 'sample'
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
+                // Fallback: open in new tab when possible (avoid forced download)
+                if (sampleFile.startsWith('http://') || sampleFile.startsWith('https://')) {
+                  window.open(sampleFile, '_blank', 'noopener,noreferrer')
+                } else if (sampleFile.startsWith('data:')) {
+                  window.open(sampleFile, '_blank', 'noopener,noreferrer')
+                } else {
+                  const link = document.createElement('a')
+                  link.href = sampleFile
+                  link.download = sampleFileName || 'sample'
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
+                }
               }
             }}
-            className="flex items-center gap-1 text-xs text-primary hover:underline flex-shrink-0"
+            className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
           >
             <Eye className="w-3 h-3" />
             <span>View Sample</span>
@@ -61,10 +71,10 @@ function FileUploadField({ label, name, onChange, files, className = "", require
             readOnly
               value={fileArray.length > 0 ? `${fileArray.length} file${fileArray.length > 1 ? 's' : ''} selected` : "No file chosen"}
             placeholder="No file chosen"
-            className={`w-full px-4 py-2.5 pr-28 sm:pr-32 border-2 rounded-lg bg-background text-sm transition-all truncate ${
+            className={`w-full truncate rounded-xl border-2 bg-background px-4 py-2.5 pr-28 text-sm transition-all sm:pr-32 ${
                 fileArray.length > 0
-                ? "border-primary/50 bg-primary/5" 
-                : "border-border hover:border-primary/50 focus:border-primary"
+                ? "border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/30"
+                : "border-border hover:border-emerald-400/50 focus:border-emerald-500"
             }`}
               title={fileArray.map(f => f.name).join(', ')}
           />
@@ -89,7 +99,7 @@ function FileUploadField({ label, name, onChange, files, className = "", require
             )}
             <label
               htmlFor={name}
-              className="px-3 sm:px-4 py-2 border border-border rounded-lg hover:bg-muted hover:border-primary/50 transition-all cursor-pointer text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0 bg-background/95 backdrop-blur-sm"
+              className="flex-shrink-0 cursor-pointer whitespace-nowrap rounded-lg border border-emerald-200/70 bg-white px-3 py-2 text-xs font-medium backdrop-blur-sm transition-all hover:border-emerald-400/60 hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:hover:bg-emerald-950/70 sm:px-4 sm:text-sm"
             >
                 Choose File{fileArray.length > 0 ? 's' : ''}
             </label>
@@ -110,8 +120,8 @@ function FileUploadField({ label, name, onChange, files, className = "", require
         {fileArray.length > 0 && (
           <div className="space-y-2">
             {fileArray.map((file, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border border-border/50">
-                <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+              <div key={index} className="flex items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-50/40 p-2 dark:border-emerald-900/40 dark:bg-emerald-950/25">
+                <FileText className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate" title={file.name}>
                     {file.name}
@@ -162,6 +172,10 @@ export default function StudentRequirementsPage() {
   const [applicationFormFilled, setApplicationFormFilled] = useState(false)
   const [profileFormFilled, setProfileFormFilled] = useState(false)
   const [replacingRequirement, setReplacingRequirement] = useState(null) // Track which requirement is being replaced
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewFile, setPreviewFile] = useState(null)
+  const [previewFileName, setPreviewFileName] = useState(null)
+  const [previewFileType, setPreviewFileType] = useState(null)
   const ITEMS_PER_PAGE = 10
 
   // Fetch requirements and student documents
@@ -914,6 +928,31 @@ export default function StudentRequirementsPage() {
     }
   }
 
+  /** Same behavior as admin requirements: preview PDF/image in modal, not download */
+  const handleViewSample = (sampleFile, sampleFileName) => {
+    if (!sampleFile) {
+      toast.error("No sample file available")
+      return
+    }
+    const isImage = sampleFile.startsWith("data:image/")
+    const isPdf =
+      sampleFile.startsWith("data:application/pdf") || sampleFileName?.toLowerCase().endsWith(".pdf")
+
+    if (isImage) {
+      setPreviewFile(sampleFile)
+      setPreviewFileName(sampleFileName)
+      setPreviewFileType("image")
+      setPreviewModalOpen(true)
+    } else if (isPdf) {
+      setPreviewFile(sampleFile)
+      setPreviewFileName(sampleFileName)
+      setPreviewFileType("pdf")
+      setPreviewModalOpen(true)
+    } else {
+      window.open(sampleFile, "_blank", "noopener,noreferrer")
+    }
+  }
+
   const handleDownloadDocument = (fileUrl, fileName) => {
     if (!fileUrl) {
       toast.error("No file available to download")
@@ -1098,10 +1137,20 @@ export default function StudentRequirementsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-5">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-64"></div>
-          <div className="h-4 bg-muted rounded w-96"></div>
+      <div className="space-y-8 py-2">
+        <div className="animate-pulse space-y-4 rounded-2xl border border-emerald-200/30 bg-white/60 p-8 dark:border-emerald-900/40 dark:bg-card/40">
+          <div className="h-4 w-32 rounded-full bg-emerald-200/50 dark:bg-emerald-900/50" />
+          <div className="h-10 max-w-md rounded-lg bg-emerald-100/60 dark:bg-emerald-950/50" />
+          <div className="h-4 max-w-lg rounded bg-muted" />
+        </div>
+        <div className="h-12 rounded-xl border border-emerald-200/30 bg-muted/40" />
+        <div className="grid gap-5 md:grid-cols-2">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-72 animate-pulse rounded-2xl border border-emerald-200/30 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/30 dark:to-card/50"
+            />
+          ))}
         </div>
       </div>
     )
@@ -1109,16 +1158,27 @@ export default function StudentRequirementsPage() {
 
   return (
     <>
-      <div className="space-y-4 p-3 md:p-4 lg:p-5">
-        {/* Header */}
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-foreground md:text-2xl">Document Requirements</h1>
-          <p className="text-sm text-muted-foreground">Upload the required documents as specified by the administration</p>
+      <div className="space-y-8 py-2 md:py-3">
+        {/* Hero — same family as dashboard / apply */}
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-6 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 sm:p-8">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl" />
+          <div className="relative">
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+              <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Compliance & uploads
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 sm:text-3xl">
+              Document requirements
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-900/75 dark:text-emerald-200/85 sm:text-base">
+              Complete the required forms and upload documents so OSAS can verify your records.
+            </p>
+          </div>
         </div>
 
-        {/* Tab Controls - Enhanced for Desktop */}
-        <div className="relative mb-4">
-          <div className="relative flex gap-1 rounded-lg border border-border bg-card p-1">
+        {/* Tabs */}
+        <div className="relative">
+          <div className="flex gap-1 rounded-2xl border border-emerald-200/50 bg-emerald-50/40 p-1.5 shadow-sm ring-1 ring-black/[0.03] dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:ring-white/5">
             <button
               onClick={() => {
                 if (activeTab !== "required") {
@@ -1130,18 +1190,20 @@ export default function StudentRequirementsPage() {
                   }, 50)
                 }
               }}
-              className={`relative z-10 rounded-md px-3 md:px-4 py-2 text-sm font-medium transition-all duration-200 ${
+              className={`relative z-10 flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 md:px-4 ${
                 activeTab === "required"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  ? "bg-white text-emerald-900 shadow-md dark:bg-emerald-900/80 dark:text-emerald-50"
+                  : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-emerald-950/50"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className={`h-4 w-4 ${activeTab === "required" ? "text-primary" : ""}`} />
-                <span>Required Documents</span>
-                {requirements.filter(r => r.required && !studentDocuments[r.id]).length > 0 && (
-                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-600">
-                    {requirements.filter(r => r.required && !studentDocuments[r.id]).length}
+              <div className="flex items-center justify-center gap-2">
+                <ClipboardCheck
+                  className={`h-4 w-4 ${activeTab === "required" ? "text-emerald-600 dark:text-emerald-300" : ""}`}
+                />
+                <span>Required</span>
+                {requirements.filter((r) => r.required && !studentDocuments[r.id]).length > 0 && (
+                  <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-400">
+                    {requirements.filter((r) => r.required && !studentDocuments[r.id]).length}
                   </span>
                 )}
               </div>
@@ -1157,17 +1219,17 @@ export default function StudentRequirementsPage() {
                   }, 50)
                 }
               }}
-              className={`relative z-10 rounded-md px-3 md:px-4 py-2 text-sm font-medium transition-all duration-200 ${
+              className={`relative z-10 flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 md:px-4 ${
                 activeTab === "records"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  ? "bg-white text-emerald-900 shadow-md dark:bg-emerald-900/80 dark:text-emerald-50"
+                  : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-emerald-950/50"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <FolderOpen className={`h-4 w-4 ${activeTab === "records" ? "text-primary" : ""}`} />
-                <span>My Records</span>
+              <div className="flex items-center justify-center gap-2">
+                <FolderOpen className={`h-4 w-4 ${activeTab === "records" ? "text-emerald-600 dark:text-emerald-300" : ""}`} />
+                <span>My records</span>
                 {myRecords.length > 0 && (
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                  <span className="rounded-full bg-emerald-600/15 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     {myRecords.length}
                   </span>
                 )}
@@ -1180,88 +1242,97 @@ export default function StudentRequirementsPage() {
         <div className={`transition-all duration-300 ${tabTransition ? "opacity-0 transform translate-y-2" : "opacity-100 transform translate-y-0"}`}>
         {activeTab === "required" && (
           <>
-            {/* Forms Status Section */}
-            <div className="mb-4 rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center gap-2.5">
-                <div className="rounded-md bg-primary/15 p-1.5">
-                  <FileEdit className="h-4 w-4 text-primary" />
+            {/* Required forms — mini cards */}
+            <div className="rounded-2xl border border-emerald-200/50 bg-card/90 p-5 shadow-sm ring-1 ring-black/[0.03] dark:border-emerald-900/40 dark:bg-card/95">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/20">
+                  <FileEdit className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-base font-semibold text-foreground">Required Forms</h3>
+                <div>
+                  <h3 className="text-base font-semibold tracking-tight text-foreground">Required forms</h3>
+                  <p className="text-xs text-muted-foreground">Finish these before submitting documents</p>
+                </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {/* Application Form */}
-                <div className={`rounded-lg border p-3 transition-all ${
-                  applicationFormFilled
-                    ? 'border-green-500/30 bg-green-500/5'
-                    : 'border-yellow-500/30 bg-yellow-500/5'
-                }`}>
-                  <div className="flex items-center justify-between">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div
+                  className={`rounded-xl border p-4 transition-all ${
+                    applicationFormFilled
+                      ? "border-emerald-400/40 bg-gradient-to-br from-emerald-50/90 to-white dark:from-emerald-950/40 dark:to-card"
+                      : "border-amber-300/45 bg-gradient-to-br from-amber-50/80 to-white dark:border-amber-900/40 dark:from-amber-950/25"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        applicationFormFilled
-                          ? 'bg-green-500/20 text-green-600'
-                          : 'bg-yellow-500/20 text-yellow-600'
-                      }`}>
-                        <FileText className="w-5 h-5" />
+                      <div
+                        className={`rounded-xl p-2.5 ${
+                          applicationFormFilled
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                            : "bg-amber-500/15 text-amber-800 dark:text-amber-400"
+                        }`}
+                      >
+                        <FileText className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Application Form</p>
+                        <p className="text-sm font-semibold text-foreground">Application form</p>
                         <p className="text-xs text-muted-foreground">
-                          {applicationFormFilled ? 'Already filled up' : 'Not yet filled'}
+                          {applicationFormFilled ? "Completed" : "Not filled yet"}
                         </p>
                       </div>
                     </div>
                     {applicationFormFilled ? (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="text-sm font-medium">Filled</span>
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="text-sm font-semibold">Done</span>
                       </div>
                     ) : (
                       <button
-                        onClick={() => router.push('/student/application-form')}
-                        className="flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                        onClick={() => router.push("/student/application-form")}
+                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
                       >
-                        <FileEdit className="w-4 h-4" />
-                        Fill Up
+                        <FileEdit className="h-4 w-4" />
+                        Fill up
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Profile Form */}
-                <div className={`rounded-lg border p-3 transition-all ${
-                  profileFormFilled
-                    ? 'border-green-500/30 bg-green-500/5'
-                    : 'border-yellow-500/30 bg-yellow-500/5'
-                }`}>
-                  <div className="flex items-center justify-between">
+                <div
+                  className={`rounded-xl border p-4 transition-all ${
+                    profileFormFilled
+                      ? "border-emerald-400/40 bg-gradient-to-br from-emerald-50/90 to-white dark:from-emerald-950/40 dark:to-card"
+                      : "border-amber-300/45 bg-gradient-to-br from-amber-50/80 to-white dark:border-amber-900/40 dark:from-amber-950/25"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        profileFormFilled
-                          ? 'bg-green-500/20 text-green-600'
-                          : 'bg-yellow-500/20 text-yellow-600'
-                      }`}>
-                        <FileText className="w-5 h-5" />
+                      <div
+                        className={`rounded-xl p-2.5 ${
+                          profileFormFilled
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                            : "bg-amber-500/15 text-amber-800 dark:text-amber-400"
+                        }`}
+                      >
+                        <FileText className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Student Profile Form</p>
+                        <p className="text-sm font-semibold text-foreground">Student profile form</p>
                         <p className="text-xs text-muted-foreground">
-                          {profileFormFilled ? 'Already filled up' : 'Not yet filled'}
+                          {profileFormFilled ? "Completed" : "Not filled yet"}
                         </p>
                       </div>
                     </div>
                     {profileFormFilled ? (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="text-sm font-medium">Filled</span>
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="text-sm font-semibold">Done</span>
                       </div>
                     ) : (
                       <button
-                        onClick={() => router.push('/student/profile-form')}
-                        className="flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                        onClick={() => router.push("/student/profile-form")}
+                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
                       >
-                        <FileEdit className="w-4 h-4" />
-                        Fill Up
+                        <FileEdit className="h-4 w-4" />
+                        Fill up
                       </button>
                     )}
                   </div>
@@ -1270,21 +1341,27 @@ export default function StudentRequirementsPage() {
             </div>
 
             {requirements.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
-            <ClipboardCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No requirements available at this time</p>
+          <div className="rounded-2xl border border-dashed border-emerald-200/60 bg-emerald-50/30 py-16 text-center dark:border-emerald-800/50 dark:bg-emerald-950/20">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-emerald-950/80">
+              <ClipboardCheck className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <p className="font-medium text-foreground">No document requirements yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">Check back later for updates from OSAS</p>
           </div>
         ) : (
           <>
             {/* Pagination Info */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, requirements.length)} of {requirements.length} requirements
+                Showing{" "}
+                <span className="font-medium text-foreground">
+                  {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, requirements.length)}
+                </span>{" "}
+                of {requirements.length}
               </p>
             </div>
 
-            {/* Requirements Grid */}
-            <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+            <div className="grid gap-5 md:grid-cols-2 md:gap-6">
               {requirements.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((requirement) => {
               const uploadedDoc = studentDocuments[requirement.id]
               const hasFile = files[requirement.id]
@@ -1292,32 +1369,43 @@ export default function StudentRequirementsPage() {
               const isExpanded = expandedCard === requirement.id
 
               return (
-                <div 
-                  key={requirement.id} 
-                  className={`rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-sm ${
-                    uploadedDoc 
-                      ? 'border-green-500/30 bg-green-500/5' 
-                      : requirement.required 
-                      ? 'border-red-500/30 bg-red-500/5' 
-                      : 'border-blue-500/30 bg-blue-500/5'
+                <div
+                  key={requirement.id}
+                  className={`group relative overflow-hidden rounded-2xl border bg-card/95 p-5 shadow-sm ring-1 ring-black/[0.03] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:ring-white/[0.06] ${
+                    uploadedDoc
+                      ? "border-emerald-400/45 bg-gradient-to-b from-emerald-50/50 to-card dark:from-emerald-950/30"
+                      : requirement.required
+                      ? "border-rose-300/50 bg-gradient-to-b from-rose-50/40 to-card dark:border-rose-900/40 dark:from-rose-950/20"
+                      : "border-teal-300/40 bg-gradient-to-b from-teal-50/35 to-card dark:border-teal-900/35 dark:from-teal-950/20"
                   }`}
                 >
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className="rounded-md bg-primary/15 p-1.5">
-                          <ClipboardCheck className="h-4 w-4 text-primary" />
+                  <span
+                    className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${
+                      uploadedDoc
+                        ? "from-emerald-500 to-teal-500"
+                        : requirement.required
+                        ? "from-rose-500 to-orange-400"
+                        : "from-teal-500 to-cyan-500"
+                    }`}
+                    aria-hidden
+                  />
+                  <div className="mb-4 flex items-start justify-between pt-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <div className="rounded-xl bg-emerald-500/15 p-2 ring-1 ring-emerald-500/15">
+                          <ClipboardCheck className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                         </div>
-                        <h2 className="flex-1 min-w-0 text-base font-semibold text-foreground">{requirement.name}</h2>
+                        <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug text-foreground">
+                          {requirement.name}
+                        </h2>
                         {requirement.required && (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-600 border border-red-500/30 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/35 bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-700 dark:text-rose-400">
+                            <AlertCircle className="h-3 w-3" />
                             Required
                           </span>
                         )}
                         {!requirement.required && (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-600 border border-blue-500/30">
+                          <span className="rounded-full border border-teal-400/35 bg-teal-500/10 px-2.5 py-1 text-xs font-bold text-teal-800 dark:text-teal-300">
                             Optional
                           </span>
                         )}
@@ -1330,9 +1418,9 @@ export default function StudentRequirementsPage() {
                       {requirement.description && requirement.description.length > 100 && (
                         <button
                           onClick={() => setExpandedCard(isExpanded ? null : requirement.id)}
-                          className="text-xs text-primary hover:underline mt-1"
+                          className="mt-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
                         >
-                          {isExpanded ? 'Show less' : 'Show more'}
+                          {isExpanded ? "Show less" : "Show more"}
                         </button>
                       )}
                     </div>
@@ -1340,45 +1428,42 @@ export default function StudentRequirementsPage() {
 
                   {uploadedDoc ? (
                     <div className="space-y-4">
-                      <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="p-1.5 bg-green-500/20 rounded-lg">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                      <div className="rounded-xl border border-emerald-300/35 bg-emerald-50/60 p-4 dark:border-emerald-800/40 dark:bg-emerald-950/25">
+                        <div className="mb-3 flex items-center gap-2">
+                          <div className="rounded-lg bg-emerald-500/20 p-1.5 dark:bg-emerald-500/25">
+                            <CheckCircle className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
                           </div>
-                          <span className="font-semibold text-foreground">Document Uploaded</span>
+                          <span className="font-semibold text-foreground">Document uploaded</span>
                         </div>
-                        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-background p-2.5">
-                          <FileText className="w-5 h-5 text-primary flex-shrink-0" />
-                          <span className="text-sm font-medium text-foreground truncate flex-1">{uploadedDoc.fileName}</span>
+                        <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200/50 bg-white/90 p-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/40">
+                          <FileText className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                          <span className="flex-1 truncate text-sm font-medium text-foreground">{uploadedDoc.fileName}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                           <button
                             onClick={() => {
                               handleDownloadDocument(uploadedDoc.fileUrl, uploadedDoc.fileName)
                             }}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
                           >
-                            <Download className="w-4 h-4" />
+                            <Download className="h-4 w-4" />
                             <span>Download</span>
                           </button>
                           <button
                             onClick={() => {
-                              // Show the replace file upload field
                               setReplacingRequirement(requirement.id)
-                              // Clear any existing file selection
-                              setFiles(prev => ({ ...prev, [requirement.id]: null }))
-                              // Reset file input
+                              setFiles((prev) => ({ ...prev, [requirement.id]: null }))
                               const input = document.getElementById(`file-replace-${requirement.id}`)
-                              if (input) input.value = ''
+                              if (input) input.value = ""
                             }}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-3 py-2.5 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
                           >
-                            <Upload className="w-4 h-4 flex-shrink-0" />
+                            <Upload className="h-4 w-4 shrink-0" />
                             <span>Replace</span>
                           </button>
                         </div>
                         {uploadedDoc.uploadedAt && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
+                          <div className="mt-3 flex items-center gap-2 border-t border-emerald-200/50 pt-3 text-xs text-muted-foreground dark:border-emerald-800/40">
                             <Calendar className="w-3 h-3" />
                             <span>Uploaded: {new Date(uploadedDoc.uploadedAt).toLocaleDateString('en-US', { 
                               year: 'numeric', 
@@ -1394,28 +1479,42 @@ export default function StudentRequirementsPage() {
                   ) : (
                     <div className="space-y-4">
                       {requirement.sampleFile && (
-                        <div className={`rounded-lg p-3 mb-3 border ${
-                          requirement.sampleFile.startsWith('data:image/')
-                            ? 'bg-blue-500/10 border-blue-500/30'
-                            : 'bg-green-500/10 border-green-500/30'
-                        }`}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Sparkles className={`w-4 h-4 ${requirement.sampleFile.startsWith('data:image/') ? 'text-blue-600' : 'text-green-600'}`} />
-                            <span className={`text-xs font-semibold ${requirement.sampleFile.startsWith('data:image/') ? 'text-blue-600' : 'text-green-600'}`}>
-                              {requirement.sampleFile.startsWith('data:image/') ? 'Sample Available' : 'PDF Template Available'}
+                        <div
+                          className={`mb-3 rounded-xl border p-3 ${
+                            requirement.sampleFile.startsWith("data:image/")
+                              ? "border-teal-400/35 bg-teal-50/50 dark:border-teal-800/40 dark:bg-teal-950/25"
+                              : "border-emerald-400/35 bg-emerald-50/50 dark:border-emerald-800/40 dark:bg-emerald-950/25"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center gap-2">
+                            <Sparkles
+                              className={`h-4 w-4 ${
+                                requirement.sampleFile.startsWith("data:image/")
+                                  ? "text-teal-700 dark:text-teal-400"
+                                  : "text-emerald-700 dark:text-emerald-400"
+                              }`}
+                            />
+                            <span
+                              className={`text-xs font-bold ${
+                                requirement.sampleFile.startsWith("data:image/")
+                                  ? "text-teal-800 dark:text-teal-300"
+                                  : "text-emerald-800 dark:text-emerald-300"
+                              }`}
+                            >
+                              {requirement.sampleFile.startsWith("data:image/") ? "Sample available" : "PDF template available"}
                             </span>
                           </div>
                           <div className="space-y-2">
                             <button
                               onClick={() => handleDownloadSample(requirement.sampleFile, requirement.sampleFileName)}
-                            className="flex items-center gap-2 text-sm text-primary hover:underline"
+                            className="flex items-center gap-2 text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-300"
                           >
                               <Download className="w-4 h-4" />
                               <span>Download {requirement.sampleFile.startsWith('data:image/') ? 'Sample' : 'PDF Template'}</span>
                             </button>
-                            {!requirement.sampleFile.startsWith('data:image/') && (
-                              <p className="text-xs text-muted-foreground mt-2 p-2 bg-background rounded border border-border">
-                                <strong>Note:</strong> Please upload scanned images (JPG/PNG) based on this PDF template. Maximum {requirement.maxImageUploads || 1} image{requirement.maxImageUploads > 1 ? 's' : ''} allowed.
+                            {!requirement.sampleFile.startsWith("data:image/") && (
+                              <p className="mt-2 rounded-lg border border-emerald-200/50 bg-white/80 p-2 text-xs text-muted-foreground dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                                <strong className="text-emerald-900 dark:text-emerald-200">Note:</strong> Upload scanned JPG/PNG based on this PDF. Max {requirement.maxImageUploads || 1} image{requirement.maxImageUploads > 1 ? "s" : ""}.
                               </p>
                             )}
                           </div>
@@ -1433,12 +1532,12 @@ export default function StudentRequirementsPage() {
                             sampleFileName={requirement.sampleFileName}
                             maxImageUploads={requirement.maxImageUploads}
                             isPdfSample={requirement.sampleFile && !requirement.sampleFile.startsWith('data:image/')}
-                            onDownloadSample={handleDownloadSample}
+                            onViewSample={handleViewSample}
                           />
                           <button
                             onClick={() => handleUpload(requirement.id)}
                             disabled={!hasFile || isUploading}
-                            className="relative w-full overflow-hidden rounded-md border border-primary/30 bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary/90 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                            className="relative w-full overflow-hidden rounded-xl border border-emerald-600/30 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {isUploading ? (
                               <>
@@ -1465,9 +1564,9 @@ export default function StudentRequirementsPage() {
                           </button>
                         </>
                       ) : (
-                        <div className="flex w-full items-center justify-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Already Uploaded</span>
+                        <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-50/80 px-4 py-2.5 text-sm font-semibold text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Already uploaded</span>
                         </div>
                       )}
                        {!uploadedDoc && (
@@ -1482,7 +1581,7 @@ export default function StudentRequirementsPage() {
 
                   {/* Replace file section when document is already uploaded */}
                   {uploadedDoc && replacingRequirement === requirement.id && (
-                    <div className="mt-4 border-t border-border pt-4">
+                    <div className="mt-4 border-t border-emerald-200/50 pt-4 dark:border-emerald-800/40">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-sm font-semibold text-foreground">Replace Document</p>
                         <button
@@ -1510,7 +1609,7 @@ export default function StudentRequirementsPage() {
                         isPdfSample={requirement.sampleFile && !requirement.sampleFile.startsWith('data:image/')}
                         sampleFile={requirement.sampleFile}
                         sampleFileName={requirement.sampleFileName}
-                        onDownloadSample={handleDownloadSample}
+                        onViewSample={handleViewSample}
                       />
                       <button
                         onClick={() => {
@@ -1554,14 +1653,14 @@ export default function StudentRequirementsPage() {
 
             {/* Pagination */}
             {requirements.length > ITEMS_PER_PAGE && (
-              <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-emerald-200/40 pt-5 dark:border-emerald-900/40">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70"
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Previous</span>
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
                 </button>
                 
                 <div className="flex items-center gap-2">
@@ -1575,10 +1674,10 @@ export default function StudentRequirementsPage() {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                             currentPage === page
-                              ? 'bg-primary text-white'
-                              : 'border border-border hover:bg-muted'
+                              ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm"
+                              : "border border-emerald-200/70 bg-white hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
                           }`}
                         >
                           {page}
@@ -1592,12 +1691,14 @@ export default function StudentRequirementsPage() {
                 </div>
 
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(requirements.length / ITEMS_PER_PAGE), prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(Math.ceil(requirements.length / ITEMS_PER_PAGE), prev + 1))
+                  }
                   disabled={currentPage === Math.ceil(requirements.length / ITEMS_PER_PAGE)}
-                  className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70"
                 >
-                  <span>Next</span>
-                  <ChevronRight className="w-4 h-4" />
+                  Next
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -1612,10 +1713,12 @@ export default function StudentRequirementsPage() {
         {activeTab === "records" && (
           <>
             {myRecords.length === 0 ? (
-              <div className="rounded-xl border border-border bg-card p-10 text-center">
-                <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground font-medium">No records found</p>
-                <p className="text-sm text-muted-foreground mt-1">You haven't uploaded any documents yet</p>
+              <div className="rounded-2xl border border-dashed border-emerald-200/60 bg-emerald-50/30 py-16 text-center dark:border-emerald-800/50 dark:bg-emerald-950/20">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-emerald-950/80">
+                  <FolderOpen className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <p className="font-medium text-foreground">No uploads yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">Documents you submit will appear here</p>
               </div>
             ) : (
               <>
@@ -1627,30 +1730,35 @@ export default function StudentRequirementsPage() {
                 </div>
 
                 {/* Records Grid */}
-                <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+                <div className="grid gap-5 md:grid-cols-2 md:gap-6">
                   {myRecords.slice((recordsPage - 1) * ITEMS_PER_PAGE, recordsPage * ITEMS_PER_PAGE).map((record) => {
                     const requirement = requirements.find(r => r.id === record.requirementId)
                     
                     return (
                       <div
                         key={record.id}
-                        className={`rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-sm ${
+                        className={`group relative overflow-hidden rounded-2xl border bg-card/95 p-5 shadow-sm ring-1 ring-black/[0.03] transition-all hover:-translate-y-0.5 hover:shadow-lg dark:ring-white/[0.06] ${
                           record.requirementExists
-                            ? 'border-green-500/30 bg-green-500/5'
-                            : 'border-orange-500/30 bg-orange-500/5'
+                            ? "border-emerald-300/45 bg-gradient-to-b from-emerald-50/40 to-card dark:border-emerald-800/40 dark:from-emerald-950/25"
+                            : "border-amber-300/45 bg-gradient-to-b from-amber-50/40 to-card dark:border-amber-900/40 dark:from-amber-950/20"
                         }`}
                       >
-                        {/* Card Header */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <div className="rounded-md bg-primary/15 p-1.5">
-                                <FolderOpen className="h-4 w-4 text-primary" />
+                        <span
+                          className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${
+                            record.requirementExists ? "from-emerald-500 to-teal-500" : "from-amber-500 to-orange-400"
+                          }`}
+                          aria-hidden
+                        />
+                        <div className="mb-4 flex items-start justify-between pt-1">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <div className="rounded-xl bg-emerald-500/15 p-2 ring-1 ring-emerald-500/15">
+                                <FolderOpen className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                               </div>
-                              <h2 className="flex-1 min-w-0 text-base font-semibold text-foreground">{record.requirementName}</h2>
+                              <h2 className="min-w-0 flex-1 text-base font-semibold text-foreground">{record.requirementName}</h2>
                               {!record.requirementExists && (
-                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-600 border border-orange-500/30">
-                                  Deleted
+                                <span className="rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-900 dark:text-amber-300">
+                                  Requirement removed
                                 </span>
                               )}
                             </div>
@@ -1660,11 +1768,10 @@ export default function StudentRequirementsPage() {
                           </div>
                         </div>
 
-                        {/* File Info */}
-                        <div className="mb-4 rounded-lg border border-primary/25 bg-primary/5 p-3">
-                          <div className="flex items-center gap-2 mb-3">
-                            <FileText className="w-5 h-5 text-primary flex-shrink-0" />
-                            <span className="font-semibold text-foreground truncate flex-1">{record.fileName}</span>
+                        <div className="mb-4 rounded-xl border border-emerald-200/50 bg-white/80 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                          <div className="mb-3 flex items-center gap-2">
+                            <FileText className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                            <span className="flex-1 truncate font-semibold text-foreground">{record.fileName}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                             <Calendar className="w-3 h-3" />
@@ -1684,14 +1791,14 @@ export default function StudentRequirementsPage() {
                                 onClick={() => {
                                   handleDownloadDocument(record.fileUrl, record.fileName)
                                 }}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
                               >
-                                <Download className="w-4 h-4" />
+                                <Download className="h-4 w-4" />
                                 <span>Download</span>
                               </button>
                               <button
                                 onClick={() => setEditingRecords(prev => ({ ...prev, [record.id]: true }))}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
                               >
                                 <Edit className="w-4 h-4" />
                                 <span>Update</span>
@@ -1718,7 +1825,7 @@ export default function StudentRequirementsPage() {
                                     toast.error("Failed to delete record. Please try again.")
                                   }
                                 }}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-destructive/30 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300/60 bg-red-50/50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100/80 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 <span>Delete</span>
@@ -1750,7 +1857,7 @@ export default function StudentRequirementsPage() {
                                 sampleFileName={requirement?.sampleFileName}
                                 maxImageUploads={requirement?.maxImageUploads}
                                 isPdfSample={requirement?.sampleFile && !requirement.sampleFile.startsWith('data:image/')}
-                                onDownloadSample={handleDownloadSample}
+                                onViewSample={handleViewSample}
                               />
                               <div className="flex gap-2">
                                 <button
@@ -1808,9 +1915,9 @@ export default function StudentRequirementsPage() {
                                       toast.error("Failed to update record. Please try again.")
                                     }
                                   }}
-                                  className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
                                 >
-                                  <Save className="w-4 h-4" />
+                                  <Save className="h-4 w-4" />
                                   <span>Save</span>
                                 </button>
                                 <button
@@ -1828,9 +1935,9 @@ export default function StudentRequirementsPage() {
                                     const input = document.getElementById(`edit-${record.id}`)
                                     if (input) input.value = ''
                                   }}
-                                  className="flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <X className="h-4 w-4" />
                                   <span>Cancel</span>
                                 </button>
                               </div>
@@ -1844,14 +1951,14 @@ export default function StudentRequirementsPage() {
 
                 {/* Pagination for Records */}
                 {myRecords.length > ITEMS_PER_PAGE && (
-                  <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-emerald-200/40 pt-5 dark:border-emerald-900/40">
                     <button
-                      onClick={() => setRecordsPage(prev => Math.max(1, prev - 1))}
+                      onClick={() => setRecordsPage((prev) => Math.max(1, prev - 1))}
                       disabled={recordsPage === 1}
-                      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                      <span>Previous</span>
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
                     </button>
                     
                     <div className="flex items-center gap-2">
@@ -1865,10 +1972,10 @@ export default function StudentRequirementsPage() {
                             <button
                               key={page}
                               onClick={() => setRecordsPage(page)}
-                              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                              className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                                 recordsPage === page
-                                  ? 'bg-primary text-white'
-                                  : 'border border-border hover:bg-muted'
+                                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm"
+                                  : "border border-emerald-200/70 bg-white hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
                               }`}
                             >
                               {page}
@@ -1882,12 +1989,14 @@ export default function StudentRequirementsPage() {
                     </div>
 
                     <button
-                      onClick={() => setRecordsPage(prev => Math.min(Math.ceil(myRecords.length / ITEMS_PER_PAGE), prev + 1))}
+                      onClick={() =>
+                        setRecordsPage((prev) => Math.min(Math.ceil(myRecords.length / ITEMS_PER_PAGE), prev + 1))
+                      }
                       disabled={recordsPage === Math.ceil(myRecords.length / ITEMS_PER_PAGE)}
-                      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70"
                     >
-                      <span>Next</span>
-                      <ChevronRight className="w-4 h-4" />
+                      Next
+                      <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
                 )}
@@ -1897,6 +2006,19 @@ export default function StudentRequirementsPage() {
         )}
         </div>
       </div>
+
+      <DocumentPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => {
+          setPreviewModalOpen(false)
+          setPreviewFile(null)
+          setPreviewFileName(null)
+          setPreviewFileType(null)
+        }}
+        fileUrl={previewFile}
+        fileName={previewFileName}
+        fileType={previewFileType}
+      />
     </>
   )
 }

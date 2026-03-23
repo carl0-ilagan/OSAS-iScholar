@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import interact from "interactjs"
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore"
 import {
   AlertTriangle,
   FilePlus2,
@@ -39,6 +39,7 @@ import {
   splitIntoChunks,
   withFieldDefaults,
 } from "@/lib/pdf-form-utils"
+import { pickStudentDisplayName } from "@/lib/user-display"
 
 const FIELD_TYPES = [
   { value: "textbox", label: "Textbox" },
@@ -143,6 +144,7 @@ export default function AdminPdfFormsPage() {
   const [fields, setFields] = useState([])
   const [persistedIds, setPersistedIds] = useState([])
   const [submissions, setSubmissions] = useState([])
+  const [previewSubmission, setPreviewSubmission] = useState(null)
   const [isEditMode, setIsEditMode] = useState(true)
   const [fieldType, setFieldType] = useState("textbox")
   const [fieldName, setFieldName] = useState("")
@@ -298,15 +300,38 @@ export default function AdminPdfFormsPage() {
       return
     }
 
+    async function attachStudentProfiles(list) {
+      const ids = [...new Set(list.map((s) => s.studentId).filter(Boolean))]
+      const profileMap = {}
+      await Promise.all(
+        ids.map(async (uid) => {
+          try {
+            const userSnap = await getDoc(doc(db, "users", uid))
+            if (userSnap.exists()) {
+              profileMap[uid] = userSnap.data()
+            }
+          } catch {
+            // Missing doc or permission — table will show UID only
+          }
+        }),
+      )
+      return list.map((s) => ({
+        ...s,
+        _studentProfile: profileMap[s.studentId] || null,
+      }))
+    }
+
     try {
       const submissionsQuery = query(collection(db, "submissions"), where("formId", "==", formId), orderBy("submittedAt", "desc"))
       const snapshot = await getDocs(submissionsQuery)
-      setSubmissions(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })))
+      const list = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))
+      setSubmissions(await attachStudentProfiles(list))
     } catch (error) {
       try {
         const fallbackQuery = query(collection(db, "submissions"), where("formId", "==", formId))
         const fallbackSnapshot = await getDocs(fallbackQuery)
-        setSubmissions(fallbackSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })))
+        const list = fallbackSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))
+        setSubmissions(await attachStudentProfiles(list))
       } catch (fallbackError) {
         console.error("Failed to fetch submissions:", fallbackError)
       }
@@ -335,6 +360,16 @@ export default function AdminPdfFormsPage() {
     setSelectedForm(form)
     setSelection([], "")
   }, [forms, selectedFormId])
+
+  useEffect(() => {
+    function onEscClose(event) {
+      if (event.key === "Escape") {
+        setPreviewSubmission(null)
+      }
+    }
+    window.addEventListener("keydown", onEscClose)
+    return () => window.removeEventListener("keydown", onEscClose)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1237,6 +1272,7 @@ export default function AdminPdfFormsPage() {
           </div>
         </div>
       ) : (
+      <>
       <div className="p-2 md:p-3 lg:p-4">
         <div className="h-[calc(100vh-1rem)] rounded-xl border border-border bg-card shadow-sm overflow-hidden md:h-[calc(100vh-1.5rem)] lg:h-[calc(100vh-2rem)]">
           <div className="border-b border-border bg-card/95 p-3 md:p-4">
@@ -1816,7 +1852,14 @@ export default function AdminPdfFormsPage() {
                 </div>
 
                 <div className="rounded-md border border-border bg-background p-3 space-y-2">
-                  <p className="text-xs font-semibold">Submissions</p>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold">Submissions</p>
+                    {selectedForm?.originalFileName ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        <span className="font-medium text-foreground/90">PDF file:</span> {selectedForm.originalFileName}
+                      </p>
+                    ) : null}
+                  </div>
                   {submissions.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No submissions yet.</p>
                   ) : (
@@ -1833,18 +1876,44 @@ export default function AdminPdfFormsPage() {
                           <tbody>
                             {submissions.map((entry) => {
                               const answerCount = Object.keys(entry.valuesByFieldName || {}).length
+                              const displayName = pickStudentDisplayName(entry._studentProfile)
                               return (
                                 <tr key={entry.id} className="border-t border-border">
                                   <td className="px-2 py-1.5">
-                                    <Link
-                                      href={`/admin/pdf-forms/${selectedFormId}/submissions/${entry.id}`}
-                                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                                    >
-                                      <FileText className="h-3 w-3" />
-                                      {String(entry.id || "").slice(0, 8)}
-                                    </Link>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewSubmission(entry)}
+                                        className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-primary hover:bg-accent"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                        View
+                                      </button>
+                                      <Link
+                                        href={`/admin/pdf-forms/${selectedFormId}/submissions/${entry.id}`}
+                                        className="inline-flex items-center gap-1 text-primary/80 hover:underline"
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                        {String(entry.id || "").slice(0, 8)}
+                                      </Link>
+                                    </div>
                                   </td>
-                                  <td className="px-2 py-1.5 font-mono text-[10px]">{entry.studentId || "-"}</td>
+                                  <td className="max-w-[200px] px-2 py-1.5 align-top">
+                                    <div className="text-[11px] font-medium leading-snug text-foreground">
+                                      {displayName || "—"}
+                                    </div>
+                                    {entry._studentProfile?.studentNumber ? (
+                                      <div className="text-[10px] text-muted-foreground">
+                                        No. {entry._studentProfile.studentNumber}
+                                      </div>
+                                    ) : null}
+                                    <div
+                                      className="truncate font-mono text-[9px] text-muted-foreground/80"
+                                      title={entry.studentId || ""}
+                                    >
+                                      {entry.studentId ? `ID: ${entry.studentId}` : "—"}
+                                    </div>
+                                  </td>
                                   <td className="px-2 py-1.5">{answerCount}</td>
                                 </tr>
                               )
@@ -2139,6 +2208,52 @@ export default function AdminPdfFormsPage() {
           </div>
         </div>
       </div>
+      {previewSubmission ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 md:p-5">
+          <button
+            type="button"
+            aria-label="Close preview"
+            className="absolute inset-0 bg-black/55 backdrop-blur-[1px]"
+            onClick={() => setPreviewSubmission(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative z-[111] flex h-[92vh] w-[min(1200px,96vw)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">Submission Preview</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {pickStudentDisplayName(previewSubmission._studentProfile) || previewSubmission.studentId || "Student"} -{" "}
+                  {String(previewSubmission.id || "").slice(0, 12)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/admin/pdf-forms/${selectedFormId}/submissions/${previewSubmission.id}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                >
+                  Open full page
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPreviewSubmission(null)}
+                  className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <iframe
+              title={`Submission ${previewSubmission.id}`}
+              src={`/admin/pdf-forms/${selectedFormId}/submissions/${previewSubmission.id}?embedded=1&view=live`}
+              className="h-full w-full bg-white"
+            />
+          </div>
+        </div>
+      ) : null}
+      </>
       )}
     </AdminLayoutWrapper>
   )

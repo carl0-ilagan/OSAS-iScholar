@@ -40,7 +40,7 @@ export default function AdminLayoutWrapper({ children }) {
 
   return (
     <div
-      className={`h-screen overflow-hidden bg-background ${isDarkMode ? "admin-dark" : ""}`}
+      className={`min-h-screen overflow-hidden bg-background ${isDarkMode ? "admin-dark" : ""}`}
       style={{ "--admin-sidebar-width": `${sidebarWidth}px` }}
     >
       {/* Desktop Sidebar */}
@@ -56,7 +56,7 @@ export default function AdminLayoutWrapper({ children }) {
       {/* Main Content */}
       <main
         ref={mainScrollRef}
-        className="h-full overflow-y-auto scrollbar-hide transition-[margin-left] duration-[220ms] ease-in-out will-change-[margin-left] md:ml-[var(--admin-sidebar-width)]"
+        className="min-h-screen overflow-y-auto scrollbar-hide transition-[margin-left] duration-[220ms] ease-in-out will-change-[margin-left] md:ml-[var(--admin-sidebar-width)]"
       >
         <div className="pt-16 pb-24 md:pb-0">
           {children}

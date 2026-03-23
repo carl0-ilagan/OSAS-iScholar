@@ -2,47 +2,43 @@
 
 export default function ScholarshipCardsSkeleton() {
   return (
-    <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+    <div className="grid gap-5 sm:gap-6 md:grid-cols-2">
       {[1, 2, 3, 4].map((item) => (
-        <div 
+        <div
           key={item}
-          className="bg-card border border-border rounded-xl overflow-hidden animate-pulse"
+          className="animate-pulse overflow-hidden rounded-2xl border border-emerald-200/40 bg-card/80 ring-1 ring-black/[0.03] dark:border-emerald-900/40"
         >
-          {/* Header Skeleton */}
-          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 md:p-5 border-b border-border/50">
+          <div className="h-1 bg-gradient-to-r from-emerald-400/60 to-teal-500/50" />
+          <div className="border-b border-emerald-100/60 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30 md:p-5">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
+              <div className="h-11 w-11 rounded-xl bg-emerald-200/50 dark:bg-emerald-900/50" />
               <div className="flex-1 space-y-2">
-                <div className="h-5 bg-muted rounded w-3/4 animate-pulse" />
-                <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                <div className="h-5 w-3/4 rounded-lg bg-emerald-100/70 dark:bg-emerald-900/60" />
+                <div className="h-3 w-full rounded bg-muted/80" />
               </div>
             </div>
           </div>
 
-          {/* Content Skeleton */}
-          <div className="p-4 md:p-5 space-y-4">
-            {/* Benefit Section Skeleton */}
-            <div className="p-4 bg-muted/30 rounded-xl border border-border/50">
-              <div className="h-4 bg-muted rounded w-1/4 mb-2 animate-pulse" />
-              <div className="h-5 bg-muted rounded w-2/3 mb-1 animate-pulse" />
-              <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+          <div className="space-y-4 p-4 md:p-5">
+            <div className="rounded-xl border border-emerald-200/30 bg-emerald-50/30 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+              <div className="mb-2 h-3 w-1/4 rounded bg-emerald-200/60 dark:bg-emerald-900/50" />
+              <div className="mb-1 h-5 w-2/3 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/50" />
+              <div className="h-3 w-1/2 rounded bg-muted/70" />
             </div>
 
-            {/* Requirements Skeleton */}
             <div className="space-y-2">
-              <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
-              {[1, 2, 3, 4, 5].map((req) => (
+              <div className="h-3 w-1/3 rounded bg-muted" />
+              {[1, 2].map((req) => (
                 <div key={req} className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 bg-muted rounded-full animate-pulse" />
-                  <div className="h-4 bg-muted rounded flex-1 animate-pulse" />
+                  <div className="h-4 w-4 rounded-full bg-emerald-200/50 dark:bg-emerald-900/50" />
+                  <div className="h-3 flex-1 rounded bg-muted/80" />
                 </div>
               ))}
             </div>
 
-            {/* Buttons Skeleton */}
-            <div className="space-y-2 pt-2">
-              <div className="h-11 bg-muted rounded-lg animate-pulse" />
-              <div className="h-10 bg-muted/50 rounded-lg animate-pulse" />
+            <div className="space-y-2 pt-1">
+              <div className="h-11 rounded-xl bg-gradient-to-r from-emerald-200/70 to-teal-200/60 dark:from-emerald-900/50 dark:to-teal-900/50" />
+              <div className="h-10 rounded-xl border border-emerald-200/40 bg-white/60 dark:border-emerald-900/40 dark:bg-emerald-950/30" />
             </div>
           </div>
         </div>
@@ -50,4 +46,3 @@ export default function ScholarshipCardsSkeleton() {
     </div>
   )
 }
-

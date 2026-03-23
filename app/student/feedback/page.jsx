@@ -8,6 +8,48 @@ import { MessageSquare, Star, ChevronLeft, ChevronRight, Calendar, Quote, Award,
 import TestimonialModal from "@/components/student/testimonial-modal"
 import TestimonialsSkeleton from "@/components/student/testimonials-skeleton"
 
+const STATIC_TESTIMONIALS = [
+  {
+    id: "demo-t1",
+    userId: "demo-u1",
+    name: "Carl Angelo G.",
+    photoURL: null,
+    testimonial:
+      "Malaking tulong sa tuition ko ang scholarship. Mas naging focus ako sa studies at mas confident akong tapusin ang program.",
+    rating: 5,
+    scholarship: "Merit Scholarship",
+    course: "BSIT",
+    campus: "Mindoro State University",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20),
+  },
+  {
+    id: "demo-t2",
+    userId: "demo-u2",
+    name: "Mica R.",
+    photoURL: null,
+    testimonial:
+      "Naibsan yung financial burden namin. Dito ko nalaman na may suporta talaga sa students, at nakakatulong siya sa pagpaplano ng budget.",
+    rating: 4,
+    scholarship: "Tertiary Education Subsidy (TES)",
+    course: "BSIT",
+    campus: "Mindoro State University",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4),
+  },
+  {
+    id: "demo-t3",
+    userId: "demo-u3",
+    name: "Kristine A.",
+    photoURL: null,
+    testimonial:
+      "Thankful ako dahil natuloy ang pag-aaral ko kahit may challenges sa home. Malaking impact sa confidence at future plans ko.",
+    rating: 5,
+    scholarship: "Needs-Based Grant",
+    course: "BSIT",
+    campus: "Mindoro State University",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
+  },
+]
+
 function isPermissionDenied(error) {
   const code = String(error?.code || "").toLowerCase()
   const message = String(error?.message || "").toLowerCase()
@@ -136,14 +178,14 @@ export default function TestimonialsPage() {
           return bTime - aTime
         })
 
-        setTestimonials(testimonialsData)
-        setFilteredTestimonials(testimonialsData)
+        const finalData = testimonialsData.length > 0 ? testimonialsData : STATIC_TESTIMONIALS
+        setTestimonials(finalData)
+        setFilteredTestimonials(finalData)
       } catch (error) {
-        setTestimonials([])
-        setFilteredTestimonials([])
-        if (!isPermissionDenied(error)) {
-          console.error("Error fetching testimonials:", error)
-        }
+        const finalData = isPermissionDenied(error) ? STATIC_TESTIMONIALS : []
+        setTestimonials(finalData)
+        setFilteredTestimonials(finalData)
+        if (!isPermissionDenied(error)) console.error("Error fetching testimonials:", error)
       }
     }
 
@@ -436,57 +478,33 @@ export default function TestimonialsPage() {
                   ))}
                 </div>
 
-                {/* Pagination */}
+                {/* Pagination footer (uniform: Previous | Page X of Y | Next) */}
                 {totalPages > 1 && (
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
+                  <div className="flex flex-col gap-3 pt-6 border-t border-border/50 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-muted-foreground">
-                      Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to <span className="font-semibold text-foreground">{Math.min(endIndex, filteredTestimonials.length)}</span> of <span className="font-semibold text-foreground">{filteredTestimonials.length}</span> testimonial{filteredTestimonials.length !== 1 ? 's' : ''}
+                      Showing{" "}
+                      <span className="font-semibold text-foreground">{startIndex + 1}</span> to{" "}
+                      <span className="font-semibold text-foreground">{Math.min(endIndex, filteredTestimonials.length)}</span>{" "}
+                      of <span className="font-semibold text-foreground">{filteredTestimonials.length}</span> testimonial
+                      {filteredTestimonials.length !== 1 ? "s" : ""}
                     </div>
-                    
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
-                        className="p-2.5 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                        className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        Previous
                       </button>
-                      
-                      <div className="flex items-center gap-1 px-2">
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let pageNum
-                          if (totalPages <= 5) {
-                            pageNum = i + 1
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i
-                          } else {
-                            pageNum = currentPage - 2 + i
-                          }
-                          
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => setCurrentPage(pageNum)}
-                              className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                currentPage === pageNum
-                                  ? 'bg-primary text-primary-foreground shadow-sm'
-                                  : 'bg-background text-foreground hover:bg-muted border border-border'
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      
+                      <span className="px-2 text-xs font-medium text-foreground">
+                        Page {currentPage} of {totalPages}
+                      </span>
                       <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
-                        className="p-2.5 border border-border rounded-lg bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/50 transition-all duration-200"
+                        className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        Next
                       </button>
                     </div>
                   </div>
