@@ -12,32 +12,41 @@
           );
         }
 
+        function userDocPath() {
+          return /databases/$(database)/documents/users/$(request.auth.uid);
+        }
+
+        function userDocExists() {
+          return isAuthenticated() && exists(userDocPath());
+        }
+
         function isCampusAdmin() {
-          return isAuthenticated() &&
+          return userDocExists() &&
             (
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campus_admin" ||
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appRole == "campus_admin" ||
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "campusAdmin" ||
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appRole == "campusAdmin"
+              get(userDocPath()).data.role == "campus_admin" ||
+              get(userDocPath()).data.appRole == "campus_admin" ||
+              get(userDocPath()).data.role == "campusAdmin" ||
+              get(userDocPath()).data.appRole == "campusAdmin"
             );
         }
 
         function sameCampus(campus) {
           return isCampusAdmin() &&
             campus != null &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus == campus;
+            get(userDocPath()).data.campus == campus;
         }
 
         function sameCampusByUserId(userId) {
           return isCampusAdmin() &&
             userId != null &&
+            exists(/databases/$(database)/documents/users/$(userId)) &&
             get(/databases/$(database)/documents/users/$(userId)).data.campus ==
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus;
+              get(userDocPath()).data.campus;
         }
 
         function userCampus() {
-          return isAuthenticated()
-            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus
+          return userDocExists()
+            ? get(userDocPath()).data.campus
             : null;
         }
 
@@ -49,20 +58,33 @@
 
         function sameRoomCreatorCampus(roomId) {
           return isAuthenticated() &&
-            sameCampusByUserId(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy);
+            roomId != null &&
+            exists(/databases/$(database)/documents/consultation_rooms/$(roomId)) &&
+            sameCampusByUserId(
+              get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy
+            );
         }
 
         // Users collection - users can read/write their own document
         match /users/{userId} {
-          // Allow read if user is authenticated and reading their own document, or if admin
+          // Own doc + super admin + campus admins (same campus). Guard resource when using sameCampus.
           allow read: if isAuthenticated() && (
             request.auth.uid == userId ||
             isSuperAdmin() ||
-            sameCampus(resource.data.campus)
+            (resource != null && sameCampus(resource.data.campus))
           );
-          
-          // Allow write (create/update) if user is authenticated and writing their own document, or if admin
-          allow write: if isAuthenticated() && (
+
+          allow create: if isAuthenticated() && (
+            request.auth.uid == userId ||
+            isSuperAdmin()
+          );
+
+          allow update: if isAuthenticated() && (
+            request.auth.uid == userId ||
+            isSuperAdmin()
+          );
+
+          allow delete: if isAuthenticated() && (
             request.auth.uid == userId ||
             isSuperAdmin()
           );
@@ -149,13 +171,12 @@
                       request.resource.data.slots < resource.data.slots;
         }
 
-        // Announcements collection
+        // Announcements collection (landing page is public — must allow unauthenticated read)
         match /announcements/{announcementId} {
-          // Allow read for all authenticated users
-          allow read: if request.auth != null;
-          
+          allow read: if true;
+
           // Allow write only for admin
-          allow write: if request.auth != null && 
+          allow write: if request.auth != null &&
                       isSuperAdmin();
         }
 

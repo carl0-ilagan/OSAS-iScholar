@@ -98,7 +98,18 @@ export default function LoginModal({ open, onOpenChange }) {
       setShowWelcomeModal(true)
     } catch (authError) {
       console.error("Email login error:", authError)
-      setError("Invalid credentials or account not found. Please sign up first.")
+      const code = authError?.code || ""
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/invalid-email") {
+        setError(
+          "Wrong email or password. If you registered with Google only, use Continue with Google or set a password via Forgot password.",
+        )
+      } else if (code === "auth/user-not-found") {
+        setError("No account with this email. Please sign up first.")
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Try again later.")
+      } else {
+        setError("Sign-in failed. Check your email/password and Firebase Auth settings (Email/Password enabled, authorized domains).")
+      }
     } finally {
       setLoading(false)
     }
