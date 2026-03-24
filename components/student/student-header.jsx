@@ -241,6 +241,33 @@ export default function StudentHeader() {
                       <User className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                       Profile
                     </Link>
+
+                    {userMenuLinks.map(({ icon: Icon, label, href }) => {
+                      const active = isActivePath(pathname, href)
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          role="menuitem"
+                          className={cn(
+                            "hidden items-center gap-3 px-3 py-2.5 text-sm text-zinc-800 hover:bg-emerald-50/80 md:flex dark:text-zinc-200 dark:hover:bg-emerald-950/50",
+                            active && "bg-emerald-50/90 font-medium dark:bg-emerald-950/60",
+                          )}
+                          onClick={() => setProfileOpen(false)}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-4 w-4",
+                              active
+                                ? "text-emerald-800 dark:text-emerald-300"
+                                : "text-emerald-700 dark:text-emerald-400",
+                            )}
+                          />
+                          {label}
+                        </Link>
+                      )
+                    })}
+
                     <button
                       type="button"
                       role="menuitem"
