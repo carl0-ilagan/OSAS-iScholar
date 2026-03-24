@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy } from "firebase/firestore"
 import { Star, Send, Loader2, User, GraduationCap } from "lucide-react"
@@ -258,6 +258,9 @@ export default function TestimonialModal({ isOpen, onClose, userId, userName, on
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Share Your Testimonial</DialogTitle>
+        <DialogDescription className="sr-only">
+          Help other students by sharing your experience with the scholarship program.
+        </DialogDescription>
         <div className={`
           bg-card border border-border rounded-xl shadow-2xl
           transition-all duration-300 ease-out

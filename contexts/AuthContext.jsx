@@ -86,22 +86,11 @@ export const AuthProvider = ({ children }) => {
           updatedAt: new Date().toISOString(),
         }
 
-        if (userDoc.exists()) {
-          await updateDoc(userDocRef, {
-            status: "online",
-            lastSeen: serverTimestamp(),
-            updatedAt: new Date().toISOString(),
-            photoURL: resolvedPhotoURL,
-            displayName: resolvedDisplayName,
-            role: appRole,
-            ...(resolvedCampus ? { campus: resolvedCampus } : {}),
-          })
-        } else {
-          await setDoc(userDocRef, {
-            ...basePayload,
-            createdAt: new Date().toISOString(),
-          }, { merge: true })
+        const payload = { ...basePayload }
+        if (!userDoc.exists()) {
+          payload.createdAt = new Date().toISOString()
         }
+        await setDoc(userDocRef, payload, { merge: true })
       } catch (error) {
         console.error("Error updating user status:", error)
         const campusAdminProfile = getCampusAdminProfileByEmail(user.email)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from "firebase/firestore"
+import { doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import { User, Upload, Save, Mail, Loader2, CheckCircle, XCircle, GraduationCap, MapPin, Calendar, Hash, X } from "lucide-react"
 import { toast } from "sonner"
@@ -158,10 +158,7 @@ export default function ProfilePage() {
       }
 
       const userDocRef = doc(db, "users", user.uid)
-      await updateDoc(userDocRef, updateData)
-
-      // Update local state
-      setUserName(userData.fullName || userData.displayName || "Student")
+      await setDoc(userDocRef, updateData, { merge: true })
       if (profilePicture) {
         setProfilePicturePreview(profilePicture)
       }

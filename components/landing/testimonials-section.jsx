@@ -1,9 +1,52 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Star, ChevronLeft, ChevronRight, Award, GraduationCap } from "lucide-react"
+import { Star, ChevronLeft, ChevronRight, Award } from "lucide-react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, query, where, orderBy, limit, doc, getDoc } from "firebase/firestore"
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore"
+import { resolvePhotoUrlFromAuth } from "@/lib/resolve-user-photo-url"
+
+/** Google / Firebase Auth avatars often 403 without no-referrer; retry API once if img fails. */
+function TestimonialAvatar({ name, photoURL: initialPhoto, userId }) {
+  const [src, setSrc] = useState(initialPhoto || null)
+  const [authRetryDone, setAuthRetryDone] = useState(false)
+
+  useEffect(() => {
+    setSrc(initialPhoto || null)
+    setAuthRetryDone(false)
+  }, [initialPhoto, userId])
+
+  const handleError = async () => {
+    if (userId && !authRetryDone) {
+      setAuthRetryDone(true)
+      const url = await resolvePhotoUrlFromAuth(userId, null)
+      if (url && url !== src) {
+        setSrc(url)
+        return
+      }
+    }
+    setSrc(null)
+  }
+
+  return (
+    <>
+      {src ? (
+        <img
+          src={src}
+          alt={name}
+          referrerPolicy="no-referrer"
+          className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+          onError={handleError}
+        />
+      ) : null}
+      <div
+        className={`w-12 h-12 rounded-full bg-white/25 flex items-center justify-center text-emerald-100 font-semibold text-sm flex-shrink-0 ${src ? "hidden" : "flex"}`}
+      >
+        {name?.[0]?.toUpperCase() || "A"}
+      </div>
+    </>
+  )
+}
 
 export default function TestimonialsSection() {
   const [testimonials, setTestimonials] = useState([])
@@ -60,20 +103,14 @@ export default function TestimonialsSection() {
           const userId = data.userId || null
           let resolvedPhotoURL = data.photoURL || null
 
-          // Fallback for older testimonial records without stored photoURL.
-          if (!resolvedPhotoURL && userId) {
-            if (userPhotoCache.has(userId)) {
-              resolvedPhotoURL = userPhotoCache.get(userId)
-            } else {
-              try {
-                const userSnap = await getDoc(doc(db, "users", userId))
-                const userPhotoURL = userSnap.exists() ? userSnap.data()?.photoURL || null : null
-                userPhotoCache.set(userId, userPhotoURL)
-                resolvedPhotoURL = userPhotoURL
-              } catch {
-                userPhotoCache.set(userId, null)
-              }
+          // Prefer Auth photo when we have userId (canonical Google URL); then testimonial snapshot.
+          if (userId) {
+            let fromAuth = userPhotoCache.get(userId)
+            if (fromAuth === undefined) {
+              fromAuth = await resolvePhotoUrlFromAuth(userId, null)
+              userPhotoCache.set(userId, fromAuth)
             }
+            resolvedPhotoURL = fromAuth || resolvedPhotoURL || null
           }
 
           return {
@@ -188,23 +225,11 @@ export default function TestimonialsSection() {
               >
                 {/* Profile Section - Top */}
                 <div className="flex items-center gap-4 mb-6">
-                  {testimonial.photoURL ? (
-                    <img
-                      src={testimonial.photoURL}
-                      alt={testimonial.name}
-                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        const fallback = e.target.nextElementSibling
-                        if (fallback) fallback.style.display = 'flex'
-                      }}
-                    />
-                  ) : null}
-                  <div 
-                    className={`w-12 h-12 rounded-full bg-white/25 flex items-center justify-center text-emerald-100 font-semibold text-sm flex-shrink-0 ${testimonial.photoURL ? 'hidden' : 'flex'}`}
-                  >
-                    {testimonial.name?.[0]?.toUpperCase() || "A"}
-                  </div>
+                  <TestimonialAvatar
+                    name={testimonial.name}
+                    photoURL={testimonial.photoURL}
+                    userId={testimonial.userId}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white text-base mb-0.5 truncate">
                       {testimonial.name}

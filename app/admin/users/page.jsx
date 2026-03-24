@@ -150,7 +150,15 @@ export default function UsersPage() {
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateB - dateA
         })
-        setUsers(usersData)
+
+        const { resolvePhotoUrlFromAuth } = await import("@/lib/resolve-user-photo-url")
+        const enrichedUsers = await Promise.all(
+          usersData.map(async (u) => {
+            const photoURL = await resolvePhotoUrlFromAuth(u.id, u.photoURL)
+            return { ...u, photoURL: photoURL || u.photoURL || null }
+          }),
+        )
+        setUsers(enrichedUsers)
       } catch (error) {
         console.error("Error fetching users:", error)
       } finally {

@@ -39,7 +39,16 @@ export default function CampusAdminUsersPage() {
             const role = String(row.role || "").trim().toLowerCase()
             return role !== "admin" && role !== "campus_admin"
           })
-        setStudents(rows)
+
+        const { resolvePhotoUrlFromAuth } = await import("@/lib/resolve-user-photo-url")
+        const enrichedRows = await Promise.all(
+          rows.map(async (row) => {
+            const uid = row.uid || row.id
+            const photoURL = await resolvePhotoUrlFromAuth(uid, row.photoURL || null)
+            return { ...row, photoURL: photoURL || row.photoURL || null }
+          }),
+        )
+        setStudents(enrichedRows)
       } catch (error) {
         console.error("Error fetching campus users:", error)
       } finally {
