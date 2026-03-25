@@ -6,6 +6,7 @@ import {
   verifyBearerToken,
   loadUserPrimaryAdmin,
   clientIpFromRequest,
+  nextResponseForVerifyBearerFailure,
   UNAUTHORIZED,
   FORBIDDEN,
 } from "@/lib/server/admin-api-auth"
@@ -20,18 +21,7 @@ export async function GET(request) {
   try {
     ;({ decoded } = await verifyBearerToken(request))
   } catch (e) {
-    if (e?.message === UNAUTHORIZED) {
-      return jsonError("Missing sign-in token. Refresh the page or sign in again.", 401)
-    }
-    console.error("[audit-log GET] verifyIdToken", e)
-    const msg = String(e?.message || "")
-    if (msg.includes("Missing Firebase Admin") || msg.includes("FIREBASE_SERVICE_ACCOUNT") || msg.includes("FIREBASE_PROJECT_ID")) {
-      return jsonError(
-        "Server missing Firebase Admin credentials. Set FIREBASE_SERVICE_ACCOUNT_JSON (or PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY) so ID tokens can be verified.",
-        503,
-      )
-    }
-    return jsonError("Invalid or expired session. Try signing out and back in.", 401)
+    return nextResponseForVerifyBearerFailure(e)
   }
 
   try {
@@ -95,9 +85,8 @@ export async function POST(request) {
   try {
     ;({ decoded } = await requireStaffForAuditWrite(request))
   } catch (e) {
-    if (e?.message === UNAUTHORIZED) return jsonError("Unauthorized", 401)
     if (e?.message === FORBIDDEN) return jsonError("Forbidden", 403)
-    return jsonError("Unauthorized", 401)
+    return nextResponseForVerifyBearerFailure(e)
   }
 
   let body = {}

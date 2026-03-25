@@ -47,20 +47,20 @@ export default function StudentLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-background to-background dark:from-emerald-950/25 dark:via-background dark:to-background">
-      {!isConsultationRoute ? <StudentHeader /> : null}
-
-      <main className={isConsultationRoute ? "h-screen" : "min-h-screen pt-[4.5rem]"}>
-        <div
-          className={
-            isConsultationRoute
-              ? "h-full"
-              : "min-h-[calc(100vh-4.5rem)] mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-12 pt-1"
-          }
-        >
-          {!isConsultationRoute ? <StudentProfileSetupReminder /> : null}
-          {children}
-        </div>
-      </main>
+      {isConsultationRoute ? (
+        <main className="h-screen">{children}</main>
+      ) : (
+        <>
+          <StudentHeader />
+          <main className="min-h-screen pb-12 pt-[4.5rem]">
+            {/* Full-width strip directly under the header (not constrained to max-w-7xl) */}
+            <StudentProfileSetupReminder />
+            <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-1">
+              {children}
+            </div>
+          </main>
+        </>
+      )}
     </div>
   )
 }

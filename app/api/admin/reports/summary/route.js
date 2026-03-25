@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { getAdminDb } from "@/lib/firebase-admin"
-import { verifyBearerToken, loadUserPrimaryAdmin, UNAUTHORIZED } from "@/lib/server/admin-api-auth"
+import {
+  verifyBearerToken,
+  loadUserPrimaryAdmin,
+  nextResponseForVerifyBearerFailure,
+} from "@/lib/server/admin-api-auth"
 import { isAdminEmail } from "@/lib/role-check"
 
 function jsonError(msg, status) {
@@ -141,8 +145,7 @@ export async function GET(request) {
   try {
     ;({ decoded } = await verifyBearerToken(request))
   } catch (e) {
-    if (e?.message === UNAUTHORIZED) return jsonError("Unauthorized", 401)
-    return jsonError("Invalid session", 401)
+    return nextResponseForVerifyBearerFailure(e)
   }
 
   try {
