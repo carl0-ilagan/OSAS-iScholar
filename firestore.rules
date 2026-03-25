@@ -5,11 +5,37 @@
           return request.auth != null;
         }
 
+        // Same two accounts as lib/role-check ADMIN_EMAILS — case-insensitive on token or user doc email
+        function isListedPrimaryAdminEmail(email) {
+          return email is string &&
+            email.size() > 0 &&
+            (
+              email.matches('(?i)^contact\\.ischolar@gmail\\.com$') ||
+              email.matches('(?i)^mocas\\.support@gmail\\.com$')
+            );
+        }
+
         function isSuperAdmin() {
-          return isAuthenticated() && (
-            request.auth.token.email == "contact.ischolar@gmail.com" ||
-            request.auth.token.email == "mocas.support@gmail.com"
+          return isAuthenticated() && isListedPrimaryAdminEmail(request.auth.token.email);
+        }
+
+        function userDocPrimaryAdminByRole() {
+          return userDocExists() && (
+            (
+              get(userDocPath()).data.appRole is string &&
+              get(userDocPath()).data.appRole.matches('(?i)^admin$')
+            ) ||
+            (
+              get(userDocPath()).data.role is string &&
+              get(userDocPath()).data.role.matches('(?i)^admin$')
+            )
           );
+        }
+
+        function userDocPrimaryAdminByListedEmail() {
+          return userDocExists() &&
+            get(userDocPath()).data.email is string &&
+            isListedPrimaryAdminEmail(get(userDocPath()).data.email);
         }
 
         function userDocPath() {
@@ -441,6 +467,16 @@
             sameCampus(get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.campus) ||
             get(/databases/$(database)/documents/submissions/$(resource.data.submissionId)).data.studentId == request.auth.uid
           );
+        }
+
+        // Immutable audit log — written only via Admin SDK / server
+        match /auditLogs/{logId} {
+          allow read: if isAuthenticated() && (
+            isSuperAdmin() ||
+            userDocPrimaryAdminByListedEmail() ||
+            userDocPrimaryAdminByRole()
+          );
+          allow create, update, delete: if false;
         }
 
         // Consultation rooms for campus-admin video consult scheduling

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, getDoc, where } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import CampusAdminLayoutWrapper from "@/app/campus-admin/campus-admin-layout"
@@ -565,6 +566,12 @@ export default function DocumentRequirementsPage() {
         toast.success("Requirement updated successfully!", {
           icon: <CheckCircle className="w-4 h-4" />,
         })
+        void submitAdminAuditLog({
+          action: "update",
+          resourceType: "documentRequirements",
+          resourceId: editingRequirement.id,
+          detail: requirementData.name,
+        })
       } else {
         // Create new requirement
         requirementData.createdAt = new Date().toISOString()
@@ -650,6 +657,12 @@ export default function DocumentRequirementsPage() {
         
         toast.success("Requirement added successfully! Students will be notified via email.", {
           icon: <CheckCircle className="w-4 h-4" />,
+        })
+        void submitAdminAuditLog({
+          action: "create",
+          resourceType: "documentRequirements",
+          resourceId: newRequirementRef.id,
+          detail: requirementData.name,
         })
       }
 
@@ -758,6 +771,12 @@ export default function DocumentRequirementsPage() {
       }
       
       await deleteDoc(doc(db, "documentRequirements", requirementToDelete.id))
+      void submitAdminAuditLog({
+        action: "delete",
+        resourceType: "documentRequirements",
+        resourceId: requirementToDelete.id,
+        detail: requirementToDelete.name || "",
+      })
       toast.success("Requirement deleted successfully!", {
         icon: <CheckCircle className="w-4 h-4" />,
       })
@@ -1039,38 +1058,30 @@ export default function DocumentRequirementsPage() {
     <LayoutWrapper>
       <div className="relative">
         <div className="w-full px-3 pb-4 pt-2 md:px-4 md:pb-6 md:pt-3 lg:px-6 lg:pb-8">
-          <div className="relative mb-5 overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-6 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 dark:ring-emerald-500/10">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
-            <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-teal-400/10 blur-2xl" />
-
-            <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
-                  {activeTab === "requirements" ? <FolderCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
-                  {activeTab === "requirements" ? "Document requirements" : "Student records"}
-                </span>
-                <h1 className="text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 md:text-3xl">
-                  {activeTab === "requirements" ? "Document requirements" : "Student records"}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-900/75 dark:text-emerald-200/85">
-                  {activeTab === "requirements"
-                    ? (isAdminMonitoringOnly
-                        ? "Monitoring view only for admin."
-                        : "Add and manage the document requirements students must submit.")
-                    : "Review uploaded records from students in your campus."}
-                </p>
-              </div>
-
-              {canManageRequirements && activeTab === "requirements" && (
-                <button
-                  onClick={() => handleOpenModal()}
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Requirement
-                </button>
-              )}
+          <div className="mb-5 flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+                {activeTab === "requirements" ? "Document requirements" : "Student records"}
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {activeTab === "requirements"
+                  ? isAdminMonitoringOnly
+                    ? "Monitoring view only for admin."
+                    : "Add and manage the document requirements students must submit."
+                  : "Review uploaded records from students in your campus."}
+              </p>
             </div>
+
+            {canManageRequirements && activeTab === "requirements" && (
+              <button
+                type="button"
+                onClick={() => handleOpenModal()}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+              >
+                <Plus className="h-4 w-4" />
+                Add Requirement
+              </button>
+            )}
           </div>
 
           {/* Tab Controls */}

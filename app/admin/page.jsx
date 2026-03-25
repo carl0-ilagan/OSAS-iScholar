@@ -524,7 +524,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Notifications Section - Full Width Below */}
-          <div className="bg-gradient-to-br from-card via-card/80 to-card/50 border border-border/50 rounded-xl p-3 md:p-4 lg:p-5 shadow-sm backdrop-blur-sm transition-all duration-300">
+          <div className="rounded-xl border border-border bg-card p-3 shadow-sm md:p-4 lg:p-5">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                 <div>
                   <h2 className="text-base md:text-lg font-semibold text-foreground flex items-center gap-2">

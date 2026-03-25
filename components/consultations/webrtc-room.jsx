@@ -56,27 +56,74 @@ function formatRemainingTime(expiresAt) {
   return `${mins}:${String(secs).padStart(2, "0")} left`
 }
 
-function getMediaConstraints(lowBandwidth, facingMode = "user") {
+/** Laptop/desktop webcams often fail with required facingMode; only phones/tablets need it. */
+function shouldUseFacingMode(deviceType) {
+  return deviceType === "mobile" || deviceType === "tablet"
+}
+
+function buildVideoConstraints(lowBandwidth, facingMode, deviceType) {
+  const base = lowBandwidth
+    ? {
+        width: { ideal: 480, max: 720 },
+        height: { ideal: 270, max: 480 },
+        frameRate: { ideal: 12, max: 20 },
+      }
+    : {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 360, max: 720 },
+        frameRate: { ideal: 20, max: 30 },
+      }
+  if (shouldUseFacingMode(deviceType)) {
+    return { ...base, facingMode: facingMode || "user" }
+  }
+  return base
+}
+
+function getMediaConstraints(lowBandwidth, facingMode = "user", deviceType = "mobile") {
   return {
-    video: lowBandwidth
-      ? {
-          width: { ideal: 480, max: 640 },
-          height: { ideal: 270, max: 360 },
-          frameRate: { ideal: 12, max: 15 },
-          facingMode,
-        }
-      : {
-          width: { ideal: 960, max: 1280 },
-          height: { ideal: 540, max: 720 },
-          frameRate: { ideal: 18, max: 24 },
-          facingMode,
-        },
+    video: buildVideoConstraints(lowBandwidth, facingMode, deviceType),
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,
-      channelCount: 1,
     },
+  }
+}
+
+/**
+ * Try getUserMedia with fallbacks (overconstrained facingMode / strict sizes are common on desktop).
+ */
+async function acquireUserMedia(lowBandwidth, facingMode, deviceType) {
+  const tryGet = (constraints) => navigator.mediaDevices.getUserMedia(constraints)
+
+  const primary = getMediaConstraints(lowBandwidth, facingMode, deviceType)
+  try {
+    return await tryGet(primary)
+  } catch (firstErr) {
+    console.warn("getUserMedia primary failed, retrying without facingMode:", firstErr?.name || firstErr)
+  }
+
+  const noFacing = {
+    video: buildVideoConstraints(lowBandwidth, facingMode, "laptop"),
+    audio: primary.audio,
+  }
+  try {
+    return await tryGet(noFacing)
+  } catch (secondErr) {
+    console.warn("getUserMedia relaxed video failed, trying minimal:", secondErr?.name || secondErr)
+  }
+
+  try {
+    return await tryGet({
+      video: true,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    })
+  } catch (thirdErr) {
+    console.error("getUserMedia minimal failed:", thirdErr)
+    throw thirdErr
   }
 }
 
@@ -103,6 +150,8 @@ export default function WebRtcRoom({
   const [joinRequestStatus, setJoinRequestStatus] = useState("none")
   const [cameraFacingMode, setCameraFacingMode] = useState("user")
   const [deviceType, setDeviceType] = useState("unknown")
+  /** Ref alone does not re-render; controls stay disabled until this is true. */
+  const [localMediaReady, setLocalMediaReady] = useState(false)
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -143,6 +192,7 @@ export default function WebRtcRoom({
     if (localStreamRef.current && !keepLocalMedia) {
       localStreamRef.current.getTracks().forEach((track) => track.stop())
       localStreamRef.current = null
+      setLocalMediaReady(false)
     }
     if (remoteStreamRef.current) {
       remoteStreamRef.current.getTracks().forEach((track) => track.stop())
@@ -236,18 +286,23 @@ export default function WebRtcRoom({
   }
 
   const setupLocalMedia = async (lowBandwidthMode = lowBandwidth, facingMode = cameraFacingMode) => {
-    const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidthMode, facingMode))
+    const deviceNow = typeof window !== "undefined" ? detectDeviceType() : "mobile"
+    const stream = await acquireUserMedia(lowBandwidthMode, facingMode, deviceNow)
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop())
     }
     localStreamRef.current = stream
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream
-    }
     setCameraOn(true)
     setMicOn(true)
     setCameraFacingMode(facingMode)
+    setLocalMediaReady(true)
     syncFacingModeToRoom(facingMode)
+    queueMicrotask(() => {
+      if (localVideoRef.current && localStreamRef.current === stream) {
+        localVideoRef.current.srcObject = stream
+        localVideoRef.current.play?.().catch(() => {})
+      }
+    })
     return stream
   }
 
@@ -259,6 +314,7 @@ export default function WebRtcRoom({
         if (localVideoRef.current && localVideoRef.current.srcObject !== existingStream) {
           localVideoRef.current.srcObject = existingStream
         }
+        setLocalMediaReady(true)
         setMediaError("")
         return existingStream
       }
@@ -268,7 +324,15 @@ export default function WebRtcRoom({
       return await setupLocalMedia()
     } catch (mediaSetupError) {
       console.error("Error preparing camera/mic:", mediaSetupError)
-      setMediaError("Camera/microphone permission is required for consultation.")
+      setLocalMediaReady(false)
+      const name = String(mediaSetupError?.name || "")
+      const msg =
+        name === "NotAllowedError" || name === "PermissionDeniedError"
+          ? "Allow camera and microphone in the browser address bar, then refresh."
+          : name === "NotFoundError" || name === "DevicesNotFoundError"
+            ? "No camera or microphone found. Connect a device and try again."
+            : "Camera/microphone could not start. Check permissions and devices."
+      setMediaError(msg)
       throw mediaSetupError
     }
   }
@@ -471,6 +535,17 @@ export default function WebRtcRoom({
       ensureLocalMedia().catch(() => {})
     }
   }, [loading, error, room])
+
+  useEffect(() => {
+    if (!localMediaReady) return
+    const stream = localStreamRef.current
+    const el = localVideoRef.current
+    if (!stream || !el) return
+    if (el.srcObject !== stream) {
+      el.srcObject = stream
+    }
+    el.play?.().catch(() => {})
+  }, [localMediaReady, roomId])
 
   useEffect(() => {
     if (!roomId || !user?.uid) return
@@ -771,7 +846,8 @@ export default function WebRtcRoom({
     setLowBandwidth(next)
     if (!localStreamRef.current) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(next, cameraFacingMode))
+      const deviceNow = typeof window !== "undefined" ? detectDeviceType() : "mobile"
+      const stream = await acquireUserMedia(next, cameraFacingMode, deviceNow)
       const previousStream = localStreamRef.current
       localStreamRef.current = stream
       if (localVideoRef.current) {
@@ -809,7 +885,8 @@ export default function WebRtcRoom({
     }
     const nextFacing = cameraFacingMode === "user" ? "environment" : "user"
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(lowBandwidth, nextFacing))
+      const deviceNow = typeof window !== "undefined" ? detectDeviceType() : "mobile"
+      const stream = await acquireUserMedia(lowBandwidth, nextFacing, deviceNow)
       const previousStream = localStreamRef.current
       const nextVideoTrack = stream.getVideoTracks()[0] || null
       const nextAudioTrack = stream.getAudioTracks()[0] || null
@@ -914,7 +991,7 @@ export default function WebRtcRoom({
     ended: "Ended",
   }
   const statusLabel = stateLabelMap[rawCallState] || (isConnectedState ? "Connected" : "Not connected")
-  const canToggleLocalMedia = Boolean(localStreamRef.current)
+  const canToggleLocalMedia = localMediaReady && Boolean(localStreamRef.current?.getTracks?.().some((t) => t.readyState === "live"))
 
   if (loading) {
     return <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Loading room...</div>
@@ -1147,8 +1224,18 @@ export default function WebRtcRoom({
           </div>
         ) : null}
         {mediaError ? (
-          <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
-            {mediaError}
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
+            <span>{mediaError}</span>
+            <button
+              type="button"
+              className="rounded-md bg-amber-800/90 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-900"
+              onClick={() => {
+                setMediaError("")
+                ensureLocalMedia().catch(() => {})
+              }}
+            >
+              Try again
+            </button>
           </div>
         ) : null}
         {role === "student" ? (

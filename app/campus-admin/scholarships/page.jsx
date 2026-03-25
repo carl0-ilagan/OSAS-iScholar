@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import CampusAdminLayoutWrapper from "../campus-admin-layout"
 import { normalizeCampus } from "@/lib/campus-admin-config"
 
@@ -211,11 +212,23 @@ export default function CampusAdminScholarshipsPage() {
 
       if (editingScholarship) {
         await updateDoc(doc(db, "scholarships", editingScholarship.id), payload)
+        void submitAdminAuditLog({
+          action: "update",
+          resourceType: "scholarships",
+          resourceId: editingScholarship.id,
+          detail: `${payload.name} · ${activeCampus || ""}`,
+        })
         toast.success("Scholarship updated successfully.")
         setScholarships((prev) => prev.map((item) => (item.id === editingScholarship.id ? { ...item, ...payload } : item)))
       } else {
         payload.createdAt = new Date().toISOString()
         const docRef = await addDoc(collection(db, "scholarships"), payload)
+        void submitAdminAuditLog({
+          action: "create",
+          resourceType: "scholarships",
+          resourceId: docRef.id,
+          detail: `${payload.name} · ${activeCampus || ""}`,
+        })
         toast.success("Scholarship added successfully.")
         setScholarships((prev) => [{ id: docRef.id, ...payload }, ...prev])
 
@@ -308,6 +321,12 @@ export default function CampusAdminScholarshipsPage() {
     if (!scholarshipToDelete) return
     try {
       await deleteDoc(doc(db, "scholarships", scholarshipToDelete.id))
+      void submitAdminAuditLog({
+        action: "delete",
+        resourceType: "scholarships",
+        resourceId: scholarshipToDelete.id,
+        detail: scholarshipToDelete.name || "",
+      })
       setScholarships((prev) => prev.filter((item) => item.id !== scholarshipToDelete.id))
       toast.success("Scholarship deleted successfully.")
       handleDeleteCancel()

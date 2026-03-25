@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { canAccessRoute } from "@/lib/role-check"
 import StudentHeader from "@/components/student/student-header"
+import StudentProfileSetupReminder from "@/components/student/profile-setup-reminder"
 
 export default function StudentLayout({ children }) {
   const router = useRouter()
@@ -56,6 +57,7 @@ export default function StudentLayout({ children }) {
               : "min-h-[calc(100vh-4.5rem)] mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-12 pt-1"
           }
         >
+          {!isConsultationRoute ? <StudentProfileSetupReminder /> : null}
           {children}
         </div>
       </main>

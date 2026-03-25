@@ -6,6 +6,7 @@ import { ArrowLeft, Clock3, Video } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import CampusAdminLayoutWrapper from "../campus-admin-layout"
 import { normalizeCampus } from "@/lib/campus-admin-config"
 import Link from "next/link"
@@ -197,6 +198,12 @@ export default function CampusAdminConsultationsPage() {
       setRooms((prev) =>
         prev.map((item) => (item.id === room.id ? { ...item, status: nextStatus, endedAt } : item)),
       )
+      void submitAdminAuditLog({
+        action: "update",
+        resourceType: "consultation_rooms",
+        resourceId: room.id,
+        detail: `Status: ${nextStatus} · ${room.roomName || ""}`,
+      })
       toast.success(`Room marked as ${nextStatus}.`)
       setActiveRoomId((prevActiveId) => {
         if (prevActiveId !== room.id) return prevActiveId

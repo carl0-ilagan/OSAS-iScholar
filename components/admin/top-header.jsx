@@ -2,7 +2,23 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Award, BookOpen, FolderCheck, LogOut, Menu, MessageSquare, Moon, Palette, Settings, Sun, User, Users, X } from "lucide-react"
+import {
+  Award,
+  BookOpen,
+  FileBarChart,
+  FolderCheck,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Moon,
+  Palette,
+  ScrollText,
+  Settings,
+  Sun,
+  User,
+  Users,
+  X,
+} from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBranding } from "@/contexts/BrandingContext"
 import AdminLogoutModal from "./logout-modal"
@@ -11,6 +27,8 @@ import { Switch } from "@/components/ui/switch"
 const profileQuickLinks = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/reports", label: "Reports", icon: FileBarChart },
+  { href: "/admin/audit-trails", label: "Audit trails", icon: ScrollText },
   { href: "/admin/requirements", label: "Requirements", icon: FolderCheck },
   { href: "/admin/scholarships", label: "Scholarships", icon: BookOpen },
   { href: "/admin/scholars", label: "Scholars", icon: Award },

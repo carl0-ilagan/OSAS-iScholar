@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { useAuth } from "@/contexts/AuthContext"
 import AdminLayoutWrapper from "@/app/admin/admin-layout"
 import PdfOverlayStage from "@/components/pdf-forms/PdfOverlayStage"
@@ -690,6 +691,12 @@ export default function AdminPdfFormsPage() {
       setFile(null)
       await fetchForms()
       setSelectedFormId(formDoc.id)
+      void submitAdminAuditLog({
+        action: "create",
+        resourceType: "forms",
+        resourceId: formDoc.id,
+        detail: title.trim(),
+      })
       toast.success("PDF form created.")
     } catch (error) {
       console.error("Failed to create form:", error)
@@ -1246,6 +1253,12 @@ export default function AdminPdfFormsPage() {
       await updateDoc(doc(db, "forms", selectedFormId), { updatedAt: serverTimestamp() })
 
       setPersistedIds(fields.map((entry) => entry.fieldId))
+      void submitAdminAuditLog({
+        action: "update",
+        resourceType: "forms",
+        resourceId: selectedFormId,
+        detail: `${fields.length} field(s) saved`,
+      })
       toast.success("Form configuration saved.")
     } catch (error) {
       console.error("Failed to save form fields:", error)

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { X, CheckCircle, XCircle, Clock, FileText, User, GraduationCap, MapPin, Calendar, Loader2, FolderOpen, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { doc, updateDoc, getDoc, collection, getDocs, query, where, orderBy, runTransaction, limit } from "firebase/firestore"
 import ImageZoomModal from "./image-zoom-modal"
 import DocumentPreviewModal from "./document-preview-modal"
@@ -389,6 +390,13 @@ export default function ApplicationDetailModal({
         })
       })
 
+      void submitAdminAuditLog({
+        action: "approve",
+        resourceType: "applications",
+        resourceId: application.id,
+        detail: `Scholarship: ${application.scholarshipName || "—"} · Reviewer: ${reviewedBy || "admin"}`,
+      })
+
       // Send email notification
       try {
         if (application.userId) {
@@ -588,6 +596,13 @@ export default function ApplicationDetailModal({
         icon: <CheckCircle className="w-5 h-5" />,
         duration: 3000,
         position: "top-right",
+      })
+
+      void submitAdminAuditLog({
+        action: "reject",
+        resourceType: "applications",
+        resourceId: application.id,
+        detail: `Scholarship: ${application.scholarshipName || "—"}`,
       })
 
       if (onUpdate) {

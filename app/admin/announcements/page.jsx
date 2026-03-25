@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import { Megaphone, Plus, Search, Filter, ChevronDown, Archive, Clock, CheckCircle, Trash2, AlertCircle } from "lucide-react"
@@ -213,9 +214,15 @@ export default function AnnouncementsPage() {
           updatedAt: serverTimestamp(),
           status: initialStatus,
         })
+        void submitAdminAuditLog({
+          action: "update",
+          resourceType: "announcements",
+          resourceId: editingAnnouncement.id,
+          detail: `Title: ${announcementData.title}`,
+        })
       } else {
         // Create new announcement
-        await addDoc(collection(db, "announcements"), {
+        const newAnnRef = await addDoc(collection(db, "announcements"), {
           title: announcementData.title,
           description: announcementData.description,
           targetScholarships: announcementData.targetScholarships,
@@ -226,6 +233,12 @@ export default function AnnouncementsPage() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           status: initialStatus,
+        })
+        void submitAdminAuditLog({
+          action: "create",
+          resourceType: "announcements",
+          resourceId: newAnnRef.id,
+          detail: `Title: ${announcementData.title}`,
         })
         
         // Send email notifications to selected students
@@ -416,6 +429,12 @@ export default function AnnouncementsPage() {
 
     try {
       await deleteDoc(doc(db, "announcements", announcementToDelete.id))
+      void submitAdminAuditLog({
+        action: "delete",
+        resourceType: "announcements",
+        resourceId: announcementToDelete.id,
+        detail: announcementToDelete.title ? `Title: ${announcementToDelete.title}` : "",
+      })
       toast.success("Announcement deleted successfully", {
         icon: <CheckCircle className="w-5 h-5" />,
         duration: 3000,

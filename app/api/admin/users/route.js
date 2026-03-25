@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { isAdminEmail } from "@/lib/role-check"
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin"
+import { writeAuditLog } from "@/lib/server/audit-log"
+import { clientIpFromRequest } from "@/lib/server/admin-api-auth"
 
 const UNAUTHORIZED_MESSAGE = "Unauthorized admin action."
 
@@ -57,6 +59,17 @@ export async function PATCH(request) {
         { merge: true },
       )
 
+    const ip = clientIpFromRequest(request)
+    await writeAuditLog({
+      actorUid: decoded.uid,
+      actorEmail: decoded.email || null,
+      action: disabled ? "disable_user" : "enable_user",
+      resourceType: "users",
+      resourceId: targetUid,
+      detail: `Target: ${targetUser.email || targetUid}`,
+      ip,
+    })
+
     return NextResponse.json({ success: true, uid: targetUid, disabled })
   } catch (error) {
     const status = error?.message === UNAUTHORIZED_MESSAGE ? 401 : 500
@@ -103,6 +116,16 @@ export async function POST(request) {
         { merge: true },
       )
 
+    await writeAuditLog({
+      actorUid: decoded.uid,
+      actorEmail: decoded.email || null,
+      action: "reset_password",
+      resourceType: "users",
+      resourceId: targetUid,
+      detail: `Password reset by admin · ${targetUser.email || targetUid}`,
+      ip: clientIpFromRequest(request),
+    })
+
     return NextResponse.json({ success: true, uid: targetUid })
   } catch (error) {
     const status = error?.message === UNAUTHORIZED_MESSAGE ? 401 : 500
@@ -130,6 +153,16 @@ export async function DELETE(request) {
 
     await adminAuth.deleteUser(targetUid)
     await getAdminDb().collection("users").doc(targetUid).delete()
+
+    await writeAuditLog({
+      actorUid: decoded.uid,
+      actorEmail: decoded.email || null,
+      action: "delete_user",
+      resourceType: "users",
+      resourceId: targetUid,
+      detail: `Deleted account · ${targetUser.email || targetUid}`,
+      ip: clientIpFromRequest(request),
+    })
 
     return NextResponse.json({ success: true, uid: targetUid })
   } catch (error) {

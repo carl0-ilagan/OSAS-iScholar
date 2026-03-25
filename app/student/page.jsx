@@ -6,7 +6,24 @@ import { db } from "@/lib/firebase"
 import { collection, getDocs, query, orderBy, doc, getDoc, where, updateDoc, arrayUnion } from "firebase/firestore"
 import DashboardCard from "@/components/student/dashboard-card"
 import { StudentSection } from "@/components/student/student-section"
-import { Clock, Bell, FileText, Megaphone, CheckCircle, AlertCircle, Calendar, TrendingUp, Award, Sparkles, ClipboardCheck, X, ChevronLeft, ChevronRight, MapPin } from "lucide-react"
+import {
+  Clock,
+  Bell,
+  FileText,
+  Megaphone,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+  TrendingUp,
+  Award,
+  Sparkles,
+  ClipboardCheck,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Building2,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createPortal } from "react-dom"
@@ -908,6 +925,23 @@ export default function StudentDashboard() {
                     <p className="text-xs text-muted-foreground">Start or continue an application</p>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0 text-emerald-600/50 transition group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:text-emerald-500/50" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/student/profile#existing-scholarships")}
+                  className="group flex w-full items-center gap-4 rounded-xl border border-sky-200/60 bg-gradient-to-r from-white to-sky-50/40 p-4 text-left shadow-sm transition hover:border-sky-300/80 hover:shadow-md dark:from-card dark:to-sky-950/25 dark:border-sky-900/45"
+                >
+                  <div className="rounded-xl bg-sky-500/12 p-2.5 ring-1 ring-sky-500/20">
+                    <Building2 className="h-5 w-5 text-sky-800 dark:text-sky-300" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground">Add an existing scholarship</p>
+                    <p className="text-xs text-muted-foreground">
+                      CHED, LGU, or other aid not applied for here — list it on your profile
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-sky-700/50 transition group-hover:translate-x-0.5 dark:text-sky-500/50" />
                 </button>
 
                 <button

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 
 const BrandingContext = createContext({})
 
@@ -140,6 +141,12 @@ export const BrandingProvider = ({ children }) => {
       
       // Save to Firestore with merge to preserve other fields
       await setDoc(doc(db, "settings", "branding"), newBranding, { merge: true })
+      void submitAdminAuditLog({
+        action: "update",
+        resourceType: "settings",
+        resourceId: "branding",
+        detail: `Portal name: ${newBranding.name || "—"}`,
+      })
       setBranding(newBranding)
       return true
     } catch (error) {

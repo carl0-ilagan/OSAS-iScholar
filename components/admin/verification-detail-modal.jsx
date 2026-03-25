@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { CheckCircle, XCircle, Loader2, FileText, Image as ImageIcon, ZoomIn, X, MapPin, User } from "lucide-react"
 import { toast } from "sonner"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { doc, updateDoc, getDoc } from "firebase/firestore"
 import ImageZoomModal from "./image-zoom-modal"
 
@@ -169,6 +170,13 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
         duration: 4000,
         position: "top-center",
       })
+
+      void submitAdminAuditLog({
+        action: "approve",
+        resourceType: "verifications",
+        resourceId: verification.id,
+        detail: `Student: ${verification.name || verification.userId || "—"}`,
+      })
       
       if (onUpdate && typeof onUpdate === 'function') {
         await onUpdate()
@@ -271,6 +279,13 @@ export default function VerificationDetailModal({ isOpen, onClose, verification,
         description: "The verification request has been declined.",
         duration: 4000,
         position: "top-center",
+      })
+
+      void submitAdminAuditLog({
+        action: "reject",
+        resourceType: "verifications",
+        resourceId: verification.id,
+        detail: `Student: ${verification.name || verification.userId || "—"}`,
       })
       
       if (onUpdate && typeof onUpdate === 'function') {

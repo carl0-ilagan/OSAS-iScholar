@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { db } from "@/lib/firebase"
+import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore"
 import AdminLayoutWrapper from "../admin-layout"
 import { MessageSquare, RotateCcw, Search, Star, CheckCircle2, Loader2, Award, GraduationCap, Calendar, Building2, User } from "lucide-react"
@@ -77,6 +78,13 @@ export default function TestimonialsPage() {
 
       await updateDoc(testimonialRef, {
         featuredOnLanding: !currentStatus
+      })
+
+      void submitAdminAuditLog({
+        action: "update",
+        resourceType: "testimonials",
+        resourceId: testimonialId,
+        detail: !currentStatus ? "Featured on landing" : "Removed from landing",
       })
 
       // Update local state

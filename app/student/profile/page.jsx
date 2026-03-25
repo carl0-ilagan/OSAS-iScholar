@@ -1,11 +1,83 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import Link from "next/link"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from "firebase/firestore"
+import { doc, getDoc, setDoc, collection, query, where, orderBy, getDocs, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
-import { User, Upload, Save, Mail, Loader2, CheckCircle, XCircle, GraduationCap, MapPin, Calendar, Hash, X } from "lucide-react"
+import { StudentSection } from "@/components/student/student-section"
+import {
+  User,
+  Upload,
+  Save,
+  Mail,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  GraduationCap,
+  MapPin,
+  Calendar,
+  Hash,
+  X,
+  Award,
+  Plus,
+  Trash2,
+  Building2,
+  Sparkles,
+} from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import ProfilePhotoCropDialog, {
+  STUDENT_GRADIENT_BTN,
+} from "@/components/student/profile-photo-crop-dialog"
+
+const fieldInputClass =
+  "w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/[0.02] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/45 disabled:cursor-not-allowed disabled:opacity-60"
+
+function formatApplicationDate(value) {
+  if (!value) return null
+  if (typeof value.toDate === "function") {
+    try {
+      return value.toDate().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+    } catch {
+      return null
+    }
+  }
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
+
+function newExternalScholarshipRow() {
+  return {
+    localId: `ext-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    name: "",
+    provider: "",
+    notes: "",
+  }
+}
+
+/** Stored on users/{uid}.externalScholarships — scholarships not tracked via portal applications. */
+function normalizeExternalScholarshipsFromFirestore(raw) {
+  if (!Array.isArray(raw)) return []
+  const out = []
+  raw.forEach((item, i) => {
+    if (typeof item === "string") {
+      const name = item.trim()
+      if (!name) return
+      out.push({ localId: `ext-${i}-s`, name, provider: "", notes: "" })
+      return
+    }
+    const name = String(item?.name || "").trim()
+    if (!name) return
+    out.push({
+      localId: `ext-${i}-${name.slice(0, 8)}`,
+      name,
+      provider: String(item?.provider || item?.organization || "").trim(),
+      notes: String(item?.notes || "").trim(),
+    })
+  })
+  return out
+}
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -22,7 +94,14 @@ export default function ProfilePage() {
   })
   const [profilePicture, setProfilePicture] = useState(null)
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
+  const [cropOpen, setCropOpen] = useState(false)
+  const [cropSrc, setCropSrc] = useState(null)
+  const profileFileInputRef = useRef(null)
   const [userStatus, setUserStatus] = useState("offline")
+  /** Approved applications → one row per distinct scholarship name (newest first). */
+  const [approvedScholarships, setApprovedScholarships] = useState([])
+  /** Scholarships from agencies / schools / programs outside this portal (editable, saved on user doc). */
+  const [externalScholarships, setExternalScholarships] = useState([])
 
   // Fetch user data
   useEffect(() => {
@@ -47,7 +126,41 @@ export default function ProfilePage() {
           })
           setProfilePicturePreview(data.photoURL || user.photoURL || null)
           setUserStatus(data.status || "offline")
+          setExternalScholarships(normalizeExternalScholarshipsFromFirestore(data.externalScholarships))
         }
+
+        let applicationsSnapshot
+        try {
+          applicationsSnapshot = await getDocs(
+            query(collection(db, "applications"), where("userId", "==", user.uid), orderBy("submittedAt", "desc")),
+          )
+        } catch {
+          applicationsSnapshot = await getDocs(query(collection(db, "applications"), where("userId", "==", user.uid)))
+        }
+
+        const approvedRows = applicationsSnapshot.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((a) => String(a.status || "").toLowerCase() === "approved" && String(a.scholarshipName || "").trim())
+
+        approvedRows.sort((a, b) => {
+          const ta = a.submittedAt?.toDate ? a.submittedAt.toDate().getTime() : new Date(a.submittedAt || 0).getTime()
+          const tb = b.submittedAt?.toDate ? b.submittedAt.toDate().getTime() : new Date(b.submittedAt || 0).getTime()
+          return tb - ta
+        })
+
+        const seenNames = new Set()
+        const uniqueByScholarship = []
+        for (const row of approvedRows) {
+          const name = String(row.scholarshipName || "").trim()
+          if (seenNames.has(name)) continue
+          seenNames.add(name)
+          uniqueByScholarship.push({
+            id: row.id,
+            scholarshipName: name,
+            submittedAt: row.submittedAt,
+          })
+        }
+        setApprovedScholarships(uniqueByScholarship)
       } catch (error) {
         console.error("Error fetching user data:", error)
         toast.error("Failed to load profile data", {
@@ -60,7 +173,7 @@ export default function ProfilePage() {
     }
 
     fetchUserData()
-    
+
     // Real-time status listener
     if (user?.uid) {
       const userDocRef = doc(db, "users", user.uid)
@@ -75,21 +188,22 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = (error) => reject(error)
-    })
+  const handleCropOpenChange = (open) => {
+    setCropOpen(open)
+    if (!open) {
+      if (cropSrc) {
+        URL.revokeObjectURL(cropSrc)
+        setCropSrc(null)
+      }
+      if (profileFileInputRef.current) profileFileInputRef.current.value = ""
+    }
   }
 
-  const handleProfilePictureChange = async (e) => {
+  const handleProfilePictureChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file", {
         icon: <XCircle className="w-4 h-4" />,
         duration: 3000,
@@ -97,7 +211,6 @@ export default function ProfilePage() {
       return
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image size must be less than 5MB", {
         icon: <XCircle className="w-4 h-4" />,
@@ -106,21 +219,19 @@ export default function ProfilePage() {
       return
     }
 
-    try {
-      const base64 = await fileToBase64(file)
-      setProfilePicture(base64)
-      setProfilePicturePreview(base64)
-      toast.success("Profile picture selected", {
-        icon: <CheckCircle className="w-4 h-4" />,
-        duration: 2000,
-      })
-    } catch (error) {
-      console.error("Error processing image:", error)
-      toast.error("Failed to process image", {
-        icon: <XCircle className="w-4 h-4" />,
-        duration: 3000,
-      })
-    }
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    const url = URL.createObjectURL(file)
+    setCropSrc(url)
+    setCropOpen(true)
+  }
+
+  const handleCropComplete = (dataUrl) => {
+    setProfilePicture(dataUrl)
+    setProfilePicturePreview(dataUrl)
+    toast.success("Profile picture updated — save to keep it", {
+      icon: <CheckCircle className="w-4 h-4" />,
+      duration: 2500,
+    })
   }
 
   const handleInputChange = (field, value) => {
@@ -128,6 +239,20 @@ export default function ProfilePage() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const updateExternalRow = (localId, field, value) => {
+    setExternalScholarships((prev) =>
+      prev.map((r) => (r.localId === localId ? { ...r, [field]: value } : r)),
+    )
+  }
+
+  const addExternalScholarship = () => {
+    setExternalScholarships((prev) => [...prev, newExternalScholarshipRow()])
+  }
+
+  const removeExternalScholarship = (localId) => {
+    setExternalScholarships((prev) => prev.filter((r) => r.localId !== localId))
   }
 
   const handleSave = async () => {
@@ -142,6 +267,14 @@ export default function ProfilePage() {
     try {
       setSaving(true)
 
+      const externalPayload = externalScholarships
+        .map((row) => ({
+          name: String(row.name || "").trim(),
+          provider: String(row.provider || "").trim(),
+          notes: String(row.notes || "").trim(),
+        }))
+        .filter((row) => row.name.length > 0)
+
       const updateData = {
         fullName: userData.fullName,
         displayName: userData.fullName || userData.displayName,
@@ -149,6 +282,7 @@ export default function ProfilePage() {
         course: userData.course,
         yearLevel: userData.yearLevel,
         campus: userData.campus,
+        externalScholarships: externalPayload,
         updatedAt: new Date().toISOString(),
       }
 
@@ -162,6 +296,15 @@ export default function ProfilePage() {
       if (profilePicture) {
         setProfilePicturePreview(profilePicture)
       }
+
+      setExternalScholarships(
+        externalPayload.map((row, i) => ({
+          localId: `ext-saved-${i}-${row.name.slice(0, 6)}`,
+          name: row.name,
+          provider: row.provider,
+          notes: row.notes,
+        })),
+      )
 
       // Clear the profile picture state after saving
       setProfilePicture(null)
@@ -186,252 +329,378 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="relative">
-        <div className="p-4 md:p-6 lg:p-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-64 bg-muted rounded-xl"></div>
-            <div className="h-96 bg-muted rounded-xl"></div>
-          </div>
+      <div className="space-y-8 py-2 md:py-3">
+        <div className="animate-pulse space-y-4 rounded-2xl border border-emerald-200/30 bg-white/60 p-8 dark:border-emerald-900/40 dark:bg-card/40">
+          <div className="h-4 w-28 rounded-full bg-emerald-200/50 dark:bg-emerald-900/50" />
+          <div className="h-9 max-w-md rounded-lg bg-emerald-100/60 dark:bg-emerald-950/50" />
+          <div className="h-4 max-w-sm rounded bg-muted" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="h-56 animate-pulse rounded-2xl border border-emerald-200/30 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/30 dark:to-card/50 lg:col-span-1" />
+          <div className="h-56 animate-pulse rounded-2xl border border-emerald-200/30 bg-muted/40 lg:col-span-2" />
+        </div>
+        <div className="h-48 animate-pulse rounded-2xl border border-emerald-200/30 bg-muted/40" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-80 animate-pulse rounded-2xl border border-emerald-200/30 bg-muted/40" />
+          <div className="h-80 animate-pulse rounded-2xl border border-emerald-200/30 bg-muted/40" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative">
-      <div className="p-4 md:p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
-          {/* Profile Picture & Verification Status - Enhanced */}
-          <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-2xl p-6 md:p-8 lg:p-10 shadow-xl">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl">
-                <User className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-foreground">Profile Picture</h3>
-                <p className="text-sm text-muted-foreground">Update your profile photo</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Profile Picture */}
-              <div className="lg:col-span-1 flex justify-center lg:justify-start">
-                <div className="relative group">
-                  <div className="w-48 h-48 rounded-full bg-gradient-to-br from-primary to-secondary overflow-hidden ring-4 ring-primary/20 shadow-2xl transition-transform duration-300 group-hover:scale-105">
-                    {profilePicturePreview ? (
-                      <img
-                        src={profilePicturePreview}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-secondary text-white font-bold text-6xl">
-                        {userData.fullName?.[0] || userData.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
-                  </div>
-                  <label className="absolute bottom-0 right-0 p-3.5 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-all duration-200 shadow-xl hover:scale-110 z-10">
-                    <Upload className="w-5 h-5" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfilePictureChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {profilePicturePreview && (
-                    <button
-                      onClick={() => {
-                        setProfilePicturePreview(null)
-                        setProfilePicture(null)
-                      }}
-                      className="absolute top-0 right-0 p-2.5 bg-destructive text-destructive-foreground rounded-full cursor-pointer hover:bg-destructive/90 transition-all duration-200 shadow-lg hover:scale-110 z-10"
-                      title="Remove picture"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Info Section */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-gradient-to-r from-muted/50 via-muted/30 to-muted/50 rounded-xl p-5 border border-border/50">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Upload a profile picture to personalize your account. This will be visible in your sidebar and across the platform.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-3 py-1.5 bg-background rounded-lg text-xs font-medium text-foreground border border-border">JPG, PNG, GIF</span>
-                    <span className="px-3 py-1.5 bg-background rounded-lg text-xs font-medium text-foreground border border-border">Max 5MB</span>
-                    <span className="px-3 py-1.5 bg-background rounded-lg text-xs font-medium text-foreground border border-border">Square recommended</span>
-                  </div>
-                </div>
-                
-                {/* Status Indicators - Minimalist Design */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  {/* Active Status - Minimalist */}
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border rounded-lg">
-                    <div className={`w-2.5 h-2.5 rounded-full ${
-                      userStatus === "online" ? "bg-blue-500" : "bg-gray-400"
-                    }`}></div>
-                    <span className="text-sm font-medium text-foreground">
-                      {userStatus === "online" ? "Active Now" : "Offline"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Personal Information & Email - Horizontal Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            {/* Personal Information */}
-            <div className="bg-card border border-border rounded-2xl p-6 md:p-8 lg:p-10 shadow-xl">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl">
-                  <GraduationCap className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-foreground">Personal Information</h3>
-                  <p className="text-sm text-muted-foreground">Update your academic details</p>
-                </div>
-              </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary" />
-                    Full Name <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={userData.fullName}
-                    onChange={(e) => handleInputChange("fullName", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-primary" />
-                    Student Number <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={userData.studentNumber}
-                    onChange={(e) => handleInputChange("studentNumber", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                    placeholder="Enter your student number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-primary" />
-                    Course <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={userData.course}
-                    onChange={(e) => handleInputChange("course", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                    placeholder="Enter your course"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    Year Level <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    value={userData.yearLevel}
-                    onChange={(e) => handleInputChange("yearLevel", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                  >
-                    <option value="">Select year level</option>
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                    <option value="5th Year">5th Year</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    Campus <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={userData.campus}
-                    onChange={(e) => handleInputChange("campus", e.target.value)}
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all hover:border-primary/50 shadow-sm"
-                    placeholder="Enter your campus"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Email Settings */}
-            <div className="bg-card border border-border rounded-2xl p-6 md:p-8 lg:p-10 shadow-xl">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl">
-                  <Mail className="w-7 h-7 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-foreground">Email Information</h3>
-                  <p className="text-sm text-muted-foreground">Manage your email addresses</p>
-                </div>
-              </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-primary" />
-                    Primary Email
-                  </label>
-                  <input
-                    type="email"
-                    value={userData.email}
-                    disabled
-                    className="w-full px-4 py-3.5 border border-border rounded-lg bg-muted/50 text-muted-foreground cursor-not-allowed shadow-sm"
-                  />
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      Primary email cannot be changed. This is your account email.
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/60 dark:from-emerald-950/30 dark:to-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                    Email notifications are sent to your account email above.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Save Button - Enhanced */}
-          <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center justify-center gap-3 px-10 py-4 bg-gradient-to-r from-primary via-primary to-secondary text-primary-foreground rounded-xl hover:from-primary/90 hover:via-primary/90 hover:to-secondary/90 transition-all duration-200 hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed font-bold text-base shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving Changes...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
+    <div className="animate-in fade-in duration-300 space-y-8 py-2 md:py-3">
+      {/* Hero — matches student dashboard welcome strip */}
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 p-6 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500/10 dark:from-emerald-950/50 dark:via-card dark:to-emerald-950/30 dark:border-emerald-800/40 dark:ring-emerald-500/10 sm:p-8">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10" />
+        <div className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-teal-400/10 blur-2xl" />
+        <div className="relative">
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-700/60 dark:bg-emerald-950/60 dark:text-emerald-200">
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            Student profile
+          </span>
+          <h1 className="text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50 sm:text-3xl">
+            My profile
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-900/75 dark:text-emerald-200/85 sm:text-base">
+            Keep your photo, scholarships, and school details accurate — admins and your dashboard use this information.
+          </p>
         </div>
       </div>
 
+      <StudentSection
+        title="Profile photo"
+        subtitle="Shown in the header and across the portal when you add one"
+        icon={User}
+        accent="emerald"
+        badge={
+          <span
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
+              userStatus === "online"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                : "border-border bg-muted/50 text-muted-foreground",
+            )}
+          >
+            <span
+              className={cn("h-2 w-2 rounded-full", userStatus === "online" ? "bg-emerald-500" : "bg-muted-foreground/50")}
+            />
+            {userStatus === "online" ? "Active now" : "Offline"}
+          </span>
+        }
+      >
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="flex justify-center lg:justify-start">
+            <div className="group relative">
+              <div className="h-44 w-44 overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary shadow-lg ring-4 ring-emerald-500/15 transition-transform duration-300 group-hover:scale-[1.02] sm:h-48 sm:w-48">
+                {profilePicturePreview ? (
+                  <img src={profilePicturePreview} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-secondary text-5xl font-bold text-white sm:text-6xl">
+                    {userData.fullName?.[0] || userData.displayName?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+              </div>
+              <label
+                className={cn(
+                  "absolute bottom-1 right-1 z-10 cursor-pointer rounded-full p-3 shadow-lg md:transform md:hover:scale-105",
+                  "bg-gradient-to-r from-primary to-secondary text-white transition-all duration-200 hover:from-primary/90 hover:to-secondary/90 hover:shadow-xl",
+                )}
+              >
+                <Upload className="h-5 w-5" />
+                <input
+                  ref={profileFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
+              </label>
+              {profilePicturePreview ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfilePicturePreview(null)
+                    setProfilePicture(null)
+                  }}
+                  className="absolute right-1 top-1 z-10 rounded-full bg-destructive p-2 text-destructive-foreground shadow-md transition hover:bg-destructive/90"
+                  title="Remove picture"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className="space-y-4 lg:col-span-2">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 dark:border-emerald-800/40 dark:bg-emerald-950/20">
+              <p className="text-sm text-muted-foreground">
+                Use a clear face photo when possible. This helps campus staff recognize you during consultations and
+                verification.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["JPG, PNG, GIF", "Max 5MB", "Square works best"].map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-md border border-border bg-background/90 px-2.5 py-1 text-xs font-medium text-foreground"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </StudentSection>
+
+      <StudentSection
+        title="Your scholarships"
+        subtitle="From approved applications here, plus programs you list from outside MOCAS"
+        icon={Award}
+        accent="amber"
+      >
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Through this portal</p>
+        {approvedScholarships.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-emerald-300/50 bg-emerald-500/[0.03] px-4 py-8 text-center text-sm text-muted-foreground dark:border-emerald-800/40">
+            <p className="mb-3">No approved scholarship on record yet.</p>
+            <Link
+              href="/student/apply"
+              className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Apply for a scholarship
+            </Link>
+          </div>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {approvedScholarships.map((s) => (
+              <li
+                key={s.id}
+                className="flex flex-col gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3 dark:border-emerald-800/50 dark:bg-emerald-950/30"
+              >
+                <span className="font-semibold leading-snug text-foreground">{s.scholarshipName}</span>
+                {formatApplicationDate(s.submittedAt) ? (
+                  <span className="text-xs text-muted-foreground">
+                    Approved · {formatApplicationDate(s.submittedAt)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Status: approved</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-4 text-xs text-muted-foreground">
+          New grants from this portal appear after admin approval.{" "}
+          <Link href="/student/apply" className="font-medium text-primary underline-offset-2 hover:underline">
+            Apply Scholarship
+          </Link>
+        </p>
+
+        <div
+          id="existing-scholarships"
+          className="scroll-mt-8 mt-8 border-t border-emerald-200/40 pt-8 dark:border-emerald-900/40"
+        >
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 ring-1 ring-amber-500/20 dark:bg-amber-950/40">
+                <Building2 className="h-5 w-5 text-amber-800 dark:text-amber-300" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-foreground">Outside this portal</h4>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  CHED, LGU, private foundations, other schools, employer grants — list anything not applied for here.
+                  Saved with <span className="font-medium text-foreground">Save changes</span> at the bottom.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={addExternalScholarship}
+              className={cn(STUDENT_GRADIENT_BTN, "gap-1.5 shadow-md hover:shadow-lg")}
+            >
+              <Plus className="h-4 w-4" />
+              Add scholarship
+            </button>
+          </div>
+
+          {externalScholarships.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+              No external scholarships yet. Use <span className="font-medium text-foreground">Add scholarship</span> if
+              you receive aid outside MOCAS.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {externalScholarships.map((row, index) => (
+                <div
+                  key={row.localId}
+                  className="rounded-xl border border-border bg-gradient-to-br from-muted/30 to-transparent p-4 dark:from-muted/15"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Entry {index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeExternalScholarship(row.localId)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                      aria-label={`Remove scholarship ${index + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs font-medium text-foreground">Scholarship / program name</label>
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(e) => updateExternalRow(row.localId, "name", e.target.value)}
+                        placeholder="e.g. CHED Tulong Dunong, LGU assistance"
+                        className={fieldInputClass}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground">Provider / sponsor (optional)</label>
+                      <input
+                        type="text"
+                        value={row.provider}
+                        onChange={(e) => updateExternalRow(row.localId, "provider", e.target.value)}
+                        placeholder="Agency or organization"
+                        className={fieldInputClass}
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs font-medium text-foreground">Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={row.notes}
+                        onChange={(e) => updateExternalRow(row.localId, "notes", e.target.value)}
+                        placeholder="School year, reference, etc."
+                        className={fieldInputClass}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </StudentSection>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <StudentSection
+          title="Personal information"
+          subtitle="Academic record on file"
+          icon={GraduationCap}
+          accent="emerald"
+        >
+          <div className="space-y-5">
+            {[
+              { field: "fullName", label: "Full name", icon: User, required: true, ph: "Your full name" },
+              { field: "studentNumber", label: "Student number", icon: Hash, required: true, ph: "Student ID / number" },
+              { field: "course", label: "Course", icon: GraduationCap, required: true, ph: "Program or course" },
+            ].map(({ field, label, icon: Icon, required, ph }) => (
+              <div key={field} className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Icon className="h-4 w-4 text-primary" />
+                  {label}
+                  {required ? <span className="text-destructive">*</span> : null}
+                </label>
+                <input
+                  type="text"
+                  value={userData[field]}
+                  onChange={(e) => handleInputChange(field, e.target.value)}
+                  className={fieldInputClass}
+                  placeholder={ph}
+                />
+              </div>
+            ))}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Calendar className="h-4 w-4 text-primary" />
+                Year level <span className="text-destructive">*</span>
+              </label>
+              <select
+                value={userData.yearLevel}
+                onChange={(e) => handleInputChange("yearLevel", e.target.value)}
+                className={fieldInputClass}
+              >
+                <option value="">Select year level</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <MapPin className="h-4 w-4 text-primary" />
+                Campus <span className="text-destructive">*</span>
+              </label>
+              <input
+                type="text"
+                value={userData.campus}
+                onChange={(e) => handleInputChange("campus", e.target.value)}
+                className={fieldInputClass}
+                placeholder="Campus name"
+              />
+            </div>
+          </div>
+        </StudentSection>
+
+        <StudentSection title="Email" subtitle="Account sign-in address (read-only)" icon={Mail} accent="teal">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Mail className="h-4 w-4 text-primary" />
+                Primary email
+              </label>
+              <input type="email" value={userData.email} disabled className={cn(fieldInputClass, "bg-muted/60")} />
+            </div>
+            <div className="rounded-xl border border-sky-200/80 bg-sky-50/80 p-3.5 dark:border-sky-900/50 dark:bg-sky-950/25">
+              <p className="text-xs leading-relaxed text-sky-900 dark:text-sky-200/90">
+                This email is tied to your login and cannot be changed here. Notifications are sent to this address.
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3.5 dark:border-emerald-800/40">
+              <p className="text-xs leading-relaxed text-emerald-900 dark:text-emerald-200/85">
+                Keep your personal information up to date so requirements and announcements match your campus record.
+              </p>
+            </div>
+          </div>
+        </StudentSection>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/50 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/50 p-4 shadow-sm ring-1 ring-emerald-500/10 dark:from-emerald-950/40 dark:via-card dark:to-emerald-950/20 dark:border-emerald-800/40 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Remember:</span> save after editing photo, scholarships, or school
+          details.
+        </p>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className={cn(STUDENT_GRADIENT_BTN, "px-8 text-sm font-bold")}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            <>
+              <Save className="h-5 w-5" />
+              Save changes
+            </>
+          )}
+        </button>
+      </div>
+
+      <ProfilePhotoCropDialog
+        open={cropOpen}
+        onOpenChange={handleCropOpenChange}
+        imageSrc={cropSrc}
+        onComplete={handleCropComplete}
+      />
     </div>
   )
 }

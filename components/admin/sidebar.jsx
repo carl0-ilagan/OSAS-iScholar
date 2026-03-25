@@ -2,7 +2,19 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileText, Megaphone, MessageSquare, Users, Award, Palette, BookOpen, FolderCheck } from "lucide-react"
+import {
+  LayoutDashboard,
+  FileText,
+  Megaphone,
+  MessageSquare,
+  Users,
+  Award,
+  Palette,
+  BookOpen,
+  FolderCheck,
+  FileBarChart,
+  ScrollText,
+} from "lucide-react"
 import { useBranding } from "@/contexts/BrandingContext"
 
 const navGroups = [
@@ -12,6 +24,8 @@ const navGroups = [
       { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
       { icon: FileText, label: "Applications", href: "/admin/applications" },
       { icon: Users, label: "User Management", href: "/admin/users" },
+      { icon: FileBarChart, label: "Reports", href: "/admin/reports" },
+      { icon: ScrollText, label: "Audit trails", href: "/admin/audit-trails" },
     ],
   },
   {
