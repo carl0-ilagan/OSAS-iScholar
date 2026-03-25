@@ -12,6 +12,10 @@ import ApplicationsTableSkeleton from "@/components/admin/applications-table-ske
 
 const ITEMS_PER_PAGE = 10
 
+function profileYesNo(value) {
+  return value === "Yes" || value === "No" ? value : ""
+}
+
 export default function CampusAdminApplicationsPage() {
   const { user } = useAuth()
   const activeCampus = useMemo(() => normalizeCampus(user?.campus || null), [user?.campus])
@@ -22,6 +26,9 @@ export default function CampusAdminApplicationsPage() {
   const [sortStatus, setSortStatus] = useState("all")
   const [sortScholarship, setSortScholarship] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [filterCourse, setFilterCourse] = useState("all")
+  const [filterIP, setFilterIP] = useState("all")
+  const [filterPWD, setFilterPWD] = useState("all")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const filterRef = useRef(null)
 
@@ -29,6 +36,8 @@ export default function CampusAdminApplicationsPage() {
     const data = docSnap.data() || {}
     let userName = "Unknown"
     let userPhotoURL = null
+    let indigenousGroup = ""
+    let pwd = ""
 
     if (data.userId) {
       try {
@@ -37,6 +46,8 @@ export default function CampusAdminApplicationsPage() {
           const userData = userDoc.data() || {}
           userName = userData.fullName || userData.displayName || "Unknown"
           userPhotoURL = userData.photoURL || null
+          indigenousGroup = profileYesNo(userData.indigenousGroup)
+          pwd = profileYesNo(userData.pwd)
         }
       } catch (error) {
         console.error("Error fetching user data:", error)
@@ -60,6 +71,8 @@ export default function CampusAdminApplicationsPage() {
       submittedAt: data.submittedAt,
       formData: data.formData || {},
       files: data.files || {},
+      indigenousGroup,
+      pwd,
     }
   }
 
@@ -113,6 +126,11 @@ export default function CampusAdminApplicationsPage() {
 
   const uniqueStatuses = useMemo(() => ["pending", "approved", "rejected", "under-review"], [])
 
+  const uniqueCourses = useMemo(() => {
+    const courses = [...new Set(applications.map((app) => app.course).filter((c) => c && c !== "N/A"))]
+    return courses.sort((a, b) => a.localeCompare(b))
+  }, [applications])
+
   const filteredApplications = useMemo(() => {
     let filtered = [...applications]
 
@@ -134,12 +152,28 @@ export default function CampusAdminApplicationsPage() {
       filtered = filtered.filter((app) => app.status === sortStatus)
     }
 
+    if (filterCourse !== "all") {
+      filtered = filtered.filter((app) => app.course === filterCourse)
+    }
+
+    if (filterIP === "yes") {
+      filtered = filtered.filter((app) => app.indigenousGroup === "Yes")
+    } else if (filterIP === "no") {
+      filtered = filtered.filter((app) => app.indigenousGroup === "No")
+    }
+
+    if (filterPWD === "yes") {
+      filtered = filtered.filter((app) => app.pwd === "Yes")
+    } else if (filterPWD === "no") {
+      filtered = filtered.filter((app) => app.pwd === "No")
+    }
+
     return filtered
-  }, [applications, sortScholarship, sortStatus, searchQuery])
+  }, [applications, sortScholarship, sortStatus, searchQuery, filterCourse, filterIP, filterPWD])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [sortScholarship, sortStatus, searchQuery])
+  }, [sortScholarship, sortStatus, searchQuery, filterCourse, filterIP, filterPWD])
 
   const totalPages = Math.ceil(filteredApplications.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -187,7 +221,7 @@ export default function CampusAdminApplicationsPage() {
                 Campus Applications
               </h1>
               <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-200/85">
-                Review scholarship applications submitted by students in your campus.
+                Review applications for your campus. Use Filters for course, IP, or PWD (from student profiles).
               </p>
             </div>
           </div>
@@ -208,7 +242,7 @@ export default function CampusAdminApplicationsPage() {
           <div className="relative" ref={filterRef}>
             <button
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-all duration-200 hover:bg-muted hover:shadow-md md:w-48"
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-all duration-200 hover:bg-muted hover:shadow-md md:w-56"
             >
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-primary" />
@@ -218,7 +252,7 @@ export default function CampusAdminApplicationsPage() {
             </button>
 
             {isFilterOpen ? (
-              <div className="animate-in fade-in zoom-in-95 absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-2xl duration-200">
+              <div className="animate-in fade-in zoom-in-95 absolute right-0 z-50 mt-2 max-h-[min(70vh,28rem)] w-72 overflow-y-auto rounded-lg border border-border bg-card shadow-2xl duration-200">
                 <div className="space-y-3 p-3">
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scholarship</label>
@@ -249,6 +283,48 @@ export default function CampusAdminApplicationsPage() {
                           {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Course (application)</label>
+                    <select
+                      value={filterCourse}
+                      onChange={(e) => setFilterCourse(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="all">All courses</option>
+                      {uniqueCourses.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">IP (profile)</label>
+                    <select
+                      value={filterIP}
+                      onChange={(e) => setFilterIP(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="all">All</option>
+                      <option value="yes">Indigenous Peoples — Yes</option>
+                      <option value="no">Indigenous Peoples — No</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">PWD (profile)</label>
+                    <select
+                      value={filterPWD}
+                      onChange={(e) => setFilterPWD(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="all">All</option>
+                      <option value="yes">PWD — Yes</option>
+                      <option value="no">PWD — No</option>
                     </select>
                   </div>
                 </div>

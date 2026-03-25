@@ -10,37 +10,7 @@ import { db } from "@/lib/firebase"
 import { collection, doc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
 import SuccessSignupModal from "./success-signup-modal"
-
-// Courses data by campus
-const coursesByCampus = {
-  "Main Campus": [
-    { name: "BS Agriculture", majors: ["Crop Science", "Animal Science"] },
-    { name: "BS Horticulture", majors: null },
-    { name: "BS Agroforestry", majors: null },
-    { name: "BS Environmental Science", majors: null },
-    { name: "BS Entrepreneurship", majors: null },
-    { name: "BS Agricultural & Biosystems Engineering", majors: null },
-    { name: "Bachelor of Elementary Education", majors: null },
-    { name: "Bachelor of Secondary Education", majors: ["Mathematics", "English", "Filipino", "Biological Science"] },
-    { name: "Bachelor of Arts in English Language", majors: null },
-  ],
-  "Calapan City Campus": [
-    { name: "Bachelor of Secondary Education", majors: ["Physical Sciences", "Mathematics", "English", "Filipino"] },
-    { name: "Bachelor of Technical-Vocational Teacher Education (ladderized)", majors: null },
-    { name: "BS Hotel & Tourism Management", majors: null },
-    { name: "BS Criminology (ladderized)", majors: null },
-    { name: "BS Information Technology (ladderized)", majors: null },
-  ],
-  "Bongabong Campus": [
-    { name: "BS Information Technology", majors: null },
-    { name: "BS Computer Engineering", majors: null },
-    { name: "BS Hotel & Restaurant Management (ladderized)", majors: null },
-    { name: "Bachelor of Secondary Education", majors: ["Biology", "English", "Mathematics"] },
-    { name: "Bachelor in Elementary Education", majors: null },
-    { name: "BS Criminology (ladderized)", majors: null },
-    { name: "BS Fisheries", majors: null },
-  ],
-}
+import { coursesByCampus } from "@/lib/mocas-courses-catalog"
 
 export default function SignupModal({ open, onOpenChange, onSwitchToLogin }) {
   const router = useRouter()

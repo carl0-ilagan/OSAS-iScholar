@@ -14,6 +14,7 @@ import { auth, db } from "@/lib/firebase"
 import { doc, updateDoc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 import { ROLE_ADMIN, ROLE_CAMPUS_ADMIN, ROLE_STUDENT, isAdminEmail } from "@/lib/role-check"
 import { getCampusAdminProfileByEmail, normalizeCampus } from "@/lib/campus-admin-config"
+import { clearProfileSetupReminderSessionFlag } from "@/lib/profile-setup-reminder-session"
 
 const AuthContext = createContext({})
 
@@ -174,6 +175,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
+      clearProfileSetupReminderSessionFlag()
       await firebaseSignOut(auth)
     } catch (error) {
       console.error("Sign out error:", error)

@@ -8,6 +8,58 @@ import { FileText, Search, Filter, ChevronDown } from "lucide-react"
 import ApplicationsTable from "@/components/admin/applications-table"
 import ApplicationsTableSkeleton from "@/components/admin/applications-table-skeleton"
 
+/** Normalize IP / PWD from Firestore user doc for filters */
+function profileYesNo(value) {
+  return value === "Yes" || value === "No" ? value : ""
+}
+
+async function buildApplicationsListFromSnapshot(snapshot) {
+  const applicationsData = []
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data()
+    let userName = "Unknown"
+    let userPhotoURL = null
+    let indigenousGroup = ""
+    let pwd = ""
+    if (data.userId) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", data.userId))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          userName = userData.fullName || userData.displayName || "Unknown"
+          userPhotoURL = userData.photoURL || null
+          indigenousGroup = profileYesNo(userData.indigenousGroup)
+          pwd = profileYesNo(userData.pwd)
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      }
+    }
+
+    applicationsData.push({
+      id: docSnap.id,
+      userId: data.userId,
+      name: userName,
+      photoURL: userPhotoURL,
+      scholarshipId: data.scholarshipId,
+      scholarshipName: data.scholarshipName || "Unknown Scholarship",
+      studentName: data.studentName || userName,
+      studentNumber: data.studentNumber || "N/A",
+      course: data.course || "N/A",
+      yearLevel: data.yearLevel || "N/A",
+      campus: data.campus || "N/A",
+      status: data.status || "pending",
+      submittedDate: data.submittedAt ? new Date(data.submittedAt).toLocaleDateString() : "N/A",
+      submittedAt: data.submittedAt,
+      formData: data.formData || {},
+      files: data.files || {},
+      indigenousGroup,
+      pwd,
+    })
+  }
+  return applicationsData
+}
+
 const DUMMY_APPLICATIONS = [
   {
     id: "preview-app-1",
@@ -26,6 +78,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "Yes",
+    pwd: "No",
   },
   {
     id: "preview-app-2",
@@ -44,6 +98,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "No",
+    pwd: "No",
   },
   {
     id: "preview-app-3",
@@ -62,6 +118,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "Yes",
+    pwd: "Yes",
   },
   {
     id: "preview-app-4",
@@ -80,6 +138,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "No",
+    pwd: "Yes",
   },
   {
     id: "preview-app-5",
@@ -98,6 +158,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "",
+    pwd: "",
   },
   {
     id: "preview-app-6",
@@ -116,6 +178,8 @@ const DUMMY_APPLICATIONS = [
     photoURL: null,
     formData: {},
     files: {},
+    indigenousGroup: "No",
+    pwd: "No",
   },
 ]
 
@@ -126,6 +190,9 @@ export default function ApplicationsPage() {
   const [sortStatus, setSortStatus] = useState("all")
   const [sortScholarship, setSortScholarship] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [filterCourse, setFilterCourse] = useState("all")
+  const [filterIP, setFilterIP] = useState("all")
+  const [filterPWD, setFilterPWD] = useState("all")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const filterRef = useRef(null)
 
@@ -142,46 +209,7 @@ export default function ApplicationsPage() {
           orderBy("submittedAt", "desc")
         )
         const snapshot = await getDocs(applicationsQuery)
-        
-        const applicationsData = []
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data()
-          
-          // Fetch user data to get name and photo
-          let userName = "Unknown"
-          let userPhotoURL = null
-          if (data.userId) {
-            try {
-              const userDoc = await getDoc(doc(db, "users", data.userId))
-              if (userDoc.exists()) {
-                const userData = userDoc.data()
-                userName = userData.fullName || userData.displayName || "Unknown"
-                userPhotoURL = userData.photoURL || null
-              }
-            } catch (error) {
-              console.error("Error fetching user data:", error)
-            }
-          }
-
-          applicationsData.push({
-            id: docSnap.id,
-            userId: data.userId,
-            name: userName,
-            photoURL: userPhotoURL,
-            scholarshipId: data.scholarshipId,
-            scholarshipName: data.scholarshipName || "Unknown Scholarship",
-            studentName: data.studentName || userName,
-            studentNumber: data.studentNumber || "N/A",
-            course: data.course || "N/A",
-            yearLevel: data.yearLevel || "N/A",
-            campus: data.campus || "N/A",
-            status: data.status || "pending",
-            submittedDate: data.submittedAt ? new Date(data.submittedAt).toLocaleDateString() : "N/A",
-            submittedAt: data.submittedAt,
-            formData: data.formData || {},
-            files: data.files || {},
-          })
-        }
+        const applicationsData = await buildApplicationsListFromSnapshot(snapshot)
         setApplications(applicationsData)
       } catch (error) {
         console.error("Error fetching applications:", error)
@@ -203,37 +231,66 @@ export default function ApplicationsPage() {
     return ["pending", "approved", "rejected", "under-review"]
   }, [])
 
-  // Filter applications
+  const uniqueCourses = useMemo(() => {
+    const courses = [
+      ...new Set(sourceApplications.map((app) => app.course).filter((c) => c && c !== "N/A")),
+    ]
+    return courses.sort((a, b) => a.localeCompare(b))
+  }, [sourceApplications])
+
+  // Filter applications (course / IP / PWD use student profile fields loaded with each application)
   const filteredApplications = useMemo(() => {
     let filtered = [...sourceApplications]
 
-    // Filter by name (search)
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      filtered = filtered.filter(app => 
-        app.name?.toLowerCase().includes(query) ||
-        app.studentName?.toLowerCase().includes(query) ||
-        app.studentNumber?.toLowerCase().includes(query)
+      const q = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(
+        (app) =>
+          app.name?.toLowerCase().includes(q) ||
+          app.studentName?.toLowerCase().includes(q) ||
+          app.studentNumber?.toLowerCase().includes(q),
       )
     }
 
-    // Filter by scholarship
     if (sortScholarship !== "all") {
-      filtered = filtered.filter(app => app.scholarshipName === sortScholarship)
+      filtered = filtered.filter((app) => app.scholarshipName === sortScholarship)
     }
 
-    // Filter by status
     if (sortStatus !== "all") {
-      filtered = filtered.filter(app => app.status === sortStatus)
+      filtered = filtered.filter((app) => app.status === sortStatus)
+    }
+
+    if (filterCourse !== "all") {
+      filtered = filtered.filter((app) => app.course === filterCourse)
+    }
+
+    if (filterIP === "yes") {
+      filtered = filtered.filter((app) => app.indigenousGroup === "Yes")
+    } else if (filterIP === "no") {
+      filtered = filtered.filter((app) => app.indigenousGroup === "No")
+    }
+
+    if (filterPWD === "yes") {
+      filtered = filtered.filter((app) => app.pwd === "Yes")
+    } else if (filterPWD === "no") {
+      filtered = filtered.filter((app) => app.pwd === "No")
     }
 
     return filtered
-  }, [sourceApplications, sortScholarship, sortStatus, searchQuery])
+  }, [
+    sourceApplications,
+    sortScholarship,
+    sortStatus,
+    searchQuery,
+    filterCourse,
+    filterIP,
+    filterPWD,
+  ])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [sortScholarship, sortStatus, searchQuery])
+  }, [sortScholarship, sortStatus, searchQuery, filterCourse, filterIP, filterPWD])
 
   // Pagination
   const totalPages = Math.ceil(filteredApplications.length / ITEMS_PER_PAGE)
@@ -268,45 +325,7 @@ export default function ApplicationsPage() {
         orderBy("submittedAt", "desc")
       )
       const snapshot = await getDocs(applicationsQuery)
-      
-      const applicationsData = []
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data()
-        
-        let userName = "Unknown"
-        let userPhotoURL = null
-        if (data.userId) {
-          try {
-            const userDoc = await getDoc(doc(db, "users", data.userId))
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
-              userName = userData.fullName || userData.displayName || "Unknown"
-              userPhotoURL = userData.photoURL || null
-            }
-          } catch (error) {
-            console.error("Error fetching user data:", error)
-          }
-        }
-
-        applicationsData.push({
-          id: docSnap.id,
-          userId: data.userId,
-          name: userName,
-          photoURL: userPhotoURL,
-          scholarshipId: data.scholarshipId,
-          scholarshipName: data.scholarshipName || "Unknown Scholarship",
-          studentName: data.studentName || userName,
-          studentNumber: data.studentNumber || "N/A",
-          course: data.course || "N/A",
-          yearLevel: data.yearLevel || "N/A",
-          campus: data.campus || "N/A",
-          status: data.status || "pending",
-          submittedDate: data.submittedAt ? new Date(data.submittedAt).toLocaleDateString() : "N/A",
-          submittedAt: data.submittedAt,
-          formData: data.formData || {},
-          files: data.files || {},
-        })
-      }
+      const applicationsData = await buildApplicationsListFromSnapshot(snapshot)
       setApplications(applicationsData)
     } catch (error) {
       console.error("Error refreshing applications:", error)
@@ -317,6 +336,16 @@ export default function ApplicationsPage() {
     <AdminLayoutWrapper>
       <div className="relative">
         <div className="p-4 md:p-6 lg:p-8">
+          <div className="mb-6">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
+              <FileText className="h-7 w-7 shrink-0 text-primary" aria-hidden />
+              Scholarship applications
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Filter eligible applicants by scholarship, status, course, IP (Indigenous Peoples), or PWD (Person with
+              Disability) from student profiles.
+            </p>
+          </div>
           {/* Search and Filters */}
           <div className="mb-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-end">
             {/* Search Bar */}
@@ -335,7 +364,7 @@ export default function ApplicationsPage() {
             <div className="relative" ref={filterRef}>
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="flex items-center justify-between gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-all duration-200 text-sm font-medium w-full md:w-48 shadow-sm hover:shadow-md"
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium shadow-sm transition-all duration-200 hover:bg-muted hover:shadow-md md:w-56"
               >
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-primary" />
@@ -346,17 +375,16 @@ export default function ApplicationsPage() {
 
               {/* Filter Dropdown Menu */}
               {isFilterOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                  <div className="p-3 space-y-3">
-                    {/* Scholarship Filter */}
+                <div className="absolute right-0 z-50 mt-2 max-h-[min(70vh,28rem)] w-72 overflow-y-auto rounded-lg border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                  <div className="space-y-3 p-3">
                     <div>
-                      <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Scholarship
                       </label>
                       <select
                         value={sortScholarship}
                         onChange={(e) => setSortScholarship(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                       >
                         <option value="all">All Scholarships</option>
                         {uniqueScholarships.map((scholarship) => (
@@ -367,22 +395,69 @@ export default function ApplicationsPage() {
                       </select>
                     </div>
 
-                    {/* Status Filter */}
                     <div>
-                      <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Status
                       </label>
                       <select
                         value={sortStatus}
                         onChange={(e) => setSortStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all duration-200"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                       >
                         <option value="all">All Status</option>
                         {uniqueStatuses.map((status) => (
                           <option key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+                            {status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
                           </option>
                         ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Course (application)
+                      </label>
+                      <select
+                        value={filterCourse}
+                        onChange={(e) => setFilterCourse(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        <option value="all">All courses</option>
+                        {uniqueCourses.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        IP (profile)
+                      </label>
+                      <select
+                        value={filterIP}
+                        onChange={(e) => setFilterIP(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        <option value="all">All</option>
+                        <option value="yes">Indigenous Peoples — Yes</option>
+                        <option value="no">Indigenous Peoples — No</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        PWD (profile)
+                      </label>
+                      <select
+                        value={filterPWD}
+                        onChange={(e) => setFilterPWD(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        <option value="all">All</option>
+                        <option value="yes">PWD — Yes</option>
+                        <option value="no">PWD — No</option>
                       </select>
                     </div>
                   </div>

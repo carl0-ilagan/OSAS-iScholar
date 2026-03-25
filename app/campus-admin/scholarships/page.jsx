@@ -21,6 +21,7 @@ import {
   FolderCheck,
   Plus,
   Save,
+  Loader2,
   Trash2,
   Upload,
   Users,
@@ -33,6 +34,7 @@ import { db } from "@/lib/firebase"
 import { submitAdminAuditLog } from "@/lib/client/admin-audit-log"
 import CampusAdminLayoutWrapper from "../campus-admin-layout"
 import { normalizeCampus } from "@/lib/campus-admin-config"
+import { getCourseNamesForCampus, getMajorsForCourseAtCampus } from "@/lib/mocas-courses-catalog"
 
 const DEFAULT_FORM_REQUIREMENTS = ["APPLICATION FORM", "STUDENT'S PROFILE FORM"]
 
@@ -47,6 +49,12 @@ const INITIAL_FORM = {
   temporarilyClosed: false,
   documentRequirementIds: [],
   logo: null,
+  /** @type {string[]} */
+  eligibleCourses: [],
+  /** @type {Record<string, string[]>} course name -> allowed majors (subset); empty key = any major */
+  eligibleMajorsByCourse: {},
+  requireIndigenousPeoples: false,
+  requirePWD: false,
 }
 
 export default function CampusAdminScholarshipsPage() {
@@ -62,6 +70,7 @@ export default function CampusAdminScholarshipsPage() {
   const [logoPreview, setLogoPreview] = useState(null)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [scholarshipToDelete, setScholarshipToDelete] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
   const modalRef = useRef(null)
 
   const fetchData = async () => {
@@ -97,6 +106,8 @@ export default function CampusAdminScholarshipsPage() {
       setLoading(false)
     }
   }
+
+  const campusCourseOptions = useMemo(() => getCourseNamesForCampus(activeCampus), [activeCampus])
 
   useEffect(() => {
     fetchData()
@@ -164,6 +175,13 @@ export default function CampusAdminScholarshipsPage() {
         temporarilyClosed: scholarship.temporarilyClosed || false,
         documentRequirementIds: scholarship.documentRequirementIds || [],
         logo: scholarship.logo || null,
+        eligibleCourses: Array.isArray(scholarship.eligibleCourses) ? [...scholarship.eligibleCourses] : [],
+        eligibleMajorsByCourse:
+          scholarship.eligibleMajorsByCourse && typeof scholarship.eligibleMajorsByCourse === "object"
+            ? { ...scholarship.eligibleMajorsByCourse }
+            : {},
+        requireIndigenousPeoples: scholarship.requireIndigenousPeoples === true,
+        requirePWD: scholarship.requirePWD === true,
       })
       setLogoPreview(scholarship.logo || null)
     } else {
@@ -183,6 +201,7 @@ export default function CampusAdminScholarshipsPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (isSaving) return
 
     if (!formData.name.trim()) {
       toast.error("Please enter a scholarship name.")
@@ -194,6 +213,7 @@ export default function CampusAdminScholarshipsPage() {
     }
 
     try {
+      setIsSaving(true)
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -208,6 +228,25 @@ export default function CampusAdminScholarshipsPage() {
         campus: activeCampus,
         createdBy: user?.uid || null,
         updatedAt: new Date().toISOString(),
+        eligibleCourses: Array.isArray(formData.eligibleCourses) ? formData.eligibleCourses.filter(Boolean) : [],
+        eligibleMajorsByCourse: (() => {
+          const raw = formData.eligibleMajorsByCourse
+          const courses = new Set(
+            Array.isArray(formData.eligibleCourses) ? formData.eligibleCourses.map((c) => String(c).trim()) : [],
+          )
+          if (!raw || typeof raw !== "object") return {}
+          /** @type {Record<string, string[]>} */
+          const out = {}
+          for (const [courseKey, majors] of Object.entries(raw)) {
+            const cn = String(courseKey).trim()
+            if (!courses.has(cn) || !Array.isArray(majors)) continue
+            const cleaned = [...new Set(majors.map((m) => String(m).trim()).filter(Boolean))]
+            if (cleaned.length) out[cn] = cleaned
+          }
+          return out
+        })(),
+        requireIndigenousPeoples: formData.requireIndigenousPeoples === true,
+        requirePWD: formData.requirePWD === true,
       }
 
       if (editingScholarship) {
@@ -303,6 +342,8 @@ export default function CampusAdminScholarshipsPage() {
     } catch (error) {
       console.error("Error saving scholarship:", error)
       toast.error("Failed to save scholarship.")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -449,6 +490,26 @@ export default function CampusAdminScholarshipsPage() {
                       {(scholarship.documentRequirementIds?.length || 0) !== 1 ? "s" : ""}
                     </span>
                   </div>
+                  {(Array.isArray(scholarship.eligibleCourses) && scholarship.eligibleCourses.length > 0) ||
+                  scholarship.requireIndigenousPeoples ||
+                  scholarship.requirePWD ||
+                  (scholarship.eligibleMajorsByCourse &&
+                    typeof scholarship.eligibleMajorsByCourse === "object" &&
+                    Object.keys(scholarship.eligibleMajorsByCourse).length > 0) ? (
+                    <p className="text-xs text-muted-foreground">
+                      Eligibility:{" "}
+                      {Array.isArray(scholarship.eligibleCourses) && scholarship.eligibleCourses.length > 0
+                        ? `${scholarship.eligibleCourses.length} course(s)`
+                        : "any course"}
+                      {scholarship.eligibleMajorsByCourse &&
+                      typeof scholarship.eligibleMajorsByCourse === "object" &&
+                      Object.keys(scholarship.eligibleMajorsByCourse).length > 0
+                        ? " · major filter"
+                        : ""}
+                      {scholarship.requireIndigenousPeoples ? " · IP only" : ""}
+                      {scholarship.requirePWD ? " · PWD only" : ""}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-2 border-t border-border pt-4">
@@ -587,22 +648,125 @@ export default function CampusAdminScholarshipsPage() {
                         <span className="text-sm text-foreground">Temporarily closed</span>
                       </label>
                     </div>
+
+                    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+                      <p className="mb-1 text-xs font-semibold text-foreground">Who can apply</p>
+                      <p className="mb-2 text-[11px] text-muted-foreground">
+                        Optional: limit by course (e.g. DOST-style STEM) and/or IP/PWD. Leave no courses checked to
+                        allow any course at this campus.
+                      </p>
+                      <div className="mb-3 max-h-36 space-y-1.5 overflow-y-auto rounded-md border border-border/50 bg-background/80 p-2">
+                        {campusCourseOptions.map((cn) => (
+                          <label key={cn} className="flex cursor-pointer items-start gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={formData.eligibleCourses.includes(cn)}
+                              onChange={(e) => {
+                                setFormData((prev) => {
+                                  const nextCourses = e.target.checked
+                                    ? [...prev.eligibleCourses, cn]
+                                    : prev.eligibleCourses.filter((c) => c !== cn)
+                                  const nextMajors = { ...(prev.eligibleMajorsByCourse || {}) }
+                                  if (!e.target.checked) delete nextMajors[cn]
+                                  return {
+                                    ...prev,
+                                    eligibleCourses: nextCourses,
+                                    eligibleMajorsByCourse: nextMajors,
+                                  }
+                                })
+                              }}
+                            />
+                            <span className="leading-snug">{cn}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {formData.eligibleCourses.some((cn) => {
+                        const m = activeCampus ? getMajorsForCourseAtCampus(cn, activeCampus) : null
+                        return m && m.length > 0
+                      }) ? (
+                        <div className="mb-3 space-y-2 rounded-md border border-border/50 bg-background/80 p-2">
+                          <p className="text-[11px] font-medium text-foreground">Major filter (optional)</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            For programs with majors: check only the majors that may apply. Leave a program unchecked
+                            below to allow any major for that program.
+                          </p>
+                          {formData.eligibleCourses.map((cn) => {
+                            const majors = activeCampus ? getMajorsForCourseAtCampus(cn, activeCampus) : null
+                            if (!majors?.length) return null
+                            const selected = formData.eligibleMajorsByCourse[cn] || []
+                            return (
+                              <div key={cn} className="rounded border border-border/40 p-2">
+                                <p className="mb-1.5 text-[11px] font-semibold text-foreground">{cn}</p>
+                                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                  {majors.map((maj) => (
+                                    <label key={maj} className="flex cursor-pointer items-center gap-1.5 text-[11px]">
+                                      <input
+                                        type="checkbox"
+                                        checked={selected.includes(maj)}
+                                        onChange={(e) => {
+                                          setFormData((prev) => {
+                                            const cur = { ...(prev.eligibleMajorsByCourse || {}) }
+                                            const set = new Set(cur[cn] || [])
+                                            if (e.target.checked) set.add(maj)
+                                            else set.delete(maj)
+                                            const arr = Array.from(set)
+                                            if (arr.length === 0) {
+                                              const { [cn]: _, ...rest } = cur
+                                              return { ...prev, eligibleMajorsByCourse: rest }
+                                            }
+                                            return { ...prev, eligibleMajorsByCourse: { ...cur, [cn]: arr } }
+                                          })
+                                        }}
+                                      />
+                                      <span>{maj}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : null}
+
+                      <label className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/80 p-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.requireIndigenousPeoples}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, requireIndigenousPeoples: e.target.checked }))
+                          }
+                        />
+                        <span className="text-sm text-foreground">Indigenous Peoples (IP) students only</span>
+                      </label>
+                      <label className="mt-2 flex items-center gap-2 rounded-lg border border-border/40 bg-card/80 p-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.requirePWD}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, requirePWD: e.target.checked }))}
+                        />
+                        <span className="text-sm text-foreground">Persons with Disability (PWD) only</span>
+                      </label>
+                    </div>
                     </div>
 
                     <div className="mt-3 flex items-center justify-end gap-2 border-t border-border/40 pt-3">
                       <button
                         type="button"
                         onClick={handleCloseModal}
-                        className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+                        disabled={isSaving}
+                        className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Cancel
                       </button>
             <button
               type="submit"
-                        className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white hover:from-primary/90 hover:to-secondary/90"
+                        disabled={isSaving}
+                        className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-secondary px-4 py-2 text-sm font-semibold text-white hover:from-primary/90 hover:to-secondary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
-                        <Save className="h-4 w-4" />
-                        {editingScholarship ? "Update Scholarship" : "Add Scholarship"}
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {isSaving ? "Saving..." : editingScholarship ? "Update Scholarship" : "Add Scholarship"}
             </button>
                     </div>
           </form>

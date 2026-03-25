@@ -166,6 +166,7 @@ export default function WebRtcRoom({
   const slowInternetTimerRef = useRef(null)
   const reconnectTimerRef = useRef(null)
   const hasConnectedOnceRef = useRef(false)
+  const studentAnsweredSessionIdRef = useRef(null)
   const stateUpdateRef = useRef({ last: "", at: 0 })
   const autoStartAttemptedRef = useRef(false)
 
@@ -559,6 +560,13 @@ export default function WebRtcRoom({
 
   useEffect(() => {
     if (!room?.expiresAt) {
+      if (room?.scheduledStartAt) {
+        const dt = new Date(room.scheduledStartAt)
+        if (!Number.isNaN(dt.getTime())) {
+          setRemainingLabel(`Scheduled: ${dt.toLocaleString()}`)
+          return
+        }
+      }
       setRemainingLabel("No timer")
       return
     }
@@ -566,7 +574,7 @@ export default function WebRtcRoom({
     tick()
     const timer = setInterval(tick, 1000)
     return () => clearInterval(timer)
-  }, [room?.expiresAt])
+  }, [room?.expiresAt, room?.scheduledStartAt])
 
   useEffect(() => {
     if (role !== "student" || !user?.uid || !roomId) {
@@ -598,6 +606,12 @@ export default function WebRtcRoom({
         const data = snap.data()
         if (String(data.status || "active") !== "active") {
           throw new Error("Room is not active.")
+        }
+        if (data.scheduledStartAt) {
+          const scheduledMs = new Date(data.scheduledStartAt).getTime()
+          if (!Number.isNaN(scheduledMs) && scheduledMs > Date.now()) {
+            throw new Error("Consultation is scheduled for later.")
+          }
         }
         if (data.expiresAt && new Date(data.expiresAt).getTime() <= Date.now()) {
           throw new Error("Room already expired.")
@@ -646,6 +660,9 @@ export default function WebRtcRoom({
       const activeSessionId = `${Date.now()}_${user.uid}`
       const stream = await ensureLocalMedia()
       const pc = await buildPeerConnection(activeSessionId, stream)
+      const durationMinutes = Number(room.durationMinutes ?? 0) || 0
+      const nowMs = Date.now()
+      const computedExpiresAt = durationMinutes > 0 ? new Date(nowMs + durationMinutes * 60 * 1000).toISOString() : null
 
       const answerCandidatesQuery = query(
         collection(roomRef, "answerCandidates"),
@@ -674,6 +691,7 @@ export default function WebRtcRoom({
         activeSessionId,
         callState: "calling",
         callStartedBy: user.uid,
+        expiresAt: computedExpiresAt,
         updatedAt: nowIso(),
       })
 
@@ -716,24 +734,50 @@ export default function WebRtcRoom({
     if (loading || error || connecting || !room) return
     if (autoStartAttemptedRef.current) return
     if (String(room.status || "active") !== "active") return
+    if (!room.joinedStudentId) return
+    if (room.scheduledStartAt) {
+      const scheduledMs = new Date(room.scheduledStartAt).getTime()
+      if (!Number.isNaN(scheduledMs) && scheduledMs > Date.now()) return
+    }
     if (room.expiresAt && new Date(room.expiresAt).getTime() <= Date.now()) return
     if (room.offer && room.activeSessionId) return
 
     autoStartAttemptedRef.current = true
     startCall()
-  }, [role, loading, error, connecting, room, room?.offer, room?.activeSessionId])
+  }, [role, loading, error, connecting, room?.joinedStudentId, room?.scheduledStartAt, room?.offer, room?.activeSessionId, room?.expiresAt])
+
+  useEffect(() => {
+    if (role !== "student") return
+    if (loading || error || connecting) return
+    if (!room || !user?.uid) return
+    if (room.joinedStudentId !== user.uid) return
+    if (!room.offer || !room.activeSessionId) return
+    if (studentAnsweredSessionIdRef.current === room.activeSessionId) return
+
+    // When admin starts the call, student should automatically answer.
+    void (async () => {
+      await joinCall()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, loading, error, connecting, room?.joinedStudentId, room?.offer, room?.activeSessionId])
 
   const joinCall = async () => {
-    if (!room?.offer || !room?.activeSessionId) {
-      toast.error("No active call offer yet.")
-      return
-    }
+    if (!room) return
     if (room.expiresAt && new Date(room.expiresAt).getTime() <= Date.now()) {
       toast.error("Room duration already expired.")
       return
     }
     const seatOk = await claimSeatForStudent()
     if (!seatOk) return
+
+    // If admin hasn't started the call yet, we've already claimed the seat.
+    if (!room.offer || !room.activeSessionId) {
+      toast.success("You joined. Waiting for the admin to start the consultation.")
+      return
+    }
+
+    if (studentAnsweredSessionIdRef.current === room.activeSessionId) return
+    studentAnsweredSessionIdRef.current = room.activeSessionId
     try {
       setConnecting(true)
       cleanupPeer({ keepLocalMedia: true })
@@ -776,6 +820,8 @@ export default function WebRtcRoom({
     } catch (joinError) {
       console.error("Error joining call:", joinError)
       toast.error("Unable to join call. Check camera and microphone permissions.")
+      // Allow the auto-answer effect to retry if the offer/session becomes available again.
+      studentAnsweredSessionIdRef.current = null
       cleanupPeer()
     } finally {
       setConnecting(false)
@@ -927,7 +973,9 @@ export default function WebRtcRoom({
 
   const isExpired = room?.expiresAt ? new Date(room.expiresAt).getTime() <= Date.now() : false
   const isInvitedStudent = role === "student" && room?.invitedStudentId && room.invitedStudentId === user?.uid
-  const requiresApproval = role === "student" && room && !isInvitedStudent
+  const isReservedForAnother =
+    role === "student" && room?.invitedStudentId && String(room.invitedStudentId) !== String(user?.uid || "")
+  const requiresApproval = role === "student" && room && !isInvitedStudent && !isReservedForAnother
   const hasApproval = isInvitedStudent || joinRequestStatus === "approved"
   const isPendingApproval = requiresApproval && joinRequestStatus === "pending"
   const isRejectedApproval = requiresApproval && joinRequestStatus === "rejected"
@@ -942,6 +990,10 @@ export default function WebRtcRoom({
     room?.leftSessionId &&
     room?.activeSessionId &&
     room.leftSessionId === room.activeSessionId
+  const scheduledStartReached = room?.scheduledStartAt
+    ? !Number.isNaN(new Date(room.scheduledStartAt).getTime()) && new Date(room.scheduledStartAt).getTime() <= Date.now()
+    : true
+  const alreadyJoined = role === "student" && room?.joinedStudentId && room.joinedStudentId === user?.uid
   const shouldMirrorLocal = cameraFacingMode === "user"
   const remoteFacingMode = role === "campus_admin" ? room?.studentFacingMode : room?.adminFacingMode
   const shouldMirrorRemote = remoteFacingMode === "user"
@@ -952,11 +1004,11 @@ export default function WebRtcRoom({
     role === "student" &&
     room &&
     String(room.status || "active") === "active" &&
-    room.offer &&
-    room.activeSessionId &&
     !isExpired &&
     hasApproval &&
+    scheduledStartReached &&
     !roomTakenByAnother &&
+    !alreadyJoined &&
     !studentLeftCurrentSession
   const submitJoinRequest = async () => {
     if (role !== "student" || !user?.uid || !roomId || isInvitedStudent) return

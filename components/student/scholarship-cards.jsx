@@ -1,13 +1,31 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { CheckCircle, GraduationCap, ArrowRight, FileText, Eye, Sparkles, Award, Clock, AlertCircle } from "lucide-react"
 import ScholarshipApplyModal from "./scholarship-apply-modal"
+import { evaluateScholarshipEligibility } from "@/lib/scholarship-eligibility"
 import { useAuth } from "@/contexts/AuthContext"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore"
 
-export default function ScholarshipApplicationCards({ id, name, description, benefit, benefitAmount, requirements = [], documentRequirementIds = [], slots, batchName, logo, temporarilyClosed, active }) {
+export default function ScholarshipApplicationCards({
+  id,
+  name,
+  description,
+  benefit,
+  benefitAmount,
+  requirements = [],
+  documentRequirementIds = [],
+  eligibleCourses = [],
+  eligibleMajorsByCourse = {},
+  requireIndigenousPeoples = false,
+  requirePWD = false,
+  slots,
+  batchName,
+  logo,
+  temporarilyClosed,
+  active,
+}) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -124,6 +142,15 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
     fetchUserData()
   }, [user, id])
 
+  const eligibility = useMemo(
+    () =>
+      evaluateScholarshipEligibility(
+        { eligibleCourses, requireIndigenousPeoples, requirePWD },
+        userData,
+      ),
+    [eligibleCourses, requireIndigenousPeoples, requirePWD, userData],
+  )
+
   // Build requirements list: 2 default forms + document requirements
   const defaultForms = ["APPLICATION FORM", "STUDENT'S PROFILE FORM"]
   
@@ -160,6 +187,21 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                   {temporarilyClosed && (
                     <span className="rounded-md border border-amber-500/35 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                       Closed
+                    </span>
+                  )}
+                  {Array.isArray(eligibleCourses) && eligibleCourses.length > 0 && (
+                    <span className="rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
+                      Course filter
+                    </span>
+                  )}
+                  {requireIndigenousPeoples && (
+                    <span className="rounded-md border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-300">
+                      IP
+                    </span>
+                  )}
+                  {requirePWD && (
+                    <span className="rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800 dark:text-rose-300">
+                      PWD
                     </span>
                   )}
                 </div>
@@ -242,14 +284,38 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
                 <AlertCircle className="h-4 w-4" />
                 <span>Not available</span>
               </button>
+            ) : isCheckingApplication ? (
+              <button
+                className="flex w-full cursor-wait items-center justify-center gap-2 rounded-xl border border-emerald-200/60 bg-emerald-50/50 py-2.5 text-sm font-semibold text-emerald-800/80 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200/80"
+                disabled
+              >
+                <span>Loading…</span>
+              </button>
+            ) : !eligibility.eligible ? (
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-xl border border-rose-200/80 bg-rose-50/90 py-2.5 text-sm font-semibold text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+                  disabled
+                >
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    You&apos;re not eligible
+                  </span>
+                  {eligibility.reasons[0] ? (
+                    <span className="px-2 text-center text-[11px] font-normal leading-snug text-rose-800/90 dark:text-rose-200/90">
+                      {eligibility.reasons[0]}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
             ) : (
               <button
-                className="group/btn flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/15 transition hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60"
+                className="group/btn flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/15 transition hover:from-emerald-700 hover:to-teal-700"
                 onClick={(e) => {
                   e.stopPropagation()
                   setIsApplyModalOpen(true)
                 }}
-                disabled={isCheckingApplication}
               >
                 <span>Apply now</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
@@ -453,7 +519,21 @@ export default function ScholarshipApplicationCards({ id, name, description, ben
       <ScholarshipApplyModal
         isOpen={isApplyModalOpen}
         onClose={() => setIsApplyModalOpen(false)}
-        scholarship={{ id, name, description, benefit, benefitAmount, documentRequirementIds }}
+        scholarship={{
+          id,
+          name,
+          description,
+          benefit,
+          benefitAmount,
+          documentRequirementIds,
+          eligibleCourses,
+          eligibleMajorsByCourse,
+          requireIndigenousPeoples,
+          requirePWD,
+          temporarilyClosed,
+          slots,
+          logo,
+        }}
         userData={userData}
         onApplicationSubmitted={() => setHasApplied(true)}
       />

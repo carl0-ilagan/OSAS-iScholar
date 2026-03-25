@@ -52,7 +52,8 @@ export default function StudentLayout({ children }) {
       ) : (
         <>
           <StudentHeader />
-          <main className="min-h-screen pb-12 pt-[4.5rem]">
+          {/* pt-16 matches StudentHeader row height (h-16) + fixed profile strip uses top-16 */}
+          <main className="min-h-screen pb-12 pt-16">
             {/* Full-width strip directly under the header (not constrained to max-w-7xl) */}
             <StudentProfileSetupReminder />
             <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-1">

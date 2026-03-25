@@ -30,6 +30,13 @@ export default function ApplyPage() {
               benefit: data.benefit || "N/A",
               benefitAmount: data.benefitAmount || data.amount || "N/A",
               documentRequirementIds: data.documentRequirementIds || [],
+              eligibleCourses: Array.isArray(data.eligibleCourses) ? data.eligibleCourses : [],
+              eligibleMajorsByCourse:
+                data.eligibleMajorsByCourse && typeof data.eligibleMajorsByCourse === "object"
+                  ? data.eligibleMajorsByCourse
+                  : {},
+              requireIndigenousPeoples: data.requireIndigenousPeoples === true,
+              requirePWD: data.requirePWD === true,
               slots: data.slots || null,
               batchName: data.batchName || null,
               logo: data.logo || null,

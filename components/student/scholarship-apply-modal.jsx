@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase"
 import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, runTransaction, orderBy, increment } from "firebase/firestore"
 import { useAuth } from "@/contexts/AuthContext"
 import { generateScholarshipCode } from "@/lib/scholarship-tracker"
+import { evaluateScholarshipEligibility } from "@/lib/scholarship-eligibility"
 
 export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, userData, onApplicationSubmitted }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -184,6 +185,16 @@ export default function ScholarshipApplyModal({ isOpen, onClose, scholarship, us
       toast.error("Please log in to apply", {
         icon: <AlertCircle className="w-5 h-5" />,
         duration: 3000,
+        position: "top-right",
+      })
+      return
+    }
+
+    const { eligible, reasons } = evaluateScholarshipEligibility(scholarship, userData)
+    if (!eligible) {
+      toast.error(reasons[0] || "You're not eligible for this scholarship.", {
+        icon: <AlertCircle className="w-5 h-5" />,
+        duration: 5000,
         position: "top-right",
       })
       return

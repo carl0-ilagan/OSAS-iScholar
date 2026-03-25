@@ -7,59 +7,14 @@ import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "fireba
 import { toast } from "sonner"
 import GenericForm from "@/components/student/generic-form"
 import { CheckCircle, Download, Loader2 } from "lucide-react"
+import {
+  getAllCourseNames,
+  getMajorsForCourse,
+  getMajorsForCourseAtCampus,
+  resolveCanonicalCourseName,
+} from "@/lib/mocas-courses-catalog"
 
-// Courses data by campus - matching signup
-const coursesByCampus = {
-  "Main Campus": [
-    { name: "BS Agriculture", majors: ["Crop Science", "Animal Science"] },
-    { name: "BS Horticulture", majors: null },
-    { name: "BS Agroforestry", majors: null },
-    { name: "BS Environmental Science", majors: null },
-    { name: "BS Entrepreneurship", majors: null },
-    { name: "BS Agricultural & Biosystems Engineering", majors: null },
-    { name: "Bachelor of Elementary Education", majors: null },
-    { name: "Bachelor of Secondary Education", majors: ["Mathematics", "English", "Filipino", "Biological Science"] },
-    { name: "Bachelor of Arts in English Language", majors: null },
-  ],
-  "Calapan City Campus": [
-    { name: "Bachelor of Secondary Education", majors: ["Physical Sciences", "Mathematics", "English", "Filipino"] },
-    { name: "Bachelor of Technical-Vocational Teacher Education (ladderized)", majors: null },
-    { name: "BS Hotel & Tourism Management", majors: null },
-    { name: "BS Criminology (ladderized)", majors: null },
-    { name: "BS Information Technology (ladderized)", majors: null },
-  ],
-  "Bongabong Campus": [
-    { name: "BS Information Technology", majors: null },
-    { name: "BS Computer Engineering", majors: null },
-    { name: "BS Hotel & Restaurant Management (ladderized)", majors: null },
-    { name: "Bachelor of Secondary Education", majors: ["Biology", "English", "Mathematics"] },
-    { name: "Bachelor in Elementary Education", majors: null },
-    { name: "BS Criminology (ladderized)", majors: null },
-    { name: "BS Fisheries", majors: null },
-  ],
-}
-
-// Get all unique courses across all campuses
-const getAllCourses = () => {
-  const courseSet = new Set()
-  Object.values(coursesByCampus).forEach(campusCourses => {
-    campusCourses.forEach(course => {
-      courseSet.add(course.name)
-    })
-  })
-  return Array.from(courseSet).sort()
-}
-
-// Get majors for a specific course
-const getMajorsForCourse = (courseName) => {
-  for (const campusCourses of Object.values(coursesByCampus)) {
-    const course = campusCourses.find(c => c.name === courseName)
-    if (course && course.majors) {
-      return course.majors
-    }
-  }
-  return null
-}
+const getAllCourses = getAllCourseNames
 
 export default function ApplicationFormPage() {
   const { user } = useAuth()
@@ -77,7 +32,7 @@ export default function ApplicationFormPage() {
           if (userDoc.exists()) {
             const data = userDoc.data()
             setUserData(data)
-            setSelectedCourse(data.course || '')
+            setSelectedCourse(resolveCanonicalCourseName(data.course))
           }
         } catch (error) {
           console.error("Error fetching user data:", error)
@@ -91,10 +46,13 @@ export default function ApplicationFormPage() {
     fetchUserData()
   }, [user])
 
-  // Get available majors based on selected course
+  // Campus-aware majors (BSEd majors differ by campus)
   const availableMajors = useMemo(() => {
-    return selectedCourse ? getMajorsForCourse(selectedCourse) : null
-  }, [selectedCourse])
+    if (!selectedCourse) return null
+    const campus = String(userData?.campus || "").trim()
+    const atCampus = campus ? getMajorsForCourseAtCampus(selectedCourse, campus) : null
+    return atCampus ?? getMajorsForCourse(selectedCourse)
+  }, [selectedCourse, userData?.campus])
   
   const showMajor = availableMajors && availableMajors.length > 0
 
@@ -715,10 +673,9 @@ export default function ApplicationFormPage() {
     middleName: userData.middleName || ''
   } : {}
 
-  // Update selectedCourse when userData changes
   useEffect(() => {
     if (userData?.course) {
-      setSelectedCourse(userData.course)
+      setSelectedCourse(resolveCanonicalCourseName(userData.course))
     }
   }, [userData])
 

@@ -24,15 +24,36 @@ import {
   Trash2,
   Building2,
   Sparkles,
+  Accessibility,
+  UsersRound,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import ProfilePhotoCropDialog, {
   STUDENT_GRADIENT_BTN,
 } from "@/components/student/profile-photo-crop-dialog"
+import { coursesByCampus, getCampusNames, getMajorsForCourseAtCampus } from "@/lib/mocas-courses-catalog"
 
 const fieldInputClass =
   "w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/[0.02] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/45 disabled:cursor-not-allowed disabled:opacity-60"
+
+const YES_NO = [
+  { value: "", label: "Select…" },
+  { value: "Yes", label: "Yes" },
+  { value: "No", label: "No" },
+]
+
+const INDIGENOUS_GROUP_TYPES = [
+  "Hanunuo",
+  "Bangon",
+  "Iraya",
+  "Alangan",
+  "Tadyawan",
+  "Tawbuid",
+  "Buhid",
+  "Ratagnon",
+  "Others",
+]
 
 function formatApplicationDate(value) {
   if (!value) return null
@@ -91,6 +112,11 @@ export default function ProfilePage() {
     yearLevel: "",
     campus: "",
     email: "",
+    /** "Yes" | "No" | "" — aligns with student profile form / admin analytics */
+    indigenousGroup: "",
+    indigenousGroupType: "",
+    pwd: "",
+    pwdType: "",
   })
   const [profilePicture, setProfilePicture] = useState(null)
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
@@ -120,9 +146,17 @@ export default function ProfilePage() {
             displayName: data.displayName || "",
             studentNumber: data.studentNumber || "",
             course: data.course || "",
+            major:
+              data.major && String(data.major).trim() && String(data.major).trim() !== "none"
+                ? String(data.major).trim()
+                : "",
             yearLevel: data.yearLevel || "",
             campus: data.campus || "",
             email: user.email || "",
+            indigenousGroup: data.indigenousGroup === "Yes" || data.indigenousGroup === "No" ? data.indigenousGroup : "",
+            indigenousGroupType: String(data.indigenousGroupType || "").trim(),
+            pwd: data.pwd === "Yes" || data.pwd === "No" ? data.pwd : "",
+            pwdType: String(data.pwdType || "").trim(),
           })
           setProfilePicturePreview(data.photoURL || user.photoURL || null)
           setUserStatus(data.status || "offline")
@@ -267,6 +301,21 @@ export default function ProfilePage() {
     try {
       setSaving(true)
 
+      const majorsForProgram = userData.campus
+        ? getMajorsForCourseAtCampus(userData.course, userData.campus)
+        : null
+      if (majorsForProgram?.length) {
+        const m = String(userData.major || "").trim()
+        if (!m || m === "none") {
+          toast.error("Please select your major for this program.", {
+            icon: <XCircle className="w-4 h-4" />,
+            duration: 3000,
+          })
+          setSaving(false)
+          return
+        }
+      }
+
       const externalPayload = externalScholarships
         .map((row) => ({
           name: String(row.name || "").trim(),
@@ -275,13 +324,24 @@ export default function ProfilePage() {
         }))
         .filter((row) => row.name.length > 0)
 
+      const indigenousGroup = userData.indigenousGroup === "Yes" || userData.indigenousGroup === "No" ? userData.indigenousGroup : ""
+      const pwd = userData.pwd === "Yes" || userData.pwd === "No" ? userData.pwd : ""
+
       const updateData = {
         fullName: userData.fullName,
         displayName: userData.fullName || userData.displayName,
         studentNumber: userData.studentNumber,
         course: userData.course,
+        major:
+          majorsForProgram?.length && String(userData.major || "").trim() && userData.major !== "none"
+            ? String(userData.major).trim()
+            : null,
         yearLevel: userData.yearLevel,
         campus: userData.campus,
+        indigenousGroup,
+        indigenousGroupType: indigenousGroup === "Yes" ? String(userData.indigenousGroupType || "").trim() : "",
+        pwd,
+        pwdType: pwd === "Yes" ? String(userData.pwdType || "").trim() : "",
         externalScholarships: externalPayload,
         updatedAt: new Date().toISOString(),
       }
@@ -585,6 +645,99 @@ export default function ProfilePage() {
         </div>
       </StudentSection>
 
+      <StudentSection
+        title="Indigenous Peoples (IP) & PWD"
+        subtitle="Required for accurate campus records (same options as the extended student profile form)"
+        icon={UsersRound}
+        accent="teal"
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4 dark:bg-muted/10">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <UsersRound className="h-4 w-4 shrink-0 text-primary" />
+              Are you a member of Indigenous Peoples (IP)?
+            </label>
+            <p className="text-xs text-muted-foreground">Select Yes or No.</p>
+            <select
+              value={userData.indigenousGroup}
+              onChange={(e) => {
+                const v = e.target.value
+                setUserData((prev) => ({
+                  ...prev,
+                  indigenousGroup: v,
+                  indigenousGroupType: v === "Yes" ? prev.indigenousGroupType : "",
+                }))
+              }}
+              className={fieldInputClass}
+            >
+              {YES_NO.map((o) => (
+                <option key={o.value || "unset"} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {userData.indigenousGroup === "Yes" ? (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-medium text-muted-foreground">Indigenous group / tribe</label>
+                <select
+                  value={userData.indigenousGroupType}
+                  onChange={(e) => handleInputChange("indigenousGroupType", e.target.value)}
+                  className={fieldInputClass}
+                >
+                  <option value="">Select group…</option>
+                  {INDIGENOUS_GROUP_TYPES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4 dark:bg-muted/10">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Accessibility className="h-4 w-4 shrink-0 text-primary" />
+              Are you a Person with Disability (PWD)?
+            </label>
+            <p className="text-xs text-muted-foreground">Select Yes or No.</p>
+            <select
+              value={userData.pwd}
+              onChange={(e) => {
+                const v = e.target.value
+                setUserData((prev) => ({
+                  ...prev,
+                  pwd: v,
+                  pwdType: v === "Yes" ? prev.pwdType : "",
+                }))
+              }}
+              className={fieldInputClass}
+            >
+              {YES_NO.map((o) => (
+                <option key={`pwd-${o.value || "unset"}`} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {userData.pwd === "Yes" ? (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-semibold text-foreground">Please specify</label>
+                <p className="text-[11px] text-muted-foreground">
+                  I-type ang PWD type o kaugnay na detalye (hindi lang dropdown).
+                </p>
+                <textarea
+                  value={userData.pwdType}
+                  onChange={(e) => handleInputChange("pwdType", e.target.value)}
+                  rows={3}
+                  placeholder="Halimbawa: visual impairment, mobility aid, learning disability, atbp."
+                  className={cn(fieldInputClass, "min-h-[88px] resize-y")}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </StudentSection>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <StudentSection
           title="Personal information"
@@ -596,7 +749,6 @@ export default function ProfilePage() {
             {[
               { field: "fullName", label: "Full name", icon: User, required: true, ph: "Your full name" },
               { field: "studentNumber", label: "Student number", icon: Hash, required: true, ph: "Student ID / number" },
-              { field: "course", label: "Course", icon: GraduationCap, required: true, ph: "Program or course" },
             ].map(({ field, label, icon: Icon, required, ph }) => (
               <div key={field} className="space-y-1.5">
                 <label className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -615,6 +767,99 @@ export default function ProfilePage() {
             ))}
             <div className="space-y-1.5">
               <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <MapPin className="h-4 w-4 text-primary" />
+                Campus <span className="text-destructive">*</span>
+              </label>
+              <select
+                value={getCampusNames().includes(userData.campus) ? userData.campus : userData.campus || ""}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setUserData((prev) => ({
+                    ...prev,
+                    campus: v,
+                    course: "",
+                    major: "",
+                  }))
+                }}
+                className={fieldInputClass}
+              >
+                <option value="">Select campus</option>
+                {getCampusNames().map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+                {userData.campus && !getCampusNames().includes(userData.campus) ? (
+                  <option value={userData.campus}>{userData.campus} (update to catalog)</option>
+                ) : null}
+              </select>
+              {userData.campus && !coursesByCampus[userData.campus] ? (
+                <p className="text-[11px] text-amber-800 dark:text-amber-200">
+                  Your campus is not in the catalog — choose a campus above so course/major match scholarships.
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <GraduationCap className="h-4 w-4 text-primary" />
+                Course <span className="text-destructive">*</span>
+              </label>
+              {userData.campus && coursesByCampus[userData.campus] ? (
+                <select
+                  value={
+                    coursesByCampus[userData.campus].some((r) => r.name === userData.course)
+                      ? userData.course
+                      : userData.course || ""
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setUserData((prev) => ({ ...prev, course: v, major: "" }))
+                  }}
+                  className={fieldInputClass}
+                >
+                  <option value="">Select course</option>
+                  {coursesByCampus[userData.campus].map((r) => (
+                    <option key={r.name} value={r.name}>
+                      {r.name}
+                    </option>
+                  ))}
+                  {userData.course &&
+                  !coursesByCampus[userData.campus].some((r) => r.name === userData.course) ? (
+                    <option value={userData.course}>{userData.course} (pick catalog course)</option>
+                  ) : null}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={userData.course}
+                  onChange={(e) => handleInputChange("course", e.target.value)}
+                  className={fieldInputClass}
+                  placeholder="Program or course"
+                />
+              )}
+            </div>
+            {userData.campus && userData.course && getMajorsForCourseAtCampus(userData.course, userData.campus)?.length ? (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  Major <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={userData.major || ""}
+                  onChange={(e) => handleInputChange("major", e.target.value)}
+                  className={fieldInputClass}
+                >
+                  <option value="">Select major</option>
+                  {getMajorsForCourseAtCampus(userData.course, userData.campus).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
                 Year level <span className="text-destructive">*</span>
               </label>
@@ -630,19 +875,6 @@ export default function ProfilePage() {
                 <option value="4th Year">4th Year</option>
                 <option value="5th Year">5th Year</option>
               </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <MapPin className="h-4 w-4 text-primary" />
-                Campus <span className="text-destructive">*</span>
-              </label>
-              <input
-                type="text"
-                value={userData.campus}
-                onChange={(e) => handleInputChange("campus", e.target.value)}
-                className={fieldInputClass}
-                placeholder="Campus name"
-              />
             </div>
           </div>
         </StudentSection>
@@ -672,8 +904,8 @@ export default function ProfilePage() {
 
       <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/50 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/50 p-4 shadow-sm ring-1 ring-emerald-500/10 dark:from-emerald-950/40 dark:via-card dark:to-emerald-950/20 dark:border-emerald-800/40 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Remember:</span> save after editing photo, scholarships, or school
-          details.
+          <span className="font-medium text-foreground">Remember:</span> save after editing photo, scholarships, IP/PWD,
+          or school details.
         </p>
         <button
           type="button"
