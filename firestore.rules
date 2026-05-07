@@ -503,6 +503,24 @@
             sameCampus(resource.data.campus) ||
             sameCampusByUserId(resource.data.createdBy) ||
             (
+              sameUserCampus(resource.data.campus) &&
+              request.auth.uid == resource.data.joinedStudentId &&
+              request.resource.data.joinedStudentId == null &&
+              request.resource.data.answer == null &&
+              (request.resource.data.callState == "calling" || request.resource.data.callState == "waiting") &&
+              request.resource.data.campus == resource.data.campus &&
+              request.resource.data.createdBy == resource.data.createdBy &&
+              request.resource.data.createdAt == resource.data.createdAt &&
+              request.resource.data.roomName == resource.data.roomName &&
+              request.resource.data.durationMinutes == resource.data.durationMinutes &&
+              request.resource.data.expiresAt == resource.data.expiresAt &&
+              request.resource.data.invitedStudentId == resource.data.invitedStudentId &&
+              request.resource.data.offer == resource.data.offer &&
+              request.resource.data.activeSessionId == resource.data.activeSessionId &&
+              request.resource.data.callStartedBy == resource.data.callStartedBy &&
+              request.resource.data.status == resource.data.status
+            ) ||
+            (
               (sameUserCampus(resource.data.campus) || sameCampusByUserId(resource.data.createdBy)) &&
               (
                 resource.data.joinedStudentId == request.auth.uid ||
