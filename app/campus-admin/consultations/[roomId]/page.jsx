@@ -44,6 +44,10 @@ export default function CampusAdminConsultationRoomPage({ params }) {
     () => String(room?.status || "active") === "active",
     [room?.status],
   )
+  const isCampusAdminUser = useMemo(
+    () => ["campus_admin", "admin"].includes(String(user?.role || "").toLowerCase()),
+    [user?.role],
+  )
   const filteredOnlineStudents = useMemo(() => {
     const term = studentSearch.trim().toLowerCase()
     if (!term) return onlineStudents
@@ -265,6 +269,14 @@ export default function CampusAdminConsultationRoomPage({ params }) {
 
   const reviewJoinRequest = async (requestUserId, decision) => {
     if (!requestUserId || (decision !== "approved" && decision !== "rejected")) return
+    if (!roomIsActive) {
+      toast.error("Room is not active.")
+      return
+    }
+    if (decision === "approved" && room?.joinedStudentId && room.joinedStudentId !== requestUserId) {
+      toast.error("Cannot approve: another student is already in the active call.")
+      return
+    }
     try {
       await updateDoc(doc(db, "consultation_rooms", roomId, "join_requests", requestUserId), {
         status: decision,
@@ -305,11 +317,23 @@ export default function CampusAdminConsultationRoomPage({ params }) {
     }
   }
 
+  if (user && !isCampusAdminUser) {
+    return (
+      <CampusAdminLayoutWrapper>
+        <div className="mx-auto max-w-3xl px-4 py-8">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            You do not have permission to manage this consultation room.
+          </div>
+        </div>
+      </CampusAdminLayoutWrapper>
+    )
+  }
+
   return (
     <CampusAdminLayoutWrapper>
-      <div className="h-[100dvh] w-full bg-slate-950 p-1 md:p-2">
+      <div className="h-[100dvh] w-full bg-gradient-to-br from-emerald-50 via-white to-teal-50/50 p-2 md:p-3">
         <div className={`relative flex h-full min-h-0 ${isSidebarOpen ? "gap-2" : "gap-0"}`}>
-          <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-sm ring-1 ring-emerald-500/10">
             <WebRtcRoom
               roomId={roomId}
               role="campus_admin"
@@ -321,7 +345,7 @@ export default function CampusAdminConsultationRoomPage({ params }) {
 
           <button
             onClick={() => setIsSidebarOpen((prev) => !prev)}
-            className={`absolute top-1/2 z-30 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-700 bg-slate-900/95 text-slate-200 shadow-lg transition-all hover:bg-slate-800 ${
+            className={`absolute top-1/2 z-30 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-md transition-all hover:bg-emerald-50 ${
               isSidebarOpen
                 ? "right-[320px] translate-x-1/2 lg:right-[340px]"
                 : "right-2 translate-x-0"
@@ -332,17 +356,17 @@ export default function CampusAdminConsultationRoomPage({ params }) {
           </button>
 
           <aside
-            className={`absolute inset-y-0 right-0 z-20 flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-slate-900/80 transition-all duration-300 lg:relative ${
+            className={`absolute inset-y-0 right-0 z-20 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white transition-all duration-300 lg:relative ${
               isSidebarOpen
-                ? "w-[320px] translate-x-0 border border-slate-800 opacity-100 lg:w-[340px]"
+                ? "w-[320px] translate-x-0 border border-emerald-200/70 opacity-100 shadow-sm ring-1 ring-emerald-500/10 lg:w-[340px]"
                 : "w-0 translate-x-full border-0 opacity-0 pointer-events-none lg:translate-x-0"
             }`}
           >
-            <div className="flex items-center gap-1 border-b border-slate-800 p-2">
+            <div className="flex items-center gap-1 border-b border-emerald-200/70 p-2">
               <button
                 onClick={() => setSidebarTab("invite")}
                 className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${
-                  sidebarTab === "invite" ? "bg-slate-700 text-slate-100" : "text-slate-300 hover:bg-slate-800"
+                  sidebarTab === "invite" ? "bg-emerald-100 text-emerald-800" : "text-emerald-700 hover:bg-emerald-50"
                 }`}
               >
                 <Users className="h-3.5 w-3.5" />
@@ -351,7 +375,7 @@ export default function CampusAdminConsultationRoomPage({ params }) {
               <button
                 onClick={() => setSidebarTab("chat")}
                 className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${
-                  sidebarTab === "chat" ? "bg-slate-700 text-slate-100" : "text-slate-300 hover:bg-slate-800"
+                  sidebarTab === "chat" ? "bg-emerald-100 text-emerald-800" : "text-emerald-700 hover:bg-emerald-50"
                 }`}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -366,25 +390,27 @@ export default function CampusAdminConsultationRoomPage({ params }) {
                     value={studentSearch}
                     onChange={(event) => setStudentSearch(event.target.value)}
                     placeholder="Search student name or email..."
-                    className="h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    className="h-9 w-full rounded-md border border-emerald-200/70 bg-white px-3 text-xs text-emerald-950 placeholder:text-emerald-700/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                   />
                 </div>
                 {joinRequests.length > 0 ? (
-                  <div className="mb-3 rounded-md border border-amber-400/40 bg-amber-500/10 p-2">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-200">Join Requests</p>
+                  <div className="mb-3 rounded-md border border-amber-200/70 bg-amber-50 p-2">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-800">Join Requests</p>
                     {joinRequests.map((request) => (
-                      <div key={request.id} className="mb-2 rounded-md border border-slate-700 bg-slate-900/70 px-2 py-2">
-                        <p className="truncate text-xs font-medium text-slate-100">{request.userName || "Student"}</p>
+                      <div key={request.id} className="mb-2 rounded-md border border-emerald-200/70 bg-white px-2 py-2">
+                        <p className="truncate text-xs font-medium text-emerald-950">{request.userName || "Student"}</p>
                         <div className="mt-2 flex items-center gap-2">
                           <button
                             onClick={() => reviewJoinRequest(request.userId || request.id, "approved")}
-                            className="rounded-md border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-500/30"
+                            disabled={!roomIsActive}
+                            className="rounded-md border border-emerald-300/70 bg-emerald-100 px-2 py-1 text-[11px] text-emerald-800 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => reviewJoinRequest(request.userId || request.id, "rejected")}
-                            className="rounded-md border border-rose-500/40 bg-rose-500/20 px-2 py-1 text-[11px] text-rose-100 hover:bg-rose-500/30"
+                            disabled={!roomIsActive}
+                            className="rounded-md border border-rose-300/70 bg-rose-100 px-2 py-1 text-[11px] text-rose-800 hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Reject
                           </button>
@@ -394,12 +420,12 @@ export default function CampusAdminConsultationRoomPage({ params }) {
                   </div>
                 ) : null}
                 {!roomIsActive ? (
-                  <p className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-2 text-xs text-slate-400">
+                  <p className="rounded-md border border-amber-200/70 bg-amber-50 px-2 py-2 text-xs text-amber-800">
                     Room already ended. Invites are disabled.
                   </p>
                 ) : null}
                 {filteredOnlineStudents.length === 0 ? (
-                  <p className="px-1 py-2 text-xs text-slate-500">No online students.</p>
+                  <p className="px-1 py-2 text-xs text-emerald-800/80">No online students.</p>
                 ) : (
                   filteredOnlineStudents.map((student) => {
                     const studentId = student.uid || student.id
@@ -407,21 +433,21 @@ export default function CampusAdminConsultationRoomPage({ params }) {
                     const photoURL = String(student.photoURL || "").trim()
                     const isInviting = invitingStudentId === studentId
                     return (
-                      <div key={studentId} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-slate-800 px-2 py-2">
+                      <div key={studentId} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-emerald-200/70 bg-white px-2 py-2">
                         <div className="flex min-w-0 items-center gap-2">
                           {photoURL ? (
-                            <img src={photoURL} alt={label} className="h-7 w-7 rounded-full border border-slate-700 object-cover" />
+                            <img src={photoURL} alt={label} className="h-7 w-7 rounded-full border border-emerald-300/70 object-cover" />
                           ) : (
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[10px] font-semibold text-slate-200">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-emerald-300/70 bg-emerald-100 text-[10px] font-semibold text-emerald-800">
                               {getDisplayInitials(label)}
                             </div>
                           )}
-                          <p className="truncate text-xs text-slate-200">{label}</p>
+                          <p className="truncate text-xs text-emerald-950">{label}</p>
                         </div>
                         <button
                           onClick={() => inviteOnlineStudent(student)}
                           disabled={isInviting || !roomIsActive}
-                          className="rounded-md border border-slate-600 px-2 py-1 text-[11px] text-emerald-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-emerald-300/70 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isInviting ? "Inviting..." : "Invite"}
                         </button>
@@ -434,26 +460,26 @@ export default function CampusAdminConsultationRoomPage({ params }) {
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2">
                   {chatMessages.length === 0 ? (
-                    <p className="text-xs text-slate-500">No messages yet.</p>
+                    <p className="text-xs text-emerald-800/80">No messages yet.</p>
                   ) : (
                     chatMessages.map((msg) => {
                       const mine = msg.senderId === user?.uid
                       const displayName = msg.senderName || "User"
                       return (
                         <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${mine ? "bg-emerald-500/25 text-emerald-100" : "bg-slate-800 text-slate-100"}`}>
-                            <p className="mb-0.5 text-[10px] text-slate-300">{displayName}</p>
+                          <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs ${mine ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-900 border border-emerald-200/70"}`}>
+                            <p className={`mb-0.5 text-[10px] ${mine ? "text-emerald-100" : "text-emerald-700"}`}>{displayName}</p>
                             <p className="break-words">{msg.text}</p>
-                            {mine ? <p className="mt-1 text-[10px] text-slate-300/90">{hasSeenByOtherUser(msg) ? "Seen" : "Sent"}</p> : null}
+                            {mine ? <p className="mt-1 text-[10px] text-emerald-100/90">{hasSeenByOtherUser(msg) ? "Seen" : "Sent"}</p> : null}
                           </div>
                         </div>
                       )
                     })
                   )}
                 </div>
-                <div className="border-t border-slate-800 p-2">
+                <div className="border-t border-emerald-200/70 p-2">
                   {typingUsers.length > 0 ? (
-                    <p className="mb-1 px-1 text-[11px] text-slate-400">{typingUsers[0].userName || "User"} is typing...</p>
+                    <p className="mb-1 px-1 text-[11px] text-emerald-700/80">{typingUsers[0].userName || "User"} is typing...</p>
                   ) : null}
                   <div className="flex items-center gap-2">
                     <input
@@ -481,12 +507,12 @@ export default function CampusAdminConsultationRoomPage({ params }) {
                         }
                       }}
                       placeholder="Type a message..."
-                      className="h-9 flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      className="h-9 flex-1 rounded-md border border-emerald-200/70 bg-white px-3 text-xs text-emerald-950 placeholder:text-emerald-700/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     />
                     <button
                       onClick={sendChatMessage}
                       disabled={sendingChat || !chatInput.trim()}
-                      className="h-9 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-9 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Send
                     </button>

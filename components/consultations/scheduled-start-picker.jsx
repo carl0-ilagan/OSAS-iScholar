@@ -86,17 +86,17 @@ export default function ScheduledStartPicker({
           <button
             type="button"
             className={cn(
-              "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-950 px-3 text-left text-sm text-slate-100",
-              "focus:outline-none focus:ring-2 focus:ring-emerald-500/40",
+              "flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-emerald-200/60 bg-white px-3 text-left text-sm text-emerald-950",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-400",
             )}
             style={{ lineHeight: "1" }}
           >
-            <span className={cn(!dateValue && !timeValue ? "text-slate-500" : "")}>{display}</span>
-            <span className="text-[11px] text-slate-500">Pick</span>
+            <span className={cn(!dateValue && !timeValue ? "text-emerald-700/60" : "")}>{display}</span>
+            <span className="text-[11px] text-emerald-700/70">Pick</span>
           </button>
         </PopoverTrigger>
 
-        <PopoverContent className="w-auto p-4 bg-slate-950 border-slate-800 text-slate-100" align="start" side="bottom">
+        <PopoverContent className="w-auto rounded-lg border border-emerald-200/70 bg-white p-4 text-emerald-950 shadow-lg" align="start" side="bottom">
           <div className="flex flex-col gap-3">
             <Calendar
               mode="single"
@@ -110,7 +110,7 @@ export default function ScheduledStartPicker({
                 onChange?.({ date: `${yyyy}-${mm}-${dd}`, time: timeValue })
               }}
               showOutsideDays={false}
-              className="rounded-md border border-slate-800 bg-slate-950 text-slate-100"
+              className="rounded-md border border-emerald-200/70 bg-white text-emerald-950"
             />
 
             <div className="flex items-center gap-2">
@@ -143,9 +143,9 @@ export default function ScheduledStartPicker({
                         time: toTime24FromParts(hh12, mm, timeParts.period || "AM"),
                       })
                     }}
-                    className="h-10 w-[72px] rounded-md border border-slate-700 bg-slate-900 px-2 text-center font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    className="h-10 w-[72px] rounded-md border border-emerald-200/70 bg-white px-2 text-center font-mono text-sm text-emerald-950 placeholder:text-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
-                  <span className="text-sm text-slate-500 font-mono">:</span>
+                  <span className="text-sm font-mono text-emerald-700/70">:</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -169,7 +169,7 @@ export default function ScheduledStartPicker({
                       const hh12 = timeParts.hour || "12"
                       onChange?.({ date: dateValue, time: toTime24FromParts(hh12, mm, timeParts.period || "AM") })
                     }}
-                    className="h-10 w-[72px] rounded-md border border-slate-700 bg-slate-900 px-2 text-center font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    className="h-10 w-[72px] rounded-md border border-emerald-200/70 bg-white px-2 text-center font-mono text-sm text-emerald-950 placeholder:text-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                   <select
                     value={timeParts.period || "AM"}
@@ -180,7 +180,7 @@ export default function ScheduledStartPicker({
                       if (!hh12) return onChange?.({ date: dateValue, time: "" })
                       onChange?.({ date: dateValue, time: toTime24FromParts(hh12, mm, nextPeriod) })
                     }}
-                    className="h-10 w-[90px] rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    className="h-10 w-[90px] rounded-md border border-emerald-200/70 bg-white px-3 text-sm text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   >
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -193,14 +193,14 @@ export default function ScheduledStartPicker({
               <button
                 type="button"
                 onClick={() => onChange?.({ date: "", time: "" })}
-                className="rounded-md border border-slate-700 bg-transparent px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/60"
+                className="rounded-md border border-emerald-200/80 bg-transparent px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50"
               >
                 Clear
               </button>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md bg-emerald-500 px-3 py-2 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
+                className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
               >
                 Done
               </button>

@@ -5,6 +5,26 @@ import { useEffect } from "react"
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const hostname = window.location.hostname
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+
+      // In local environments, unregister to avoid stale cache/chunk issues.
+      if (isLocalhost) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister()
+          })
+        })
+
+        if ('caches' in window) {
+          caches.keys().then((keys) => {
+            keys.forEach((key) => caches.delete(key))
+          })
+        }
+
+        return
+      }
+
       // Register service worker immediately, not waiting for load event
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })

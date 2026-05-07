@@ -525,29 +525,37 @@
 
           // WebRTC ICE candidates for caller/admin side
           match /offerCandidates/{candidateId} {
+            // Allow read/create for authenticated users who are either super admin,
+            // members of the same campus, the room creator, or the joined student.
             allow read, create: if request.auth != null && (
               isSuperAdmin() ||
-              sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
-              sameRoomCreatorCampus(roomId)
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy ||
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.joinedStudentId
             );
+            // Restrict updates/deletes to admins or campus admins for safety.
             allow update, delete: if request.auth != null && (
               isSuperAdmin() ||
               sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
-              sameRoomCreatorCampus(roomId)
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy
             );
           }
 
           // WebRTC ICE candidates for callee/student side
           match /answerCandidates/{candidateId} {
+            // Allow read/create for authenticated users who are either super admin,
+            // members of the same campus, the room creator, or the joined student.
             allow read, create: if request.auth != null && (
               isSuperAdmin() ||
-              sameUserCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
-              sameRoomCreatorCampus(roomId)
+              sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy ||
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.joinedStudentId
             );
+            // Restrict updates/deletes to admins or campus admins for safety.
             allow update, delete: if request.auth != null && (
               isSuperAdmin() ||
               sameCampus(get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.campus) ||
-              sameRoomCreatorCampus(roomId)
+              request.auth.uid == get(/databases/$(database)/documents/consultation_rooms/$(roomId)).data.createdBy
             );
           }
 

@@ -307,6 +307,27 @@ export default function WebRtcRoom({
     return stream
   }
 
+  const checkMediaPermissions = async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.permissions) {
+        toast.info("Permissions API unavailable — open site settings in your browser to check camera/mic access.")
+        return
+      }
+      const cam = await navigator.permissions.query({ name: "camera" })
+      const mic = await navigator.permissions.query({ name: "microphone" })
+      if (cam.state === "denied" || mic.state === "denied") {
+        toast.error("Camera or microphone permissions are denied. Click the lock icon in the address bar and allow camera/microphone.")
+      } else if (cam.state === "prompt" || mic.state === "prompt") {
+        toast.info("Permissions set to prompt. Click 'Try again' to trigger the browser permission prompt.")
+      } else {
+        toast.success("Permissions appear granted. Try starting the call.")
+      }
+    } catch (permErr) {
+      console.error("Permission check failed:", permErr)
+      toast.error("Unable to check permissions. Use your browser site settings to allow camera/microphone.")
+    }
+  }
+
   const ensureLocalMedia = async () => {
     const existingStream = localStreamRef.current
     if (existingStream) {
@@ -329,7 +350,7 @@ export default function WebRtcRoom({
       const name = String(mediaSetupError?.name || "")
       const msg =
         name === "NotAllowedError" || name === "PermissionDeniedError"
-          ? "Allow camera and microphone in the browser address bar, then refresh."
+          ? "Allow camera and microphone in the browser address bar, then click Try again below."
           : name === "NotFoundError" || name === "DevicesNotFoundError"
             ? "No camera or microphone found. Connect a device and try again."
             : "Camera/microphone could not start. Check permissions and devices."
@@ -729,22 +750,8 @@ export default function WebRtcRoom({
     autoStartAttemptedRef.current = false
   }, [roomId])
 
-  useEffect(() => {
-    if (role !== "campus_admin") return
-    if (loading || error || connecting || !room) return
-    if (autoStartAttemptedRef.current) return
-    if (String(room.status || "active") !== "active") return
-    if (!room.joinedStudentId) return
-    if (room.scheduledStartAt) {
-      const scheduledMs = new Date(room.scheduledStartAt).getTime()
-      if (!Number.isNaN(scheduledMs) && scheduledMs > Date.now()) return
-    }
-    if (room.expiresAt && new Date(room.expiresAt).getTime() <= Date.now()) return
-    if (room.offer && room.activeSessionId) return
-
-    autoStartAttemptedRef.current = true
-    startCall()
-  }, [role, loading, error, connecting, room?.joinedStudentId, room?.scheduledStartAt, room?.offer, room?.activeSessionId, room?.expiresAt])
+  // Do NOT auto-start calls on load. Require an explicit user gesture to start a call
+  // (browsers may block getUserMedia/autoplay when triggered without user interaction).
 
   useEffect(() => {
     if (role !== "student") return
@@ -1077,28 +1084,28 @@ export default function WebRtcRoom({
 
   return (
     <div className={compact ? "h-full" : "space-y-4"}>
-      <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-slate-950 text-slate-100 shadow-2xl ${compact ? "border-0 shadow-none" : ""}`}>
+      <div className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white text-slate-900 shadow ${compact ? "border-0 shadow-none" : ""}`}>
         {showHeader ? (
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800/90 bg-slate-900/90 px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-emerald-100 bg-white px-4 py-3">
             <div>
               <p className="flex items-center gap-2 text-base font-semibold">
-                <Video className="h-4 w-4 text-emerald-400" />
+                <Video className="h-4 w-4 text-emerald-600" />
                 {role === "campus_admin" ? "Campus Admin Consultation Room" : "Student Consultation Room"}
               </p>
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 text-xs text-slate-600">
                 {statusLabel} - {room?.roomName || "Consultation Room"}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-right">
-              <p className="text-[10px] uppercase tracking-wide text-slate-400">Remaining</p>
-              <p className="text-sm font-semibold text-slate-100">{remainingLabel}</p>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-right">
+              <p className="text-[10px] uppercase tracking-wide text-emerald-600">Remaining</p>
+              <p className="text-sm font-semibold text-emerald-700">{remainingLabel}</p>
             </div>
           </div>
         ) : null}
 
         <div className="min-h-0 flex-1 px-4 pb-4 pt-3">
-          <div className="relative h-full overflow-hidden rounded-xl border border-slate-800 bg-black">
-            <div className="absolute left-3 top-3 z-20 rounded-md bg-black/60 px-2 py-1 text-xs text-slate-200">
+          <div className="relative h-full overflow-hidden rounded-xl border border-emerald-200 bg-white">
+            <div className="absolute left-3 top-3 z-20 rounded-md bg-emerald-50 px-2 py-1 text-xs text-emerald-700">
               {role === "campus_admin" ? "Student View" : "Room Creator View"}
             </div>
             <video
@@ -1109,13 +1116,13 @@ export default function WebRtcRoom({
             />
 
             <div
-              className={`absolute z-20 overflow-hidden rounded-lg border border-slate-700 bg-black shadow-xl ${
+              className={`absolute z-20 overflow-hidden rounded-lg border border-emerald-200 bg-white shadow ${
                 role === "student"
                   ? "bottom-16 right-2 w-[112px] sm:bottom-18 sm:right-3 sm:w-[138px] md:bottom-4 md:right-4 md:w-[168px]"
                   : "bottom-3 right-3 w-[120px] sm:bottom-4 sm:right-4 sm:w-[150px] md:w-[170px]"
               }`}
             >
-              <p className="border-b border-slate-700 bg-black/70 px-2 py-1 text-[10px] text-slate-300">You</p>
+              <p className="border-b border-emerald-100 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">You</p>
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -1129,7 +1136,7 @@ export default function WebRtcRoom({
               <button
                 onClick={switchCameraFacing}
                 disabled={!canToggleLocalMedia}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-black/70 text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
                 title="Switch front/back camera"
                 aria-label="Switch camera"
               >
@@ -1138,11 +1145,11 @@ export default function WebRtcRoom({
             </div>
 
             <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
-              <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-black/70 px-3 py-2 backdrop-blur">
+              <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-2">
                 <button
                   onClick={toggleMic}
                   disabled={!canToggleLocalMedia}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={micOn ? "Mute" : "Unmute"}
                 >
                   {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
@@ -1150,7 +1157,7 @@ export default function WebRtcRoom({
                 <button
                   onClick={toggleCamera}
                   disabled={!canToggleLocalMedia}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={cameraOn ? "Turn camera off" : "Turn camera on"}
                 >
                   {cameraOn ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
@@ -1158,7 +1165,7 @@ export default function WebRtcRoom({
                 <button
                   onClick={toggleBandwidthMode}
                   disabled={!canToggleLocalMedia}
-                  className="inline-flex h-9 items-center rounded-full border border-slate-600 bg-slate-800 px-3 text-[11px] font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex h-9 items-center rounded-full border border-emerald-100 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
                   title={lowBandwidth ? "Switch to HD mode" : "Switch to low bandwidth mode"}
                 >
                   {lowBandwidth ? "Low" : "HD"}
@@ -1177,13 +1184,25 @@ export default function WebRtcRoom({
                   <button
                     onClick={joinCall}
                     disabled={connecting}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
                     title={connecting ? "Joining..." : "Join call"}
                     aria-label={connecting ? "Joining call" : "Join call"}
                   >
                     <Phone className="h-3.5 w-3.5" />
                   </button>
                 )}
+
+                {role === "campus_admin" && room?.joinedStudentId && !room?.offer ? (
+                  <button
+                    onClick={startCall}
+                    disabled={connecting}
+                    className="inline-flex h-9 items-center gap-2 rounded-full bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    title={connecting ? "Starting..." : "Start call"}
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    Start
+                  </button>
+                ) : null}
 
                 {role === "campus_admin" ? (
                   <button
@@ -1275,7 +1294,7 @@ export default function WebRtcRoom({
             Slow internet detected. Connection may lag.
           </div>
         ) : null}
-        {mediaError ? (
+            {mediaError ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs text-amber-700">
             <span>{mediaError}</span>
             <button
@@ -1287,6 +1306,15 @@ export default function WebRtcRoom({
               }}
             >
               Try again
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+              onClick={() => {
+                checkMediaPermissions()
+              }}
+            >
+              Check permissions
             </button>
           </div>
         ) : null}

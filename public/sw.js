@@ -1,7 +1,7 @@
 // Service Worker for MOCAS PWA
-const CACHE_NAME = 'mocas-v2'
-const RUNTIME_CACHE = 'mocas-runtime-v2'
-const STATIC_CACHE = 'mocas-static-v2'
+const CACHE_NAME = 'mocas-v3'
+const RUNTIME_CACHE = 'mocas-runtime-v3'
+const STATIC_CACHE = 'mocas-static-v3'
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -75,6 +75,18 @@ self.addEventListener('activate', (event) => {
 
 // Helper function to check if URL should be cached
 function shouldCache(url) {
+  try {
+    const parsedUrl = new URL(url)
+
+    // Never cache Next.js internal assets/chunks. They are content-hashed and
+    // can change between builds, causing stale chunk references.
+    if (parsedUrl.pathname.startsWith('/_next/')) {
+      return false
+    }
+  } catch {
+    return false
+  }
+
   // Don't cache Firebase/Firestore requests
   if (url.includes('firebase') || url.includes('firestore') || url.includes('googleapis.com')) {
     return false
